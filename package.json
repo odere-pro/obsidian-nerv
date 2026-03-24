@@ -5,15 +5,15 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "dev": "ts-node src/index.ts",
-    "start": "node dist/index.js",
+    "dev": "bun run src/index.ts",
+    "start": "bun run src/index.ts",
     "lint": "eslint --no-error-on-unmatched-pattern",
     "lint:fix": "eslint --fix --no-error-on-unmatched-pattern",
     "prettier": "prettier --check \"**/*.{ts,json,md,yml}\"",
     "prettier:fix": "prettier --write \"**/*.{ts,json,md,yml}\"",
     "typecheck": "tsc --noEmit",
-    "format": "npm run lint:fix && npm run prettier:fix",
-    "validate": "npm run format && npm run typecheck",
+    "format": "bun run lint:fix && bun run prettier:fix",
+    "validate": "bun run format && bun run typecheck",
     "prepare": "husky"
   },
   "lint-staged": {
@@ -28,10 +28,10 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^25.5.0",
+    "@types/bun": "latest",
     "@typescript-eslint/eslint-plugin": "^8.57.2",
     "@typescript-eslint/parser": "^8.57.2",
     "eslint": "^10.1.0",
@@ -39,7 +39,6 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "prettier": "^3.8.1",
-    "ts-node": "^10.9.2",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.57.2"
   }
