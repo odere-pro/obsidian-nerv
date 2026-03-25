@@ -737,7 +737,25 @@ mkdir -p \
   "${HOME}/.ontology-cli/dev"
 
 # ---------------------------------------------------------------------------
-# 15. PATH export in ~/.zprofile (idempotent)
+# 15. Agent config — deploy skills.md and vault CLAUDE.md (STORY-020)
+# ---------------------------------------------------------------------------
+REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
+AGENT_SRC="${REPO_DIR}/cli/agent"
+
+# Deploy shared skill registry (idempotent overwrite — always keep current)
+if [[ -f "${AGENT_SRC}/skills.md" ]]; then
+  cp "${AGENT_SRC}/skills.md" "${HOME}/.ontology-cli/agent/skills.md"
+  echo "    deployed: ~/.ontology-cli/agent/skills.md"
+fi
+
+# Deploy per-vault CLAUDE.md if a matching source exists
+if [[ -f "${AGENT_SRC}/${VAULT_NAME}/CLAUDE.md" ]]; then
+  cp "${AGENT_SRC}/${VAULT_NAME}/CLAUDE.md" "${VAULT_PATH}/CLAUDE.md"
+  echo "    deployed: ${VAULT_PATH}/CLAUDE.md"
+fi
+
+# ---------------------------------------------------------------------------
+# 16. PATH export in ~/.zprofile (idempotent)
 # ---------------------------------------------------------------------------
 ZPROFILE="${HOME}/.zprofile"
 PATH_EXPORT='export PATH="${HOME}/.ontology-cli/core:${HOME}/.ontology-cli/agent:${PATH}"'
@@ -755,7 +773,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 16. Git init + .gitignore + initial commit
+# 17. Git init + .gitignore + initial commit
 # ---------------------------------------------------------------------------
 if [[ ! -d "${VAULT_PATH}/.git" ]]; then
   git -C "${VAULT_PATH}" init -q
