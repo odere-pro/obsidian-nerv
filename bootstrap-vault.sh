@@ -494,25 +494,25 @@ modified: {{date}}
 
 # Relationship Types
 
-| `type` | Direction | Description |
-|--------|-----------|-------------|
-| `triggers` | A → B | A causes B to occur |
-| `depends-on` | A → B | A requires B to function |
-| `implements` | A → B | A is a concrete realization of B |
-| `extends` | A → B | A adds to or specializes B |
-| `compares-to` | A ↔ B | A and B are compared or contrasted |
-| `replaces` | A → B | A supersedes or deprecates B |
-| `feeds-data` | A → B | A supplies data consumed by B |
-| `authenticates-via` | A → B | A uses B for identity verification |
-| `contains` | A → B | A is a parent container of B |
-| `mitigates` | A → B | A reduces the risk or impact of B |
+| `type` | Direction | `inverse` | Description |
+|--------|-----------|-----------|-------------|
+| `triggers` | A → B | `triggered-by` | A causes B to occur |
+| `depends-on` | A → B | `depended-by` | A requires B to function |
+| `implements` | A → B | `implemented-by` | A is a concrete realization of B |
+| `extends` | A → B | `extended-by` | A adds to or specializes B |
+| `compares-to` | A ↔ B | `compares-to` | A and B are compared or contrasted |
+| `replaces` | A → B | `replaced-by` | A supersedes or deprecates B |
+| `feeds-data` | A → B | `fed-data-by` | A supplies data consumed by B |
+| `authenticates-via` | A → B | `authenticated-by` | A uses B for identity verification |
+| `contains` | A → B | `contained-by` | A is a parent container of B |
+| `mitigates` | A → B | `mitigated-by` | A reduces the risk or impact of B |
 
 ## Custom Types
 
-<!-- Add project-specific relationship types below -->
+<!-- Add project-specific relationship types below (include inverse column) -->
 
-| `type` | Direction | Description |
-|--------|-----------|-------------|
+| `type` | Direction | `inverse` | Description |
+|--------|-----------|-----------|-------------|
 '
 
 # tpl-vocab.md
