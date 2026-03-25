@@ -59,7 +59,7 @@ The `ob_eval` wrapper must quote the `expr` argument to prevent shell word-split
 
 - [Bash `source` and function export](https://www.gnu.org/software/bash/manual/bash.html#index-source): functions defined in a sourced file are available in the sourcing shell; use `export -f funcname` only if subshells need them
 - [obsidian CLI `daily:append` command](https://help.obsidian.md/Extending+Obsidian/Obsidian+URI): `obsidian daily:append vault="$vault" content="$content"` appends to the current day's daily note; creates the note if it does not yet exist
-- [Bash quoting for multi-token arguments](https://www.gnu.org/software/bash/manual/bash.html#Quoting): use `"$expr"` (double quotes) to pass the entire JavaScript expression as a single argument; inner single quotes in the expression must be escaped or use heredoc
+- [Obsidian CLI `eval` named parameter](https://help.obsidian.md/Extending+Obsidian/Obsidian+URI): the CLI requires `code=<javascript>` as a named parameter — `obsidian eval vault="$vault" code="$expr"`; inner single quotes in the expression must be escaped or the expression built via python3 JSON encoding
 
 ## Recommendations
 

@@ -37,9 +37,14 @@ resolve_vault() {
   if [[ "$arg" == vault=* ]]; then
     echo "${arg#vault=}"
   else
-    # obsidian vault → prints the active vault's display name
-    obsidian vault 2>/dev/null \
-      || log_error "Could not determine active vault. Pass vault=<name> explicitly."
+    # `obsidian vault` returns a tab-separated key-value table; extract the name row.
+    local name
+    name="$(obsidian vault 2>/dev/null | awk -F'\t' '$1=="name"{print $2; exit}')"
+    if [[ -n "$name" ]]; then
+      echo "$name"
+    else
+      log_error "Could not determine active vault. Pass vault=<name> explicitly."
+    fi
   fi
 }
 
@@ -48,7 +53,7 @@ resolve_vault() {
 # Run a JavaScript expression inside the named Obsidian vault and print the
 # result to stdout.
 #
-# The expression is passed as a positional argument — do NOT use code= prefix.
+# The expression is passed as code=<expr> (named parameter required by CLI).
 # Requires Obsidian to be running (Limitation L1).
 #
 # SECURITY: Never pass user-supplied, unvalidated strings as <expr>.
@@ -63,7 +68,8 @@ ob_eval() {
   local expr="$2"
   [[ -z "$vault" ]] && log_error "ob_eval: vault argument is required"
   [[ -z "$expr"  ]] && log_error "ob_eval: expr argument is required"
-  obsidian eval vault="$vault" "$expr"
+  # The CLI prefixes every result line with "=> "; strip it for clean output.
+  obsidian eval vault="$vault" code="$expr" | sed 's/^=> //'
 }
 
 # ---------------------------------------------------------------------------
