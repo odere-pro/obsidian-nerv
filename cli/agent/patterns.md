@@ -21,6 +21,7 @@ failures. Claude Code reads this document as part of session context via
 ### Intent triggers
 
 User prompt contains any of:
+
 - "what is", "what are", "explain", "tell me about", "how does", "describe",
   "summarise", "summarize", "show me", "list all", "where is", "find"
 - A question mark without an explicit create/save/connect keyword
@@ -64,11 +65,11 @@ Sources cited: [[AWS.S3 - S3 Overview]], [[AWS.IAM - IAM Basics]]
 
 ### Failure mode
 
-| Failure | Action |
-|---------|--------|
-| `context.sh` exits non-zero | Retry once with identical args; if still failing, report: "Vault retrieval failed — answering from training data (vault unreachable)." |
-| `context.sh` returns malformed JSON | Treat as empty results; answer from training data; report: "context.sh returned unexpected output." |
-| Obsidian unreachable (L1) | Inform user: "Obsidian must be running for vault retrieval. Answering from training data." |
+| Failure                             | Action                                                                                                                                 |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `context.sh` exits non-zero         | Retry once with identical args; if still failing, report: "Vault retrieval failed — answering from training data (vault unreachable)." |
+| `context.sh` returns malformed JSON | Treat as empty results; answer from training data; report: "context.sh returned unexpected output."                                    |
+| Obsidian unreachable (L1)           | Inform user: "Obsidian must be running for vault retrieval. Answering from training data."                                             |
 
 ---
 
@@ -80,18 +81,19 @@ Sources cited: [[AWS.S3 - S3 Overview]], [[AWS.IAM - IAM Basics]]
 ### Intent triggers
 
 User prompt contains any of:
+
 - "save", "create", "add", "note down", "document", "record", "write up",
   "capture", "store", "log", "put this in the vault"
 - Explicit note title given with a project slug
 
 ### Type inference rules
 
-| Signal in user prompt | Inferred type |
-|-----------------------|---------------|
-| Describes a single atomic concept, fact, or definition | LEAF |
-| Implies sub-topics, categories, or groupings ("it has several aspects", "there are types of") | BRANCH |
-| User explicitly says "project", "initiative", "domain" | ROOT (only via `create-project.sh`) |
-| Unambiguous type stated by user | Use stated type |
+| Signal in user prompt                                                                         | Inferred type                       |
+| --------------------------------------------------------------------------------------------- | ----------------------------------- |
+| Describes a single atomic concept, fact, or definition                                        | LEAF                                |
+| Implies sub-topics, categories, or groupings ("it has several aspects", "there are types of") | BRANCH                              |
+| User explicitly says "project", "initiative", "domain"                                        | ROOT (only via `create-project.sh`) |
+| Unambiguous type stated by user                                                               | Use stated type                     |
 
 ### Decision tree
 
@@ -133,12 +135,12 @@ Daily note updated.
 
 ### Failure mode
 
-| Failure | Action |
-|---------|--------|
-| `create-entity.sh` exits non-zero | Retry once; if still failing, report the exact stderr verbatim. Do not attempt manual file creation. |
-| `add-connection.sh` exits non-zero after note created | Report: "Note created but connection failed: <verbatim error>. Check `_inbox/_rollback-log.md`." |
-| Parent note not found | Ask user: "Which note should be the parent? (or omit for no parent)" |
-| Project does not exist | Ask user: "Project '<slug>' not found. Run `create-project.sh`?" |
+| Failure                                               | Action                                                                                               |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `create-entity.sh` exits non-zero                     | Retry once; if still failing, report the exact stderr verbatim. Do not attempt manual file creation. |
+| `add-connection.sh` exits non-zero after note created | Report: "Note created but connection failed: <verbatim error>. Check `_inbox/_rollback-log.md`."     |
+| Parent note not found                                 | Ask user: "Which note should be the parent? (or omit for no parent)"                                 |
+| Project does not exist                                | Ask user: "Project '<slug>' not found. Run `create-project.sh`?"                                     |
 
 ---
 
@@ -150,6 +152,7 @@ Daily note updated.
 ### Intent triggers
 
 User prompt contains any of:
+
 - "connect", "link", "relate", "wire", "associate", "tie", "map to",
   "add a relationship", "depends on", "is part of", "is related to"
 - Two note names with a relationship verb between them
@@ -187,13 +190,13 @@ User wants to add a connection
 
 Defined in each project's `_ontology.<project>.md`. Common types:
 
-| Type | Inverse |
-|------|---------|
-| `depends-on` | `dependency-of` |
-| `part-of` | `contains` |
+| Type         | Inverse          |
+| ------------ | ---------------- |
+| `depends-on` | `dependency-of`  |
+| `part-of`    | `contains`       |
 | `implements` | `implemented-by` |
-| `extends` | `extended-by` |
-| `related-to` | `related-to` |
+| `extends`    | `extended-by`    |
+| `related-to` | `related-to`     |
 
 If user specifies an unrecognised type, emit: "Unknown relation type '<type>'.
 Valid types for project <slug>: <list from _ontology>. Use one of those?"
@@ -208,12 +211,12 @@ Connection added:
 
 ### Failure mode
 
-| Failure | Action |
-|---------|--------|
-| `add-connection.sh` exits non-zero | Retry once; report exact stderr verbatim if still failing. |
-| Source note not found in vault | Report: "Could not locate '<source>' in vault. Please verify the note title." |
-| Target note not found | Same as source not found. |
-| Relation type not in ontology | Prompt for valid type (see above). Do not silently substitute a different type. |
+| Failure                            | Action                                                                          |
+| ---------------------------------- | ------------------------------------------------------------------------------- |
+| `add-connection.sh` exits non-zero | Retry once; report exact stderr verbatim if still failing.                      |
+| Source note not found in vault     | Report: "Could not locate '<source>' in vault. Please verify the note title."   |
+| Target note not found              | Same as source not found.                                                       |
+| Relation type not in ontology      | Prompt for valid type (see above). Do not silently substitute a different type. |
 
 ---
 
@@ -225,6 +228,7 @@ Connection added:
 ### Intent triggers
 
 User prompt contains any of:
+
 - "review", "audit", "check", "validate", "health check", "what needs fixing",
   "weekly review", "what's broken", "show me issues", "triage"
 
@@ -278,6 +282,7 @@ User requests a review or audit
 ### Rollback log triage
 
 Always include `_inbox/_rollback-log.md` in triage scope. For each entry:
+
 - Parse timestamp, operation, and partial state
 - Offer: "This partial state from <timestamp> may need manual cleanup. Investigate?"
 
@@ -307,10 +312,10 @@ Fix all Critical issues now? (yes/no)
 
 ### Failure mode
 
-| Failure | Action |
-|---------|--------|
-| `weekly-review.sh` exits non-zero | Retry once; report exact stderr verbatim. |
-| Partial `--json` output (malformed) | Fall back to text output; note: "JSON triage unavailable, showing raw output." |
+| Failure                             | Action                                                                             |
+| ----------------------------------- | ---------------------------------------------------------------------------------- |
+| `weekly-review.sh` exits non-zero   | Retry once; report exact stderr verbatim.                                          |
+| Partial `--json` output (malformed) | Fall back to text output; note: "JSON triage unavailable, showing raw output."     |
 | Individual fix skill exits non-zero | Log the failure; continue with remaining fixes; summarise all failures at the end. |
 
 ---
@@ -354,9 +359,9 @@ Vault is ambiguous or unspecified
 
 ### Failure mode
 
-| Failure | Action |
-|---------|--------|
-| User provides an unrecognised vault name | Report available vaults; do not proceed. |
+| Failure                                         | Action                                                                                |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------- |
+| User provides an unrecognised vault name        | Report available vaults; do not proceed.                                              |
 | Vault name matches but Obsidian not open for it | Report: "Vault '<name>' is not currently open in Obsidian. Please open it and retry." |
 
 ---
@@ -400,6 +405,91 @@ Vault: <vault>  Args: <args>
 Action: retried once — same result. Please check that Obsidian is running
 and the vault is open, then try again.
 ```
+
+---
+
+## Pattern 6 — Quizmaster
+
+**Subagent:** Quizmaster
+**Persona:** Adaptive Study Coach
+
+### Intent triggers
+
+User prompt contains any of:
+
+- "quiz me", "test me", "quiz me on", "ask me questions about",
+  "practice", "flashcard", "drill", "test my knowledge"
+- "how well do I know", "check my understanding of"
+
+### Decision tree
+
+```
+User requests a quiz
+│
+├─► Identify spine (topic area) from user prompt
+│   └─ If spine is ambiguous, ask: "Which topic area? (e.g. storage, compute, iam)"
+│
+├─► Invoke quiz.sh <vault> <project> <spine> [<limit>]
+│   └─ Retrieves shuffled, draft-excluded note bundle with vault-grounded instruction
+│
+├─► Generate quiz questions ONLY from note content in "notes" array
+│   ├─ Each question must cite the source note title
+│   ├─ Reject any question requiring knowledge outside the provided notes
+│   └─ Prepend the "instruction" field verbatim as generation constraint
+│
+├─► Deliver quiz interactively (one question at a time or as a batch)
+│   └─ After user answers, score and explain using only vault content
+│
+├─► After quiz completes:
+│   ├─► Identify incorrectly answered questions → map to source note paths
+│   ├─► Present weak areas: "You struggled with: [[note-a]], [[note-b]]"
+│   └─► Offer: "Would you like to review these notes or add more detail to them?"
+│
+└─ User wants to enrich a weak note
+    └─► Invoke context.sh <vault> "<note title>" 1 → confirm note path
+        └─► Offer create-entity.sh or add-connection.sh to enrich the note
+```
+
+### Skill invocation sequence
+
+1. `quiz.sh <vault> <project> <spine> [<limit>]`
+2. (post-quiz) `context.sh <vault> "<weak note title>" 1` — resolve path for enrichment offer
+3. (optional) `add-connection.sh` or `create-entity.sh` — if user chooses to enrich
+
+### Expected output shape
+
+```
+Quiz: AWS Storage (5 questions from your vault)
+
+Q1 [AWS.S3 - S3 Overview]: What are the three S3 storage classes for
+infrequent access, and how does their retrieval time differ?
+
+...
+
+Results: 3/5 correct.
+
+Weak areas detected:
+  - [[AWS.Glacier - Glacier Overview]] (Q4 — retrieval tiers)
+  - [[AWS.EBS - EBS Types]] (Q5 — volume types)
+
+Would you like to review these notes now, or add detail to them?
+```
+
+### Vault-grounding constraint
+
+The `instruction` field from `quiz.sh` must be prepended to every quiz generation
+request. It explicitly prohibits questions requiring external knowledge not present
+in the provided note content. If the available notes are insufficient to generate N
+meaningful questions, reduce the question count and inform the user:
+"Only M questions could be grounded in your current vault content for this spine."
+
+### Failure mode
+
+| Failure                                            | Action                                                                                                |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `quiz.sh` exits non-zero                           | Retry once; report exact stderr verbatim.                                                             |
+| Spine has 0 eligible notes                         | Report: "No stable or review notes found for spine '<spine>'. Add notes or change status from draft." |
+| `quiz.sh` returns fewer notes than requested limit | Use all returned notes; note: "Only N notes available for this spine."                                |
 
 ---
 
