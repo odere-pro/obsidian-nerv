@@ -493,6 +493,161 @@ meaningful questions, reduce the question count and inform the user:
 
 ---
 
+---
+
+## Skill Registry
+
+All capabilities grouped by subagent. Claude reads this table at session start
+to know which skills are available and which command to invoke.
+
+### Researcher subagent
+
+| Skill           | Command                                     | Purpose                                |
+| --------------- | ------------------------------------------- | -------------------------------------- |
+| Vault retrieval | `context.sh <vault> "<query>" [<limit>]`    | Relevance-scored note search (primary) |
+| Single note     | `get-entity.sh <vault> "<term>"`            | Exact/partial note lookup              |
+| Project shape   | `get-tree.sh <vault> <slug> [--depth N]`    | Full hierarchy as nested JSON          |
+| Teaching bundle | `explain-topic.sh <vault> <slug> "<topic>"` | Primary note + siblings + connections  |
+| Knowledge gaps  | `get-knowledge-gap.sh <vault> <slug>`       | Structural deficiencies across project |
+
+### Writer subagent
+
+| Skill          | Command                                                                   | Purpose                      |
+| -------------- | ------------------------------------------------------------------------- | ---------------------------- |
+| Create project | `create-project.sh <vault> <slug> "<Title>"`                              | Scaffold ROOT + meta files   |
+| Create note    | `create-entity.sh <vault> <proj> <TYPE> <slug> "<Title>" <parent> <kind>` | Single typed note            |
+| Add connection | `add-connection.sh <vault> "<src>" <rel> "<tgt>"`                         | Forward + inverse connection |
+| Bulk import    | `import-json.sh <vault> <slug> <file> <template>`                         | JSON array → notes           |
+
+### Linker subagent
+
+| Skill          | Command                                                     | Purpose                               |
+| -------------- | ----------------------------------------------------------- | ------------------------------------- |
+| Add connection | `add-connection.sh <vault> "<src>" <rel> "<tgt>" ["<ctx>"]` | Forward + inverse                     |
+| Check limits   | `cli-lint.sh <vault> <folder> --json`                       | Verify connection count before adding |
+| Relation graph | `cli-relations.sh vault=<name> <slug> --json`               | Full edge list for a project          |
+
+### Auditor subagent
+
+| Skill          | Command                                             | Purpose                                    |
+| -------------- | --------------------------------------------------- | ------------------------------------------ |
+| Full review    | `weekly-review.sh <vault> --json`                   | Orchestrate lint, orphans, relations, sync |
+| Lint           | `cli-lint.sh <vault> [<folder>] --json`             | Frontmatter + structural violations        |
+| Orphans        | `cli-orphans.sh <vault> --project <slug>`           | Broken/missing parent–child links          |
+| Relations      | `cli-relations.sh vault=<name> <slug> --json`       | Edge list + unknown type detection         |
+| Overflow sync  | `sync-topk.sh <vault> <slug>`                       | Append overflow log entries                |
+| Schema migrate | `migrate.sh <vault> <slug> <spec.json> [--dry-run]` | Bulk schema changes                        |
+
+### Dev subagent (extends Researcher + Writer)
+
+| Skill          | Command                                           | Purpose                      |
+| -------------- | ------------------------------------------------- | ---------------------------- |
+| ADR            | `adr.sh <vault> <slug> "<title>"`                 | Architecture Decision Record |
+| Dependency map | `dependency-map.sh <vault> <slug> [--format dot]` | depends-on edge graph        |
+| Code link      | `code-link.sh <vault> "<path>" "<codepath>"`      | Append code reference        |
+
+### Quizmaster subagent (extends Researcher)
+
+| Skill       | Command                                    | Purpose                   |
+| ----------- | ------------------------------------------ | ------------------------- |
+| Quiz bundle | `quiz.sh <vault> <proj> <spine> [<limit>]` | Vault-grounded quiz notes |
+| Coverage    | `coverage.sh <vault> <proj>`               | Spine branch coverage %   |
+| Progress    | `progress.sh <vault> <proj>`               | Study progress dashboard  |
+
+---
+
+## CLAUDE.md Templates
+
+### Study vault template
+
+```markdown
+# Study Vault — Agent Config
+
+vault: study
+persona: Study Coach
+active_projects:
+
+- aws
+- gcp
+
+## Rules (apply in order)
+
+1. **Vault-first retrieval** — Before answering any knowledge question, invoke
+   `context.sh study "<query>"`. If results are non-empty, ground the answer in
+   vault content and cite `[[Note Title]] (path)`. If empty, answer from
+   training data and offer to save.
+
+2. **Cite sources** — Every vault-grounded answer must include the source note
+   path: `[[Note Title]] (projects/<slug>/path)`.
+
+3. **Note creation** — Use `create-entity.sh` exclusively for all note creation.
+   Never write notes manually. Infer type: LEAF for atomic facts, BRANCH when
+   content implies sub-topics.
+
+4. **Connections** — Use `add-connection.sh` for all connections. Never write
+   connection lines manually.
+
+5. **Reviews** — Use `weekly-review.sh --json` for all review requests. Triage
+   by severity: broken links > missing inverses > lint > stale drafts.
+
+6. **Save offer** — After teaching from training data, offer:
+   "Shall I save this to the vault?"
+
+## Quick Reference
+
+context.sh study "<query>" [5]
+create-entity.sh study <proj> <TYPE> <slug> "<Title>" <parent> <kind>
+add-connection.sh study "<src>" <rel> "<tgt>"
+weekly-review.sh study --json
+quiz.sh study <proj> <spine>
+```
+
+### Dev vault template
+
+```markdown
+# Dev Vault — Agent Config
+
+vault: dev-projectA
+persona: Dev Assistant
+active_projects:
+
+- svc
+
+## Rules (apply in order)
+
+1-6. (same as study vault rules above)
+
+7. **Architecture decisions** — Use `adr.sh` for all architecture decisions.
+   Never create decision notes manually.
+
+8. **System dependencies** — Use `dependency-map.sh` for dependency queries.
+   Support `--format dot` for visual output.
+
+## Quick Reference
+
+context.sh dev-projectA "<query>" [5]
+create-entity.sh dev-projectA <proj> <TYPE> <slug> "<Title>" <parent> <kind>
+add-connection.sh dev-projectA "<src>" <rel> "<tgt>"
+adr.sh dev-projectA <proj> "<title>"
+dependency-map.sh dev-projectA <proj> [--format dot]
+```
+
+---
+
+## Limitations
+
+| ID  | Limitation                                | Impact                                                                       | Workaround                                                          |
+| --- | ----------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| L1  | Obsidian must be running                  | All skills fail without it                                                   | Launch Obsidian before any CLI invocation                           |
+| L2  | Single vault per CLI session              | Specifying a non-open vault silently falls back to active vault              | Open the correct vault before invoking skills                       |
+| L3  | CLI requires macOS                        | No Linux/Windows                                                             | macOS-only deployment                                               |
+| L4  | No web vault support                      | Local vaults only                                                            | iCloud-synced vaults must be open locally                           |
+| L5  | One agent session per vault at a time     | Concurrent agents cause race conditions on shared notes                      | Serialise agent sessions per vault                                  |
+| L7  | Bases requires Obsidian open              | `.base` files do not render without the app                                  | Use CLI skills for programmatic access; open app for visual queries |
+| L8  | Daily note requires today's note to exist | `daily_append` and `create-entity.sh` logging fail if today's note is absent | Create today's journal note before running skills                   |
+
+---
+
 ## Verification Checklist (STORY-021)
 
 These cases must be tested in a live Claude Code session with `--verbose`
