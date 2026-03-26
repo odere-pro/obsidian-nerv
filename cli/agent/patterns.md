@@ -7,7 +7,7 @@ failures. Claude Code reads this document as part of session context via
 `~/.ontology-cli/agent/patterns.md`.
 
 > **Rule 0 — Vault-first, always.**
-> The `context.sh` rule fires on every turn before any write or link rule.
+> The `nerv context` rule fires on every turn before any write or link rule.
 > Never answer a knowledge question, create a note, or add a connection
 > without first knowing what the vault already contains.
 
@@ -31,7 +31,7 @@ User prompt contains any of:
 ```
 User asks a knowledge question
 │
-├─► Invoke context.sh <vault> "<query>" [<limit>]
+├─► Invoke nerv context <vault> "<query>" [<limit>]
 │
 ├─ Results non-empty (score > 0)
 │   ├─► Answer grounded in vault content
@@ -48,9 +48,9 @@ User asks a knowledge question
 
 ### Skill invocation sequence
 
-1. `context.sh <vault> "<query>" 5`
-2. (optional) `get-tree.sh <vault> <project>` — if user asks about project shape or coverage
-3. (optional) `explain-topic.sh <vault> <project> "<topic>"` — if user wants a teaching bundle
+1. `nerv context <vault> "<query>" 5`
+2. (optional) `nerv get-tree <vault> <project>` — if user asks about project shape or coverage
+3. (optional) `nerv explain-topic <vault> <project> "<topic>"` — if user wants a teaching bundle
 
 ### Expected output shape
 
@@ -65,11 +65,11 @@ Sources cited: [[AWS.S3 - S3 Overview]], [[AWS.IAM - IAM Basics]]
 
 ### Failure mode
 
-| Failure                             | Action                                                                                                                                 |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `context.sh` exits non-zero         | Retry once with identical args; if still failing, report: "Vault retrieval failed — answering from training data (vault unreachable)." |
-| `context.sh` returns malformed JSON | Treat as empty results; answer from training data; report: "context.sh returned unexpected output."                                    |
-| Obsidian unreachable (L1)           | Inform user: "Obsidian must be running for vault retrieval. Answering from training data."                                             |
+| Failure                               | Action                                                                                                                                 |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `nerv context` exits non-zero         | Retry once with identical args; if still failing, report: "Vault retrieval failed — answering from training data (vault unreachable)." |
+| `nerv context` returns malformed JSON | Treat as empty results; answer from training data; report: "nerv context returned unexpected output."                                  |
+| Obsidian unreachable (L1)             | Inform user: "Obsidian must be running for vault retrieval. Answering from training data."                                             |
 
 ---
 
@@ -88,30 +88,30 @@ User prompt contains any of:
 
 ### Type inference rules
 
-| Signal in user prompt                                                                         | Inferred type                       |
-| --------------------------------------------------------------------------------------------- | ----------------------------------- |
-| Describes a single atomic concept, fact, or definition                                        | LEAF                                |
-| Implies sub-topics, categories, or groupings ("it has several aspects", "there are types of") | BRANCH                              |
-| User explicitly says "project", "initiative", "domain"                                        | ROOT (only via `create-project.sh`) |
-| Unambiguous type stated by user                                                               | Use stated type                     |
+| Signal in user prompt                                                                         | Inferred type                         |
+| --------------------------------------------------------------------------------------------- | ------------------------------------- |
+| Describes a single atomic concept, fact, or definition                                        | LEAF                                  |
+| Implies sub-topics, categories, or groupings ("it has several aspects", "there are types of") | BRANCH                                |
+| User explicitly says "project", "initiative", "domain"                                        | ROOT (only via `nerv create-project`) |
+| Unambiguous type stated by user                                                               | Use stated type                       |
 
 ### Decision tree
 
 ```
 User wants to save knowledge
 │
-├─► Invoke context.sh <vault> "<title or topic>" 3
+├─► Invoke nerv context <vault> "<title or topic>" 3
 │   └─ If a highly relevant note already exists (score ≥ 15):
 │       ├─► Show the existing note: "Found [[Existing Note]] — update it instead?"
 │       └─► Wait for user confirmation before creating
 │
 ├─► Infer type (LEAF / BRANCH) from content signals
 │
-├─► Invoke create-entity.sh <vault> <project> <type> "<title>" [<parent>]
+├─► Invoke nerv create-entity <vault> <project> <type> "<title>" [<parent>]
 │   └─ Capture returned note path
 │
 ├─ User mentioned connections / relationships?
-│   └─► Invoke add-connection.sh <vault> <source-path> <rel> <target-path>
+│   └─► Invoke nerv add-connection <vault> <source-path> <rel> <target-path>
 │       for each named connection
 │
 └─► Confirm: "Saved [[Note Title]] in projects/<project>.
@@ -120,9 +120,9 @@ User wants to save knowledge
 
 ### Skill invocation sequence
 
-1. `context.sh <vault> "<title>" 3` — deduplication check
-2. `create-entity.sh <vault> <project> <type> "<title>" ["<parent>"]`
-3. (conditional) `add-connection.sh <vault> "<source>" <rel> "<target>"` — one call per connection
+1. `nerv context <vault> "<title>" 3` — deduplication check
+2. `nerv create-entity <vault> <project> <type> "<title>" ["<parent>"]`
+3. (conditional) `nerv add-connection <vault> "<source>" <rel> "<target>"` — one call per connection
 
 ### Expected output shape
 
@@ -135,12 +135,12 @@ Daily note updated.
 
 ### Failure mode
 
-| Failure                                               | Action                                                                                               |
-| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `create-entity.sh` exits non-zero                     | Retry once; if still failing, report the exact stderr verbatim. Do not attempt manual file creation. |
-| `add-connection.sh` exits non-zero after note created | Report: "Note created but connection failed: <verbatim error>. Check `_inbox/_rollback-log.md`."     |
-| Parent note not found                                 | Ask user: "Which note should be the parent? (or omit for no parent)"                                 |
-| Project does not exist                                | Ask user: "Project '<slug>' not found. Run `create-project.sh`?"                                     |
+| Failure                                                 | Action                                                                                               |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `nerv create-entity` exits non-zero                     | Retry once; if still failing, report the exact stderr verbatim. Do not attempt manual file creation. |
+| `nerv add-connection` exits non-zero after note created | Report: "Note created but connection failed: <verbatim error>. Check `_inbox/_rollback-log.md`."     |
+| Parent note not found                                   | Ask user: "Which note should be the parent? (or omit for no parent)"                                 |
+| Project does not exist                                  | Ask user: "Project '<slug>' not found. Run `nerv create-project`?"                                   |
 
 ---
 
@@ -162,16 +162,16 @@ User prompt contains any of:
 ```
 User wants to add a connection
 │
-├─► Resolve source note path via context.sh if not explicit
-├─► Resolve target note path via context.sh if not explicit
+├─► Resolve source note path via nerv context if not explicit
+├─► Resolve target note path via nerv context if not explicit
 │
 ├─► Check source connection count:
-│   invoke cli-lint.sh <vault> <source-folder> --json
+│   invoke nerv cli-lint <vault> <source-folder> --json
 │   └─ If connections > 7:
 │       └─► Warn: "[[Source]] already has N connections (limit 7). Proceed?"
 │           Wait for explicit confirmation.
 │
-├─► Invoke add-connection.sh <vault> "<source>" <rel> "<target>"
+├─► Invoke nerv add-connection <vault> "<source>" <rel> "<target>"
 │   ├─ Script writes forward connection on source
 │   └─ Script writes inverse connection on target automatically
 │
@@ -181,10 +181,10 @@ User wants to add a connection
 
 ### Skill invocation sequence
 
-1. `context.sh <vault> "<source title>" 1` — resolve source (if path unknown)
-2. `context.sh <vault> "<target title>" 1` — resolve target (if path unknown)
-3. `cli-lint.sh <vault> <source folder> --json` — check connection limit
-4. `add-connection.sh <vault> "<source-path>" <rel> "<target-path>"`
+1. `nerv context <vault> "<source title>" 1` — resolve source (if path unknown)
+2. `nerv context <vault> "<target title>" 1` — resolve target (if path unknown)
+3. `nerv cli-lint <vault> <source folder> --json` — check connection limit
+4. `nerv add-connection <vault> "<source-path>" <rel> "<target-path>"`
 
 ### Valid relationship types
 
@@ -211,12 +211,12 @@ Connection added:
 
 ### Failure mode
 
-| Failure                            | Action                                                                          |
-| ---------------------------------- | ------------------------------------------------------------------------------- |
-| `add-connection.sh` exits non-zero | Retry once; report exact stderr verbatim if still failing.                      |
-| Source note not found in vault     | Report: "Could not locate '<source>' in vault. Please verify the note title."   |
-| Target note not found              | Same as source not found.                                                       |
-| Relation type not in ontology      | Prompt for valid type (see above). Do not silently substitute a different type. |
+| Failure                              | Action                                                                          |
+| ------------------------------------ | ------------------------------------------------------------------------------- |
+| `nerv add-connection` exits non-zero | Retry once; report exact stderr verbatim if still failing.                      |
+| Source note not found in vault       | Report: "Could not locate '<source>' in vault. Please verify the note title."   |
+| Target note not found                | Same as source not found.                                                       |
+| Relation type not in ontology        | Prompt for valid type (see above). Do not silently substitute a different type. |
 
 ---
 
@@ -244,11 +244,11 @@ User prompt contains any of:
 ```
 User requests a review or audit
 │
-├─► Invoke weekly-review.sh <vault> --json
+├─► Invoke nerv weekly-review <vault> --json
 │   └─ Captures: lint findings, orphan nodes, relation gaps, sync state
 │
 ├─► Also read _inbox/_rollback-log.md for partial-state entries
-│   └─ invoke context.sh <vault> "rollback log" 1  (or direct path read)
+│   └─ invoke nerv context <vault> "rollback log" 1  (or direct path read)
 │
 ├─► Triage findings by severity tier (Critical → High → Medium → Low)
 │
@@ -260,7 +260,7 @@ User requests a review or audit
 │    - W stale drafts (Low)"
 │
 ├─► For each Critical finding:
-│   └─► Offer programmatic fix: "Fix broken link in [[Note]]? (add-connection.sh)"
+│   └─► Offer programmatic fix: "Fix broken link in [[Note]]? (nerv add-connection)"
 │
 ├─► For each High finding:
 │   └─► Offer: "Add missing inverse for [[Note]] –<rel>→ [[Target]]?"
@@ -274,10 +274,10 @@ User requests a review or audit
 
 ### Skill invocation sequence
 
-1. `weekly-review.sh <vault> --json`
-2. (conditional) `cli-lint.sh <vault> <folder> --json` — targeted re-lint
-3. (conditional) `add-connection.sh <vault> "<source>" <rel> "<target>"` — fix missing inverse
-4. (conditional) `sync-topk.sh <vault> <project>` — sync overflow after fixes
+1. `nerv weekly-review <vault> --json`
+2. (conditional) `nerv cli-lint <vault> <folder> --json` — targeted re-lint
+3. (conditional) `nerv add-connection <vault> "<source>" <rel> "<target>"` — fix missing inverse
+4. (conditional) `nerv sync-topk <vault> <project>` — sync overflow after fixes
 
 ### Rollback log triage
 
@@ -314,7 +314,7 @@ Fix all Critical issues now? (yes/no)
 
 | Failure                             | Action                                                                             |
 | ----------------------------------- | ---------------------------------------------------------------------------------- |
-| `weekly-review.sh` exits non-zero   | Retry once; report exact stderr verbatim.                                          |
+| `nerv weekly-review` exits non-zero | Retry once; report exact stderr verbatim.                                          |
 | Partial `--json` output (malformed) | Fall back to text output; note: "JSON triage unavailable, showing raw output."     |
 | Individual fix skill exits non-zero | Log the failure; continue with remaining fixes; summarise all failures at the end. |
 
@@ -386,7 +386,7 @@ These rules apply across all patterns regardless of which subagent is active.
 - Never create, modify, or delete vault files except through the CLI skills.
   Direct file manipulation bypasses Obsidian's internal cache and breaks
   metadata consistency.
-- Never skip `context.sh` before answering a knowledge question, even when
+- Never skip `nerv context` before answering a knowledge question, even when
   confident the answer is in training data. The vault-first rule is
   unconditional.
 - Never mark a skill story complete based on documentation alone — live tool
@@ -429,7 +429,7 @@ User requests a quiz
 ├─► Identify spine (topic area) from user prompt
 │   └─ If spine is ambiguous, ask: "Which topic area? (e.g. storage, compute, iam)"
 │
-├─► Invoke quiz.sh <vault> <project> <spine> [<limit>]
+├─► Invoke nerv study/quiz <vault> <project> <spine> [<limit>]
 │   └─ Retrieves shuffled, draft-excluded note bundle with vault-grounded instruction
 │
 ├─► Generate quiz questions ONLY from note content in "notes" array
@@ -446,15 +446,15 @@ User requests a quiz
 │   └─► Offer: "Would you like to review these notes or add more detail to them?"
 │
 └─ User wants to enrich a weak note
-    └─► Invoke context.sh <vault> "<note title>" 1 → confirm note path
-        └─► Offer create-entity.sh or add-connection.sh to enrich the note
+    └─► Invoke nerv context <vault> "<note title>" 1 → confirm note path
+        └─► Offer nerv create-entity or nerv add-connection to enrich the note
 ```
 
 ### Skill invocation sequence
 
-1. `quiz.sh <vault> <project> <spine> [<limit>]`
-2. (post-quiz) `context.sh <vault> "<weak note title>" 1` — resolve path for enrichment offer
-3. (optional) `add-connection.sh` or `create-entity.sh` — if user chooses to enrich
+1. `nerv study/quiz <vault> <project> <spine> [<limit>]`
+2. (post-quiz) `nerv context <vault> "<weak note title>" 1` — resolve path for enrichment offer
+3. (optional) `nerv add-connection` or `nerv create-entity` — if user chooses to enrich
 
 ### Expected output shape
 
@@ -477,7 +477,7 @@ Would you like to review these notes now, or add detail to them?
 
 ### Vault-grounding constraint
 
-The `instruction` field from `quiz.sh` must be prepended to every quiz generation
+The `instruction` field from `nerv study/quiz` must be prepended to every quiz generation
 request. It explicitly prohibits questions requiring external knowledge not present
 in the provided note content. If the available notes are insufficient to generate N
 meaningful questions, reduce the question count and inform the user:
@@ -485,11 +485,11 @@ meaningful questions, reduce the question count and inform the user:
 
 ### Failure mode
 
-| Failure                                            | Action                                                                                                |
-| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `quiz.sh` exits non-zero                           | Retry once; report exact stderr verbatim.                                                             |
-| Spine has 0 eligible notes                         | Report: "No stable or review notes found for spine '<spine>'. Add notes or change status from draft." |
-| `quiz.sh` returns fewer notes than requested limit | Use all returned notes; note: "Only N notes available for this spine."                                |
+| Failure                                                    | Action                                                                                                |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `nerv study/quiz` exits non-zero                           | Retry once; report exact stderr verbatim.                                                             |
+| Spine has 0 eligible notes                                 | Report: "No stable or review notes found for spine '<spine>'. Add notes or change status from draft." |
+| `nerv study/quiz` returns fewer notes than requested limit | Use all returned notes; note: "Only N notes available for this spine."                                |
 
 ---
 
@@ -502,57 +502,57 @@ to know which skills are available and which command to invoke.
 
 ### Researcher subagent
 
-| Skill           | Command                                     | Purpose                                |
-| --------------- | ------------------------------------------- | -------------------------------------- |
-| Vault retrieval | `context.sh <vault> "<query>" [<limit>]`    | Relevance-scored note search (primary) |
-| Single note     | `get-entity.sh <vault> "<term>"`            | Exact/partial note lookup              |
-| Project shape   | `get-tree.sh <vault> <slug> [--depth N]`    | Full hierarchy as nested JSON          |
-| Teaching bundle | `explain-topic.sh <vault> <slug> "<topic>"` | Primary note + siblings + connections  |
-| Knowledge gaps  | `get-knowledge-gap.sh <vault> <slug>`       | Structural deficiencies across project |
+| Skill           | Command                                       | Purpose                                |
+| --------------- | --------------------------------------------- | -------------------------------------- |
+| Vault retrieval | `nerv context <vault> "<query>" [<limit>]`    | Relevance-scored note search (primary) |
+| Single note     | `nerv get-entity <vault> "<term>"`            | Exact/partial note lookup              |
+| Project shape   | `nerv get-tree <vault> <slug> [--depth N]`    | Full hierarchy as nested JSON          |
+| Teaching bundle | `nerv explain-topic <vault> <slug> "<topic>"` | Primary note + siblings + connections  |
+| Knowledge gaps  | `nerv get-knowledge-gap <vault> <slug>`       | Structural deficiencies across project |
 
 ### Writer subagent
 
-| Skill          | Command                                                                   | Purpose                      |
-| -------------- | ------------------------------------------------------------------------- | ---------------------------- |
-| Create project | `create-project.sh <vault> <slug> "<Title>"`                              | Scaffold ROOT + meta files   |
-| Create note    | `create-entity.sh <vault> <proj> <TYPE> <slug> "<Title>" <parent> <kind>` | Single typed note            |
-| Add connection | `add-connection.sh <vault> "<src>" <rel> "<tgt>"`                         | Forward + inverse connection |
-| Bulk import    | `import-json.sh <vault> <slug> <file> <template>`                         | JSON array → notes           |
+| Skill          | Command                                                                     | Purpose                      |
+| -------------- | --------------------------------------------------------------------------- | ---------------------------- |
+| Create project | `nerv create-project <vault> <slug> "<Title>"`                              | Scaffold ROOT + meta files   |
+| Create note    | `nerv create-entity <vault> <proj> <TYPE> <slug> "<Title>" <parent> <kind>` | Single typed note            |
+| Add connection | `nerv add-connection <vault> "<src>" <rel> "<tgt>"`                         | Forward + inverse connection |
+| Bulk import    | `nerv import-json <vault> <slug> <file> <template>`                         | JSON array → notes           |
 
 ### Linker subagent
 
-| Skill          | Command                                                     | Purpose                               |
-| -------------- | ----------------------------------------------------------- | ------------------------------------- |
-| Add connection | `add-connection.sh <vault> "<src>" <rel> "<tgt>" ["<ctx>"]` | Forward + inverse                     |
-| Check limits   | `cli-lint.sh <vault> <folder> --json`                       | Verify connection count before adding |
-| Relation graph | `cli-relations.sh vault=<name> <slug> --json`               | Full edge list for a project          |
+| Skill          | Command                                                       | Purpose                               |
+| -------------- | ------------------------------------------------------------- | ------------------------------------- |
+| Add connection | `nerv add-connection <vault> "<src>" <rel> "<tgt>" ["<ctx>"]` | Forward + inverse                     |
+| Check limits   | `nerv cli-lint <vault> <folder> --json`                       | Verify connection count before adding |
+| Relation graph | `nerv cli-relations vault=<name> <slug> --json`               | Full edge list for a project          |
 
 ### Auditor subagent
 
-| Skill          | Command                                             | Purpose                                    |
-| -------------- | --------------------------------------------------- | ------------------------------------------ |
-| Full review    | `weekly-review.sh <vault> --json`                   | Orchestrate lint, orphans, relations, sync |
-| Lint           | `cli-lint.sh <vault> [<folder>] --json`             | Frontmatter + structural violations        |
-| Orphans        | `cli-orphans.sh <vault> --project <slug>`           | Broken/missing parent–child links          |
-| Relations      | `cli-relations.sh vault=<name> <slug> --json`       | Edge list + unknown type detection         |
-| Overflow sync  | `sync-topk.sh <vault> <slug>`                       | Append overflow log entries                |
-| Schema migrate | `migrate.sh <vault> <slug> <spec.json> [--dry-run]` | Bulk schema changes                        |
+| Skill          | Command                                               | Purpose                                    |
+| -------------- | ----------------------------------------------------- | ------------------------------------------ |
+| Full review    | `nerv weekly-review <vault> --json`                   | Orchestrate lint, orphans, relations, sync |
+| Lint           | `nerv cli-lint <vault> [<folder>] --json`             | Frontmatter + structural violations        |
+| Orphans        | `nerv cli-orphans <vault> --project <slug>`           | Broken/missing parent–child links          |
+| Relations      | `nerv cli-relations vault=<name> <slug> --json`       | Edge list + unknown type detection         |
+| Overflow sync  | `nerv sync-topk <vault> <slug>`                       | Append overflow log entries                |
+| Schema migrate | `nerv migrate <vault> <slug> <spec.json> [--dry-run]` | Bulk schema changes                        |
 
 ### Dev subagent (extends Researcher + Writer)
 
-| Skill          | Command                                           | Purpose                      |
-| -------------- | ------------------------------------------------- | ---------------------------- |
-| ADR            | `adr.sh <vault> <slug> "<title>"`                 | Architecture Decision Record |
-| Dependency map | `dependency-map.sh <vault> <slug> [--format dot]` | depends-on edge graph        |
-| Code link      | `code-link.sh <vault> "<path>" "<codepath>"`      | Append code reference        |
+| Skill          | Command                                            | Purpose                      |
+| -------------- | -------------------------------------------------- | ---------------------------- |
+| ADR            | `nerv dev/adr <vault> <slug> "<title>"`            | Architecture Decision Record |
+| Dependency map | `nerv dev/dependency-map <vault> <slug> [--json]`  | depends-on edge graph        |
+| Code link      | `nerv dev/code-link <vault> "<path>" "<codepath>"` | Append code reference        |
 
 ### Quizmaster subagent (extends Researcher)
 
-| Skill       | Command                                    | Purpose                   |
-| ----------- | ------------------------------------------ | ------------------------- |
-| Quiz bundle | `quiz.sh <vault> <proj> <spine> [<limit>]` | Vault-grounded quiz notes |
-| Coverage    | `coverage.sh <vault> <proj>`               | Spine branch coverage %   |
-| Progress    | `progress.sh <vault> <proj>`               | Study progress dashboard  |
+| Skill       | Command                                            | Purpose                   |
+| ----------- | -------------------------------------------------- | ------------------------- |
+| Quiz bundle | `nerv study/quiz <vault> <proj> <spine> [<limit>]` | Vault-grounded quiz notes |
+| Coverage    | `nerv study/coverage <vault> <proj>`               | Spine branch coverage %   |
+| Progress    | `nerv study/progress <vault> <proj>`               | Study progress dashboard  |
 
 ---
 
@@ -573,21 +573,21 @@ active_projects:
 ## Rules (apply in order)
 
 1. **Vault-first retrieval** — Before answering any knowledge question, invoke
-   `context.sh study "<query>"`. If results are non-empty, ground the answer in
+   `nerv context study "<query>"`. If results are non-empty, ground the answer in
    vault content and cite `[[Note Title]] (path)`. If empty, answer from
    training data and offer to save.
 
 2. **Cite sources** — Every vault-grounded answer must include the source note
    path: `[[Note Title]] (projects/<slug>/path)`.
 
-3. **Note creation** — Use `create-entity.sh` exclusively for all note creation.
+3. **Note creation** — Use `nerv create-entity` exclusively for all note creation.
    Never write notes manually. Infer type: LEAF for atomic facts, BRANCH when
    content implies sub-topics.
 
-4. **Connections** — Use `add-connection.sh` for all connections. Never write
+4. **Connections** — Use `nerv add-connection` for all connections. Never write
    connection lines manually.
 
-5. **Reviews** — Use `weekly-review.sh --json` for all review requests. Triage
+5. **Reviews** — Use `nerv weekly-review --json` for all review requests. Triage
    by severity: broken links > missing inverses > lint > stale drafts.
 
 6. **Save offer** — After teaching from training data, offer:
@@ -595,11 +595,11 @@ active_projects:
 
 ## Quick Reference
 
-context.sh study "<query>" [5]
-create-entity.sh study <proj> <TYPE> <slug> "<Title>" <parent> <kind>
-add-connection.sh study "<src>" <rel> "<tgt>"
-weekly-review.sh study --json
-quiz.sh study <proj> <spine>
+nerv context study "<query>" [5]
+nerv create-entity study <proj> <TYPE> <slug> "<Title>" <parent> <kind>
+nerv add-connection study "<src>" <rel> "<tgt>"
+nerv weekly-review study --json
+nerv study/quiz study <proj> <spine>
 ```
 
 ### Dev vault template
@@ -617,34 +617,34 @@ active_projects:
 
 1-6. (same as study vault rules above)
 
-7. **Architecture decisions** — Use `adr.sh` for all architecture decisions.
+7. **Architecture decisions** — Use `nerv dev/adr` for all architecture decisions.
    Never create decision notes manually.
 
-8. **System dependencies** — Use `dependency-map.sh` for dependency queries.
-   Support `--format dot` for visual output.
+8. **System dependencies** — Use `nerv dev/dependency-map` for dependency queries.
+   Support `--json` for structured output.
 
 ## Quick Reference
 
-context.sh dev-projectA "<query>" [5]
-create-entity.sh dev-projectA <proj> <TYPE> <slug> "<Title>" <parent> <kind>
-add-connection.sh dev-projectA "<src>" <rel> "<tgt>"
-adr.sh dev-projectA <proj> "<title>"
-dependency-map.sh dev-projectA <proj> [--format dot]
+nerv context dev-projectA "<query>" [5]
+nerv create-entity dev-projectA <proj> <TYPE> <slug> "<Title>" <parent> <kind>
+nerv add-connection dev-projectA "<src>" <rel> "<tgt>"
+nerv dev/adr dev-projectA <proj> "<title>"
+nerv dev/dependency-map dev-projectA <proj> [--json]
 ```
 
 ---
 
 ## Limitations
 
-| ID  | Limitation                                | Impact                                                                       | Workaround                                                          |
-| --- | ----------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| L1  | Obsidian must be running                  | All skills fail without it                                                   | Launch Obsidian before any CLI invocation                           |
-| L2  | Single vault per CLI session              | Specifying a non-open vault silently falls back to active vault              | Open the correct vault before invoking skills                       |
-| L3  | CLI requires macOS                        | No Linux/Windows                                                             | macOS-only deployment                                               |
-| L4  | No web vault support                      | Local vaults only                                                            | iCloud-synced vaults must be open locally                           |
-| L5  | One agent session per vault at a time     | Concurrent agents cause race conditions on shared notes                      | Serialise agent sessions per vault                                  |
-| L7  | Bases requires Obsidian open              | `.base` files do not render without the app                                  | Use CLI skills for programmatic access; open app for visual queries |
-| L8  | Daily note requires today's note to exist | `daily_append` and `create-entity.sh` logging fail if today's note is absent | Create today's journal note before running skills                   |
+| ID  | Limitation                                | Impact                                                                         | Workaround                                                          |
+| --- | ----------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| L1  | Obsidian must be running                  | All skills fail without it                                                     | Launch Obsidian before any CLI invocation                           |
+| L2  | Single vault per CLI session              | Specifying a non-open vault silently falls back to active vault                | Open the correct vault before invoking skills                       |
+| L3  | CLI requires macOS                        | No Linux/Windows                                                               | macOS-only deployment                                               |
+| L4  | No web vault support                      | Local vaults only                                                              | iCloud-synced vaults must be open locally                           |
+| L5  | One agent session per vault at a time     | Concurrent agents cause race conditions on shared notes                        | Serialise agent sessions per vault                                  |
+| L7  | Bases requires Obsidian open              | `.base` files do not render without the app                                    | Use CLI skills for programmatic access; open app for visual queries |
+| L8  | Daily note requires today's note to exist | `daily_append` and `nerv create-entity` logging fail if today's note is absent | Create today's journal note before running skills                   |
 
 ---
 
@@ -654,9 +654,9 @@ These cases must be tested in a live Claude Code session with `--verbose`
 to confirm tool-call logs show the correct skill invocation. This document
 is not considered complete until all 5 are checked off.
 
-- [ ] **Researcher** — ask "what is S3 lifecycle?" → tool log shows `context.sh study "S3 lifecycle"` invoked; answer cites note path
-- [ ] **Writer** — say "save a note about SQS dead-letter queues in aws" → tool log shows `create-entity.sh`; note created in vault
-- [ ] **Linker** — say "connect S3 overview to IAM basics with depends-on" → tool log shows `add-connection.sh`; inverse confirmed
-- [ ] **Auditor** — say "run a weekly review" → tool log shows `weekly-review.sh --json`; findings presented by severity tier
+- [ ] **Researcher** — ask "what is S3 lifecycle?" → tool log shows `nerv context study "S3 lifecycle"` invoked; answer cites note path
+- [ ] **Writer** — say "save a note about SQS dead-letter queues in aws" → tool log shows `nerv create-entity`; note created in vault
+- [ ] **Linker** — say "connect S3 overview to IAM basics with depends-on" → tool log shows `nerv add-connection`; inverse confirmed
+- [ ] **Auditor** — say "run a weekly review" → tool log shows `nerv weekly-review --json`; findings presented by severity tier
 - [ ] **Multi-vault** — say "create a note about logging" without specifying vault → Claude asks "Which vault: study or dev-projectA?" before invoking any skill
-- [ ] **Failure mode** — run a skill with bad args (`context.sh study ""`) → agent retries once, then reports exact stderr; no silent fallback
+- [ ] **Failure mode** — run a skill with bad args (`nerv context study ""`) → agent retries once, then reports exact stderr; no silent fallback

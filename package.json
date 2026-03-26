@@ -32,6 +32,9 @@
   "author": "",
   "license": "ISC",
   "type": "module",
+  "bin": {
+    "nerv": "./bin/nerv"
+  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/bun": "latest",

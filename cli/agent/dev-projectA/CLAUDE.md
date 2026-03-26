@@ -17,17 +17,17 @@ Rules apply on every turn, in priority order. Evaluate Rule 1 before Rules 2–8
 
 ### Rule 1 — Context retrieval (evaluate first, on every turn)
 
-When the user asks any knowledge question — "what is X", "how does Y work", "explain Z", "what do I know about…", or any question about a system component — run `context.sh` before composing the answer.
+When the user asks any knowledge question — "what is X", "how does Y work", "explain Z", "what do I know about…", or any question about a system component — run `nerv context` before composing the answer.
 
 ```bash
-context.sh dev-projectA "<query terms>" [<limit>]
+nerv context dev-projectA "<query terms>" [<limit>]
 ```
 
 - Parse the JSON `results` array.
 - If `results` is non-empty: ground the answer exclusively in vault content. Apply Rule 2.
 - If `results` is empty: answer from training data, then apply Rule 6.
 
-Do not answer knowledge questions without first invoking `context.sh`.
+Do not answer knowledge questions without first invoking `nerv context`.
 
 ---
 
@@ -41,10 +41,10 @@ Do not answer from vault context without citing at least one source path.
 
 ### Rule 3 — Note creation
 
-When the user asks to save, create, capture, or add a note or concept, invoke `create-entity.sh` exclusively. Do not create notes via any other mechanism.
+When the user asks to save, create, capture, or add a note or concept, invoke `nerv create-entity` exclusively. Do not create notes via any other mechanism.
 
 ```bash
-create-entity.sh dev-projectA <project> <TYPE> <slug> "<Title>" <parent_slug> <kind> [<spine>] [--json]
+nerv create-entity dev-projectA <project> <TYPE> <slug> "<Title>" <parent_slug> <kind> [<spine>] [--json]
 ```
 
 - TYPE inference: use `LEAF` for atomic, self-contained concepts; use `BRANCH` when the content implies sub-topics or would have child notes.
@@ -54,10 +54,10 @@ create-entity.sh dev-projectA <project> <TYPE> <slug> "<Title>" <parent_slug> <k
 
 ### Rule 4 — Connections
 
-When the user asks to link, connect, wire, relate, or associate two notes, invoke `add-connection.sh`. Do not write connection lines manually.
+When the user asks to link, connect, wire, relate, or associate two notes, invoke `nerv add-connection`. Do not write connection lines manually.
 
 ```bash
-add-connection.sh dev-projectA <source_path> <rel_type> <target_path> [--bidirectional]
+nerv add-connection dev-projectA <source_path> <rel_type> <target_path> [--bidirectional]
 ```
 
 Use `--bidirectional` when the relationship is symmetric or when the user asks to link both directions. Warn the user if the source note already has 7 connections (the top-K limit).
@@ -66,10 +66,10 @@ Use `--bidirectional` when the relationship is symmetric or when the user asks t
 
 ### Rule 5 — Review requests
 
-When the user asks for a review, audit, weekly summary, or health check, invoke `weekly-review.sh --json`.
+When the user asks for a review, audit, weekly summary, or health check, invoke `nerv weekly-review --json`.
 
 ```bash
-weekly-review.sh dev-projectA [<project_slug>] --json
+nerv weekly-review dev-projectA [<project_slug>] --json
 ```
 
 Triage the `findings` array by severity in this order: broken links → missing inverses → lint violations → stale drafts. Offer a programmatic fix for each category found.
@@ -80,28 +80,28 @@ Triage the `findings` array by severity in this order: broken links → missing 
 
 When answering from training data (Rule 1 returned empty results), after delivering the answer, offer: _"Would you like me to save this to your vault?"_
 
-If the user agrees, invoke `create-entity.sh` per Rule 3. Suggest an appropriate project, type, and parent based on the topic.
+If the user agrees, invoke `nerv create-entity` per Rule 3. Suggest an appropriate project, type, and parent based on the topic.
 
 ---
 
 ### Rule 7 — Architecture decisions
 
-When the user proposes, records, questions, or asks to revisit an architecture decision — "we decided", "the ADR for", "record a decision", "why did we choose" — invoke `adr.sh`.
+When the user proposes, records, questions, or asks to revisit an architecture decision — "we decided", "the ADR for", "record a decision", "why did we choose" — invoke `nerv dev/adr`.
 
 ```bash
-adr.sh dev-projectA <project> <slug> "<Title>" "<decision>"
+nerv dev/adr dev-projectA <project> <slug> "<Title>" "<decision>"
 ```
 
-Always confirm the ADR path after creation. If the user is querying an existing decision rather than creating one, run `context.sh` (Rule 1) first to locate it.
+Always confirm the ADR path after creation. If the user is querying an existing decision rather than creating one, run `nerv context` (Rule 1) first to locate it.
 
 ---
 
 ### Rule 8 — System dependency queries
 
-When the user asks about system dependencies, component relationships, what depends on what, or requests a dependency graph, invoke `dependency-map.sh`.
+When the user asks about system dependencies, component relationships, what depends on what, or requests a dependency graph, invoke `nerv dev/dependency-map`.
 
 ```bash
-dependency-map.sh dev-projectA <project_slug> [--json]
+nerv dev/dependency-map dev-projectA <project_slug> [--json]
 ```
 
 Present the `edges` array as a readable dependency table. Highlight nodes with high in-degree (many dependents) as potential single points of failure.
@@ -117,10 +117,10 @@ When the user asks to test, debug, reload, or develop a plugin — "test my plug
 3. **Verify**: run `obsidian dev:errors` — if errors exist, display them and stop. If none, run `obsidian dev:console | tail -20` for warnings.
 4. **Iterate or capture**: re-edit and repeat, or run `obsidian dev:screenshot` to capture a viewport image for documentation.
 
-Use `dev-cycle.sh` as the single-command shortcut for steps 2–4:
+Use `nerv dev/dev-cycle` as the single-command shortcut for steps 2–4:
 
 ```bash
-dev-cycle.sh dev-projectA <plugin-id> [--screenshot]
+nerv dev/dev-cycle dev-projectA <plugin-id> [--screenshot]
 ```
 
 > **Important**: `<plugin-id>` is the **directory name** under `.obsidian/plugins/` — not the display name shown in Settings. Example: `my-plugin` not `My Plugin`. Passing the display name causes a silent no-op (exit 0, no reload).
@@ -150,8 +150,8 @@ Edit source → plugin:reload → dev:errors → dev:console → iterate
 Shortcut for steps 2–4:
 
 ```bash
-dev-cycle.sh dev-projectA <plugin-id>            # steps 2–4 without screenshot
-dev-cycle.sh dev-projectA <plugin-id> --screenshot  # steps 2–4 with screenshot
+nerv dev/dev-cycle dev-projectA <plugin-id>            # steps 2–4 without screenshot
+nerv dev/dev-cycle dev-projectA <plugin-id> --screenshot  # steps 2–4 with screenshot
 ```
 
 ---
@@ -248,7 +248,7 @@ obsidian dev:screenshot vault=<name>
 /tmp/obsidian-screenshot-1234567890.png
 ```
 
-**When to use**: after a successful reload cycle to capture visual evidence for ADRs or bug reports. Pair with `adr.sh` for UI-related architecture decisions.
+**When to use**: after a successful reload cycle to capture visual evidence for ADRs or bug reports. Pair with `nerv dev/adr` for UI-related architecture decisions.
 
 > **Security**: verify the returned path is within `/tmp/` or a known safe directory before referencing it in other tools.
 
@@ -310,14 +310,14 @@ obsidian dev:mobile vault=<name>
 
 Copy-pasteable command signatures for the most-frequently invoked skills.
 
-| Intent                | Command                                                                                               |
-| --------------------- | ----------------------------------------------------------------------------------------------------- |
-| Knowledge question    | `context.sh dev-projectA "<query>" [<limit>]`                                                         |
-| Get note detail       | `get-entity.sh dev-projectA "<search-term>"`                                                          |
-| Create note           | `create-entity.sh dev-projectA <project> LEAF <slug> "<Title>" <parent_slug> <kind> [<spine>] --json` |
-| Architecture decision | `adr.sh dev-projectA <project> <slug> "<Title>" "<decision>"`                                         |
-| Dependency graph      | `dependency-map.sh dev-projectA <project_slug> --json`                                                |
-| Plugin dev cycle      | `dev-cycle.sh dev-projectA <plugin-id> [--screenshot]`                                                |
-| Reload plugin         | `obsidian plugin:reload vault=dev-projectA plugin=<plugin-id>`                                        |
-| Check plugin errors   | `obsidian dev:errors vault=dev-projectA`                                                              |
-| View console output   | `obsidian dev:console vault=dev-projectA`                                                             |
+| Intent                | Command                                                                                                 |
+| --------------------- | ------------------------------------------------------------------------------------------------------- |
+| Knowledge question    | `nerv context dev-projectA "<query>" [<limit>]`                                                         |
+| Get note detail       | `nerv get-entity dev-projectA "<search-term>"`                                                          |
+| Create note           | `nerv create-entity dev-projectA <project> LEAF <slug> "<Title>" <parent_slug> <kind> [<spine>] --json` |
+| Architecture decision | `nerv dev/adr dev-projectA <project> <slug> "<Title>" "<decision>"`                                     |
+| Dependency graph      | `nerv dev/dependency-map dev-projectA <project_slug> --json`                                            |
+| Plugin dev cycle      | `nerv dev/dev-cycle dev-projectA <plugin-id> [--screenshot]`                                            |
+| Reload plugin         | `obsidian plugin:reload vault=dev-projectA plugin=<plugin-id>`                                          |
+| Check plugin errors   | `obsidian dev:errors vault=dev-projectA`                                                                |
+| View console output   | `obsidian dev:console vault=dev-projectA`                                                               |

@@ -1,9 +1,8 @@
 #!/usr/bin/env bun
 // STORY-031 — Bun CLI foundation: entry point and subcommand dispatcher
+// STORY-038 — Use JSON import for version so compiled binary embeds it correctly
 
-import { readFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import pkg from '../package.json';
 
 // ---------------------------------------------------------------------------
 // Command interface — every command module must export a default satisfying this
@@ -19,14 +18,7 @@ export interface Command {
 // ---------------------------------------------------------------------------
 
 function packageVersion(): string {
-  try {
-    const here = dirname(fileURLToPath(import.meta.url));
-    const pkgPath = join(here, '..', 'package.json');
-    const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as { version?: string };
-    return pkg.version ?? '0.0.0';
-  } catch {
-    return '0.0.0';
-  }
+  return (pkg as { version?: string }).version ?? '0.0.0';
 }
 
 function printUsage(commands: string[]): void {

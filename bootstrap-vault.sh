@@ -731,10 +731,8 @@ views:
 # 14. Host CLI directories
 # ---------------------------------------------------------------------------
 mkdir -p \
-  "${HOME}/.ontology-cli/core" \
-  "${HOME}/.ontology-cli/agent" \
-  "${HOME}/.ontology-cli/study" \
-  "${HOME}/.ontology-cli/dev"
+  "${HOME}/.ontology-cli/bin" \
+  "${HOME}/.ontology-cli/agent"
 
 # ---------------------------------------------------------------------------
 # 15. Agent config — deploy skills.md and vault CLAUDE.md (STORY-020)
@@ -748,17 +746,32 @@ if [[ -f "${AGENT_SRC}/skills.md" ]]; then
   echo "    deployed: ~/.ontology-cli/agent/skills.md"
 fi
 
+# Deploy agent routing patterns (idempotent overwrite)
+if [[ -f "${AGENT_SRC}/patterns.md" ]]; then
+  cp "${AGENT_SRC}/patterns.md" "${HOME}/.ontology-cli/agent/patterns.md"
+  echo "    deployed: ~/.ontology-cli/agent/patterns.md"
+fi
+
 # Deploy per-vault CLAUDE.md if a matching source exists
 if [[ -f "${AGENT_SRC}/${VAULT_NAME}/CLAUDE.md" ]]; then
   cp "${AGENT_SRC}/${VAULT_NAME}/CLAUDE.md" "${VAULT_PATH}/CLAUDE.md"
   echo "    deployed: ${VAULT_PATH}/CLAUDE.md"
 fi
 
+# Deploy nerv binary (idempotent overwrite)
+if [[ -f "${REPO_DIR}/bin/nerv" ]]; then
+  cp "${REPO_DIR}/bin/nerv" "${HOME}/.ontology-cli/bin/nerv"
+  chmod +x "${HOME}/.ontology-cli/bin/nerv"
+  echo "    deployed: ~/.ontology-cli/bin/nerv"
+else
+  echo "    WARN: bin/nerv not found — run 'bun run build' in ${REPO_DIR} first"
+fi
+
 # ---------------------------------------------------------------------------
 # 16. PATH export in ~/.zprofile (idempotent)
 # ---------------------------------------------------------------------------
 ZPROFILE="${HOME}/.zprofile"
-PATH_EXPORT='export PATH="${HOME}/.ontology-cli/core:${HOME}/.ontology-cli/agent:${PATH}"'
+PATH_EXPORT='export PATH="${HOME}/.ontology-cli/bin:${PATH}"'
 MARKER="# ontology-cli PATH — added by bootstrap-vault.sh"
 
 if ! grep -qF "$MARKER" "$ZPROFILE" 2>/dev/null; then

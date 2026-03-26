@@ -17,17 +17,17 @@ Rules apply on every turn, in priority order. Evaluate Rule 1 before Rules 2–6
 
 ### Rule 1 — Context retrieval (evaluate first, on every turn)
 
-When the user asks any knowledge question — "what is X", "how does Y work", "explain Z", "what do I know about…", or any question about a domain concept — run `context.sh` before composing the answer.
+When the user asks any knowledge question — "what is X", "how does Y work", "explain Z", "what do I know about…", or any question about a domain concept — run `nerv context` before composing the answer.
 
 ```bash
-context.sh study "<query terms>" [<limit>]
+nerv context study "<query terms>" [<limit>]
 ```
 
 - Parse the JSON `results` array.
 - If `results` is non-empty: ground the answer exclusively in vault content. Apply Rule 2.
 - If `results` is empty: answer from training data, then apply Rule 6.
 
-Do not answer knowledge questions without first invoking `context.sh`.
+Do not answer knowledge questions without first invoking `nerv context`.
 
 ---
 
@@ -41,10 +41,10 @@ Do not answer from vault context without citing at least one source path.
 
 ### Rule 3 — Note creation
 
-When the user asks to save, create, capture, or add a note or concept, invoke `create-entity.sh` exclusively. Do not create notes via any other mechanism.
+When the user asks to save, create, capture, or add a note or concept, invoke `nerv create-entity` exclusively. Do not create notes via any other mechanism.
 
 ```bash
-create-entity.sh study <project> <TYPE> <slug> "<Title>" <parent_slug> <kind> [<spine>] [--json]
+nerv create-entity study <project> <TYPE> <slug> "<Title>" <parent_slug> <kind> [<spine>] [--json]
 ```
 
 - TYPE inference: use `LEAF` for atomic, self-contained concepts; use `BRANCH` when the content implies sub-topics or would have child notes.
@@ -54,10 +54,10 @@ create-entity.sh study <project> <TYPE> <slug> "<Title>" <parent_slug> <kind> [<
 
 ### Rule 4 — Connections
 
-When the user asks to link, connect, wire, relate, or associate two notes, invoke `add-connection.sh`. Do not write connection lines manually.
+When the user asks to link, connect, wire, relate, or associate two notes, invoke `nerv add-connection`. Do not write connection lines manually.
 
 ```bash
-add-connection.sh study <source_path> <rel_type> <target_path> [--bidirectional]
+nerv add-connection study <source_path> <rel_type> <target_path> [--bidirectional]
 ```
 
 Use `--bidirectional` when the relationship is symmetric or when the user asks to link both directions. Warn the user if the source note already has 7 connections (the top-K limit).
@@ -66,10 +66,10 @@ Use `--bidirectional` when the relationship is symmetric or when the user asks t
 
 ### Rule 5 — Review requests
 
-When the user asks for a review, audit, weekly summary, or health check, invoke `weekly-review.sh --json`.
+When the user asks for a review, audit, weekly summary, or health check, invoke `nerv weekly-review --json`.
 
 ```bash
-weekly-review.sh study [<project_slug>] --json
+nerv weekly-review study [<project_slug>] --json
 ```
 
 Triage the `findings` array by severity in this order: broken links → missing inverses → lint violations → stale drafts. Offer a programmatic fix for each category found.
@@ -80,7 +80,7 @@ Triage the `findings` array by severity in this order: broken links → missing 
 
 When answering from training data (Rule 1 returned empty results), after delivering the answer, offer: _"Would you like me to save this to your vault?"_
 
-If the user agrees, invoke `create-entity.sh` per Rule 3. Suggest an appropriate project, type, and parent based on the topic.
+If the user agrees, invoke `nerv create-entity` per Rule 3. Suggest an appropriate project, type, and parent based on the topic.
 
 ---
 
@@ -88,10 +88,10 @@ If the user agrees, invoke `create-entity.sh` per Rule 3. Suggest an appropriate
 
 Copy-pasteable command signatures for the 5 most-frequently invoked skills.
 
-| Intent             | Command                                                                                        |
-| ------------------ | ---------------------------------------------------------------------------------------------- |
-| Knowledge question | `context.sh study "<query>" [<limit>]`                                                         |
-| Get note detail    | `get-entity.sh study "<search-term>"`                                                          |
-| Create note        | `create-entity.sh study <project> LEAF <slug> "<Title>" <parent_slug> <kind> [<spine>] --json` |
-| Add connection     | `add-connection.sh study <source_path> <rel_type> <target_path> [--bidirectional]`             |
-| Weekly review      | `weekly-review.sh study [<project_slug>] --json`                                               |
+| Intent             | Command                                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------ |
+| Knowledge question | `nerv context study "<query>" [<limit>]`                                                         |
+| Get note detail    | `nerv get-entity study "<search-term>"`                                                          |
+| Create note        | `nerv create-entity study <project> LEAF <slug> "<Title>" <parent_slug> <kind> [<spine>] --json` |
+| Add connection     | `nerv add-connection study <source_path> <rel_type> <target_path> [--bidirectional]`             |
+| Weekly review      | `nerv weekly-review study [<project_slug>] --json`                                               |
