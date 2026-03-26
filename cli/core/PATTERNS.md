@@ -349,3 +349,426 @@ obsidian eval vault=study code="
 
 > **See also**: `obsidian_docs.md` v11 §21 for the full LEAF → BRANCH promotion workflow
 > which composes Patterns 2, 4 in sequence.
+
+---
+
+## Simple Operations — Direct CLI Commands
+
+These commands are one-shot reads, writes, or queries that need no JavaScript closure.
+Use them when a single step is sufficient. Use `obsidian eval` only when two or more
+steps must execute atomically inside a single JS closure.
+
+### Decision Boundary
+
+> **Rule**: Use a direct command when the operation is a single read, write, or query
+> with no dependent steps. Use `eval` when two or more steps must execute atomically
+> in a single JS closure.
+
+Examples that belong to direct commands:
+
+- Read a note body → `obsidian read`
+- Append a line to a note → `obsidian append`
+- Search for a keyword → `obsidian search`
+
+Examples that require `eval`:
+
+- Read frontmatter **then** write back a modified field (two steps, must be atomic)
+- Append a connection **then** append the inverse to the target (two notes, one transaction)
+- Check existence **then** create only if absent (conditional create)
+
+> [!warning] Anti-pattern: chaining direct commands as a substitute for eval
+>
+> ```bash
+> # BAD: two shell calls are not atomic — the second can fail after the first succeeds
+> obsidian read file="Source" | parse_connections
+> obsidian append file="Target" content="- inverse :: [[Source]]"
+> ```
+>
+> Use a single `eval` closure instead so both writes happen in the same JS event-loop tick.
+
+---
+
+### Quick-Reference Table
+
+| Command        | Primary use case                                | Group      |
+| -------------- | ----------------------------------------------- | ---------- |
+| `read`         | Read a note's full Markdown body                | File I/O   |
+| `create`       | Create a new note with optional initial content | File I/O   |
+| `append`       | Append text to the end of an existing note      | File I/O   |
+| `property:set` | Set a single frontmatter property by key        | File I/O   |
+| `search`       | Full-text search across all vault notes         | Search     |
+| `backlinks`    | List all notes that link to a given note        | Search     |
+| `tags`         | List all tags used across the vault             | Search     |
+| `files`        | List vault files with optional sort and limit   | Search     |
+| `unresolved`   | List all unresolved wikilinks in the vault      | Search     |
+| `daily:read`   | Read today's daily note body                    | Daily Note |
+| `daily:append` | Append text to today's daily note               | Daily Note |
+| `tasks`        | List open tasks (checkboxes) across the vault   | Daily Note |
+
+---
+
+### File I/O
+
+#### `obsidian read`
+
+Read the full Markdown body of a note.
+
+```
+obsidian read vault=<name> file="<note name or path>"
+```
+
+| Parameter | Required | Description                                     |
+| --------- | -------- | ----------------------------------------------- |
+| `vault`   | yes      | Vault name                                      |
+| `file`    | yes      | Wikilink-style note name or vault-relative path |
+
+**Example**
+
+```bash
+obsidian read vault=study file="AWS.ROOT - Amazon Web Services"
+```
+
+**Example output** (truncated)
+
+```
+---
+title: "Amazon Web Services"
+type: ROOT
+...
+---
+
+## Summary
+
+Cloud infrastructure platform...
+```
+
+**When to use `eval` instead**: when you need to read frontmatter _and_ modify it
+in the same operation — use `processFrontMatter` (Pattern 2) for atomic updates.
+
+---
+
+#### `obsidian create`
+
+Create a new note with optional initial content. Exits 0 even if the note already exists
+(idempotent by default).
+
+```
+obsidian create vault=<name> name="<note name>" [content="<body>"]
+```
+
+| Parameter | Required | Description                           |
+| --------- | -------- | ------------------------------------- |
+| `vault`   | yes      | Vault name                            |
+| `name`    | yes      | Note name (no `.md` extension needed) |
+| `content` | no       | Initial Markdown body                 |
+
+**Example**
+
+```bash
+obsidian create vault=study name="AWS.vpc - VPC" content="## Summary\n\nVirtual network."
+```
+
+**When to use `eval` instead**: when creation must be conditional (check first, create only
+if absent) or when you must also update a parent's `children` array atomically.
+
+---
+
+#### `obsidian append`
+
+Append text to the end of an existing note.
+
+```
+obsidian append vault=<name> file="<note name>" content="<text>"
+```
+
+| Parameter | Required | Description              |
+| --------- | -------- | ------------------------ |
+| `vault`   | yes      | Vault name               |
+| `file`    | yes      | Target note name or path |
+| `content` | yes      | Text to append           |
+
+**Example**
+
+```bash
+obsidian append vault=study file="AWS.ROOT - Amazon Web Services" \
+  content="- See also: [[AWS.vpc - VPC]]"
+```
+
+**When to use `eval` instead**: when you need to append to a _specific named section_
+(e.g. `## Connections`) rather than the end of the file — use `vault.process` (Pattern 3).
+
+---
+
+#### `obsidian property:set`
+
+Set a single frontmatter property without touching the rest of the document.
+
+```
+obsidian property:set vault=<name> file="<note name>" key=<property> value=<value>
+```
+
+| Parameter | Required | Description                                  |
+| --------- | -------- | -------------------------------------------- |
+| `vault`   | yes      | Vault name                                   |
+| `file`    | yes      | Target note name or path                     |
+| `key`     | yes      | Frontmatter property name (no quotes needed) |
+| `value`   | yes      | New value (string; wrap arrays in `eval`)    |
+
+**Example**
+
+```bash
+obsidian property:set vault=study file="AWS.ec2 - EC2" key=status value=stable
+```
+
+**When to use `eval` instead**: when setting multiple properties at once (use
+`processFrontMatter` with a single callback — Pattern 2) or when the value is a YAML array.
+
+---
+
+### Search & Query
+
+#### `obsidian search`
+
+Full-text search across all vault notes. Returns a list of matching note paths.
+
+```
+obsidian search vault=<name> query="<keyword or phrase>"
+```
+
+| Parameter | Required | Description                       |
+| --------- | -------- | --------------------------------- |
+| `vault`   | yes      | Vault name                        |
+| `query`   | yes      | Search term (plain text or regex) |
+
+**Example**
+
+```bash
+obsidian search vault=study query="VPC peering"
+```
+
+**Example output**
+
+```
+projects/aws/AWS.vpc - VPC.md
+projects/aws/AWS.tgw - Transit Gateway.md
+```
+
+**When to use `eval` instead**: when you need to score or rank results by relevance,
+or when you need frontmatter fields alongside the search results — use `context.sh`.
+
+---
+
+#### `obsidian backlinks`
+
+List all notes that contain a wikilink pointing to a given note.
+
+```
+obsidian backlinks vault=<name> file="<note name>"
+```
+
+| Parameter | Required | Description              |
+| --------- | -------- | ------------------------ |
+| `vault`   | yes      | Vault name               |
+| `file`    | yes      | Target note name or path |
+
+**Example**
+
+```bash
+obsidian backlinks vault=study file="AWS.vpc - VPC"
+```
+
+**Example output**
+
+```
+projects/aws/AWS.ec2 - EC2.md
+projects/aws/AWS.tgw - Transit Gateway.md
+```
+
+**When to use `eval` instead**: when you need to inspect the _content_ of each backlink
+(e.g. extract the relationship type from the Connections section).
+
+---
+
+#### `obsidian tags`
+
+List all tags used across the vault with occurrence counts.
+
+```
+obsidian tags vault=<name>
+```
+
+| Parameter | Required | Description |
+| --------- | -------- | ----------- |
+| `vault`   | yes      | Vault name  |
+
+**Example**
+
+```bash
+obsidian tags vault=study
+```
+
+**Example output**
+
+```
+#concept  42
+#service  18
+#draft    11
+```
+
+**When to use `eval` instead**: never — tag listing is always a one-shot query.
+
+---
+
+#### `obsidian files`
+
+List vault files with optional sort order and result limit.
+
+```
+obsidian files vault=<name> [sort=<field>] [limit=<n>]
+```
+
+| Parameter | Required | Description                                         |
+| --------- | -------- | --------------------------------------------------- |
+| `vault`   | yes      | Vault name                                          |
+| `sort`    | no       | Sort field: `modified` (default), `created`, `name` |
+| `limit`   | no       | Maximum number of results (default: all)            |
+
+**Example**
+
+```bash
+obsidian files vault=study sort=modified limit=10
+```
+
+**Example output**
+
+```
+projects/aws/AWS.ec2 - EC2.md
+projects/aws/AWS.vpc - VPC.md
+...
+```
+
+**When to use `eval` instead**: when you need to filter by folder, frontmatter field,
+or apply custom scoring — use `app.vault.getMarkdownFiles()` inside an eval closure.
+
+---
+
+#### `obsidian unresolved`
+
+List all unresolved wikilinks (links to notes that do not exist) across the vault.
+
+```
+obsidian unresolved vault=<name>
+```
+
+| Parameter | Required | Description |
+| --------- | -------- | ----------- |
+| `vault`   | yes      | Vault name  |
+
+**Example**
+
+```bash
+obsidian unresolved vault=study
+```
+
+**Example output**
+
+```
+[[AWS.lambda - Lambda]]  ← referenced in AWS.ec2 - EC2.md
+[[AWS.rds - RDS]]        ← referenced in AWS.vpc - VPC.md
+```
+
+**When to use `eval` instead**: when you need to resolve each unresolved link's source
+note(s) programmatically — use `app.metadataCache.unresolvedLinks` in an eval closure.
+
+---
+
+### Daily Note
+
+#### `obsidian daily:read`
+
+Read today's daily note body.
+
+```
+obsidian daily:read vault=<name>
+```
+
+| Parameter | Required | Description |
+| --------- | -------- | ----------- |
+| `vault`   | yes      | Vault name  |
+
+**Example**
+
+```bash
+obsidian daily:read vault=study
+```
+
+**When to use `eval` instead**: when you need to parse specific sections of the daily note
+or extract structured data from its body.
+
+---
+
+#### `obsidian daily:append`
+
+Append text to today's daily note. Creates the daily note if it does not yet exist.
+
+```
+obsidian daily:append vault=<name> content="<text>"
+```
+
+| Parameter | Required | Description    |
+| --------- | -------- | -------------- |
+| `vault`   | yes      | Vault name     |
+| `content` | yes      | Text to append |
+
+**Example**
+
+```bash
+obsidian daily:append vault=study content="- weekly-review complete: 0 issues"
+```
+
+**When to use `eval` instead**: when you need to append to a _specific named section_
+within the daily note rather than the end of the file.
+
+---
+
+#### `obsidian tasks`
+
+List open tasks (unchecked `- [ ]` checkboxes) across the vault.
+
+```
+obsidian tasks vault=<name>
+```
+
+| Parameter | Required | Description |
+| --------- | -------- | ----------- |
+| `vault`   | yes      | Vault name  |
+
+**Example**
+
+```bash
+obsidian tasks vault=study
+```
+
+**Example output**
+
+```
+- [ ] Review EC2 pricing model  (projects/aws/AWS.ec2 - EC2.md)
+- [ ] Add VPC peering diagram   (projects/aws/AWS.vpc - VPC.md)
+```
+
+**When to use `eval` instead**: when you need to filter tasks by due date, tag, or
+frontmatter field — use `app.vault.getMarkdownFiles()` with body parsing in an eval closure.
+
+---
+
+### Post-Registration Verification Checklist
+
+After registering the Obsidian CLI skill, run each command against the test vault to
+confirm exit 0:
+
+1. `obsidian read vault=<name> file="<any note>"` — exits 0, prints note body
+2. `obsidian search vault=<name> query="test"` — exits 0, prints matching paths (may be empty)
+3. `obsidian backlinks vault=<name> file="<any note>"` — exits 0, prints backlink list
+4. `obsidian tags vault=<name>` — exits 0, prints tag list
+5. `obsidian unresolved vault=<name>` — exits 0, prints unresolved links (may be empty)
+6. `obsidian files vault=<name> sort=modified limit=5` — exits 0, prints up to 5 paths
