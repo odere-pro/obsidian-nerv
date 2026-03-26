@@ -7,6 +7,10 @@
 #
 # Runs in sequence:
 #   cli-lint → cli-orphans → cli-relations → sync-ontology → sync-vocab → sync-topk
+#   → obsidian tags (step 7) → obsidian unresolved (step 8)
+#
+# Steps 7–8 use direct CLI commands (STORY-027 decision boundary).
+# Falls back gracefully if the command is unavailable.
 #
 # Then appends a timestamped summary to today's daily note under
 # ## Ontology Work Log.
@@ -16,9 +20,12 @@
 #
 # JSON schema (--json):
 #   {"lint":{"issues":N},"orphans":{"issues":N},"relations":{"unknown":N},
-#    "ontology":{"missingInverses":N},"unresolved":0}
+#    "ontology":{"missingInverses":N},
+#    "tags":{"total":N,"top":[{"tag":"...","count":N}]},
+#    "unresolved":N}
 #
 # STORY-015 — Implement weekly-review.sh and morning.sh orchestration skills
+# STORY-029 — Integrate native CLI diagnostics (tags + unresolved steps)
 # Requires: lib.sh, all sub-skills, Obsidian running (Limitation L1).
 
 set -uo pipefail
@@ -111,18 +118,47 @@ vocab_out="$(bash "$SYNC_VOCAB" "$VAULT" "$PROJECT_SLUG" 2>&1)" \
 topk_out="$(bash "$SYNC_TOPK" "$VAULT" "$PROJECT_SLUG" 2>&1)" \
   || { [[ -z "$FAILED_CMD" ]] && FAILED_CMD="sync-topk"; }
 
+# Step 7: obsidian tags sort=count counts (direct CLI; fallback gracefully)
+tags_json='{"total":0,"top":[]}'
+if tags_raw="$(obsidian tags vault="$VAULT" sort=count counts 2>/dev/null)"; then
+  tags_json="$(python3 - "$tags_raw" <<'PYEOF'
+import sys, json, re
+lines = [l.strip() for l in sys.argv[1].strip().splitlines() if l.strip()]
+top = []
+for line in lines:
+    # expected format: "#tag  N" or "tag  N"
+    m = re.match(r'^#?(\S+)\s+(\d+)$', line)
+    if m:
+        top.append({"tag": "#" + m.group(1), "count": int(m.group(2))})
+print(json.dumps({"total": len(top), "top": top[:10]}))
+PYEOF
+  )" || tags_json='{"total":0,"top":[]}'
+else
+  printf 'WARN: [weekly-review] obsidian tags unavailable, skipping tag distribution\n' >&2
+fi
+
+# Step 8: obsidian unresolved (direct CLI; fallback to 0)
+unresolved_count=0
+if unresolved_raw="$(obsidian unresolved vault="$VAULT" 2>/dev/null)"; then
+  unresolved_count="$(printf '%s' "$unresolved_raw" | grep -c '\[\[' 2>/dev/null || echo 0)"
+else
+  printf 'WARN: [weekly-review] obsidian unresolved unavailable, skipping\n' >&2
+fi
+
 # ---------------------------------------------------------------------------
 # Output
 # ---------------------------------------------------------------------------
 if $JSON_OUTPUT; then
-  python3 - "$lint_issues" "$orphan_issues" "$rel_unknown" "$ont_missing" <<'PYEOF'
+  python3 - "$lint_issues" "$orphan_issues" "$rel_unknown" "$ont_missing" \
+            "$tags_json" "$unresolved_count" <<'PYEOF'
 import json, sys
 print(json.dumps({
     "lint":      {"issues": int(sys.argv[1])},
     "orphans":   {"issues": int(sys.argv[2])},
     "relations": {"unknown": int(sys.argv[3])},
     "ontology":  {"missingInverses": int(sys.argv[4])},
-    "unresolved": 0
+    "tags":      json.loads(sys.argv[5]),
+    "unresolved": int(sys.argv[6])
 }))
 PYEOF
 else
@@ -132,6 +168,10 @@ else
   printf '[weekly-review] ontology: %s missing inverse(s)\n' "$ont_missing"
   printf '[weekly-review] vocab: updated\n'
   printf '[weekly-review] topk: updated\n'
+  tags_total="$(python3 -c "import json,sys; print(json.loads(sys.argv[1]).get('total',0))" \
+    "$tags_json" 2>/dev/null || echo 0)"
+  printf '[weekly-review] tags: %s unique tag(s)\n' "$tags_total"
+  printf '[weekly-review] unresolved: %s wikilink(s)\n' "$unresolved_count"
 
   # Append summary to daily note (best-effort)
   SUMMARY="## Ontology Work Log
@@ -140,6 +180,8 @@ else
 - orphans: ${orphan_issues} issue(s)
 - relations: ${rel_unknown} unknown type(s)
 - ontology: ${ont_missing} missing inverse(s)
+- tags: ${tags_total} unique tag(s)
+- unresolved: ${unresolved_count} wikilink(s)
 - Review complete: ${TIMESTAMP}"
 
   daily_append "$VAULT" "$SUMMARY" > /dev/null 2>&1 || true

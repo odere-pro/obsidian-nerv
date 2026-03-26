@@ -14,6 +14,11 @@
 #   lowLinkCount  — ROOT or BRANCH notes with < 2 typed connections
 #   unresolvedLinks — notes containing broken wikilinks
 #
+# Pre-check: calls `obsidian unresolved` as a fast-path check before the
+# main eval pass. If unresolved count is 0 the per-note wikilink loop is
+# skipped (O(1) instead of O(n×links)). Falls back gracefully if the
+# direct command is unavailable.
+#
 # Output schema:
 #   {
 #     "stubs":          [{"note":"...","words":N}],
@@ -27,6 +32,7 @@
 # Exit codes: 0 always (findings reported in JSON).
 #
 # STORY-019 — Implement get-knowledge-gap.sh and explain-topic.sh sensory skills
+# STORY-029 — Integrate native CLI diagnostics (obsidian unresolved pre-check)
 # Requires: lib.sh, Obsidian running (Limitation L1).
 
 set -uo pipefail
@@ -55,13 +61,31 @@ json_str() { python3 -c "import json,sys; print(json.dumps(sys.argv[1]))" "$1"; 
 js_slug="$(json_str "$PROJECT_SLUG")"
 
 # ---------------------------------------------------------------------------
+# Pre-check: obsidian unresolved (direct CLI command, STORY-029)
+# If count == 0 we skip the per-note wikilink resolution loop in the eval.
+# Falls back to skip=false (run the loop) when the command is unavailable.
+# ---------------------------------------------------------------------------
+SKIP_UNRESOLVED_LOOP=false
+if unresolved_raw="$(obsidian unresolved vault="$VAULT" 2>/dev/null)"; then
+  unresolved_precheck="$(printf '%s' "$unresolved_raw" | grep -c '\[\[' 2>/dev/null || echo 1)"
+  if [[ "$unresolved_precheck" -eq 0 ]]; then
+    SKIP_UNRESOLVED_LOOP=true
+  fi
+else
+  printf 'WARN: get-knowledge-gap: obsidian unresolved unavailable, running full wikilink scan\n' >&2
+fi
+
+js_skip_unresolved="$([ "$SKIP_UNRESOLVED_LOOP" = true ] && echo 'true' || echo 'false')"
+
+# ---------------------------------------------------------------------------
 # Single-eval gap analysis IIFE — all checks in one pass for performance.
-# Heredoc with __SLUG__ placeholder; substituted after.
+# Heredoc with __SLUG__ and __SKIP_UNRESOLVED__ placeholders; substituted after.
 # ---------------------------------------------------------------------------
 # shellcheck disable=SC2016
 GAP_JS=$(cat <<'JSEOF'
 (async () => {
-  var slug    = __SLUG__;
+  var slug             = __SLUG__;
+  var skipUnresolved   = __SKIP_UNRESOLVED__;
   var projDir = 'projects/' + slug;
 
   var REQUIRED = ['title', 'type', 'kind', 'spine', 'status', 'created', 'aliases'];
@@ -138,18 +162,20 @@ GAP_JS=$(cat <<'JSEOF'
       lowLinkCount.push({ note: f.basename, links: typedConns });
     }
 
-    // --- Unresolved wikilinks ---
-    var linkRe = /\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g;
-    var broken = [];
-    var lm;
-    while ((lm = linkRe.exec(bodyText)) !== null) {
-      var target = lm[1].trim();
-      if (!app.metadataCache.getFirstLinkpathDest(target, f.path)) {
-        broken.push('[[' + lm[1] + ']]');
+    // --- Unresolved wikilinks (skipped when obsidian unresolved pre-check returned 0) ---
+    if (!skipUnresolved) {
+      var linkRe = /\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g;
+      var broken = [];
+      var lm;
+      while ((lm = linkRe.exec(bodyText)) !== null) {
+        var target = lm[1].trim();
+        if (!app.metadataCache.getFirstLinkpathDest(target, f.path)) {
+          broken.push('[[' + lm[1] + ']]');
+        }
       }
-    }
-    if (broken.length > 0) {
-      unresolvedLinks.push({ note: f.basename, broken: broken });
+      if (broken.length > 0) {
+        unresolvedLinks.push({ note: f.basename, broken: broken });
+      }
     }
   }
 
@@ -166,6 +192,7 @@ JSEOF
 )
 
 GAP_JS="${GAP_JS/__SLUG__/${js_slug}}"
+GAP_JS="${GAP_JS/__SKIP_UNRESOLVED__/${js_skip_unresolved}}"
 
 # ---------------------------------------------------------------------------
 # Run

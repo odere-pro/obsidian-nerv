@@ -509,4 +509,31 @@ print('migrate.sh ' + sys.argv[2] + ': ' + '; '.join(parts))
   rollback_log "$VAULT" "migrate.sh ${PROJECT_SLUG}" "$rollback_summary" 2>/dev/null || true
 fi
 
+# ---------------------------------------------------------------------------
+# Post-migration verification (direct CLI commands, STORY-029)
+# Skipped in dry-run mode. Failures are warnings, not errors.
+# ---------------------------------------------------------------------------
+if ! $DRY_RUN; then
+  # obsidian unresolved — warn if new broken links detected after migration
+  if unresolved_post="$(obsidian unresolved vault="$VAULT" 2>/dev/null)"; then
+    unresolved_count="$(printf '%s' "$unresolved_post" | grep -c '\[\[' 2>/dev/null || echo 0)"
+    if [[ "$unresolved_count" -gt 0 ]]; then
+      printf 'WARN: migrate: %s unresolved wikilink(s) detected after migration — review with get-knowledge-gap.sh\n' \
+        "$unresolved_count" >&2
+    else
+      printf 'migrate: post-migration unresolved check: 0 broken links\n'
+    fi
+  else
+    printf 'WARN: migrate: obsidian unresolved unavailable, skipping post-migration link check\n' >&2
+  fi
+
+  # obsidian tags — report tag distribution after migration
+  if tags_post="$(obsidian tags vault="$VAULT" sort=count counts 2>/dev/null)"; then
+    tag_count="$(printf '%s' "$tags_post" | grep -c '.' 2>/dev/null || echo 0)"
+    printf 'migrate: post-migration tag check: %s unique tag(s) in vault\n' "$tag_count"
+  else
+    printf 'WARN: migrate: obsidian tags unavailable, skipping post-migration tag check\n' >&2
+  fi
+fi
+
 exit 0
