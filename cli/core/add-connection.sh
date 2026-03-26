@@ -86,7 +86,7 @@ LOOKUP_JS=$(cat <<'JSEOF'
     var line = lines[i];
     if (line.charAt(0) !== '|') continue;
     // table: | type | description | inverse | symmetric |
-    var cols = line.split('|').map(function(c) { return c.trim().replace(/`/g, ''); });
+    var cols = line.split('|').map(function(c) { return c.trim().replace(/\x60/g, ''); });
     if (cols[1] === relType) {
       inverse   = cols[3] || '';
       symmetric = (cols[4] || '').toLowerCase() === 'yes';
