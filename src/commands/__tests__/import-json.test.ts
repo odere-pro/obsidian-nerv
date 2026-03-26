@@ -7,11 +7,11 @@ import { describe, expect, test, mock, beforeEach } from 'bun:test';
 // Mock obsidian.ts before importing the command
 // ---------------------------------------------------------------------------
 const mockObEval = mock(async (_vault: string, _expr: string): Promise<string> => 'absent');
-const mockDailyAppend = mock(async () => undefined);
-const mockRollbackLog = mock(async () => undefined);
+const mockDailyAppend = mock(async (): Promise<void> => undefined);
+const mockRollbackLog = mock(async (): Promise<void> => undefined);
 
 mock.module('../../lib/obsidian.ts', () => ({
-  resolveVault: async (arg?: string) => arg ?? 'test-vault',
+  resolveVault: async (arg?: string): Promise<string> => arg ?? 'test-vault',
   obEval: mockObEval,
   dailyAppend: mockDailyAppend,
   rollbackLog: mockRollbackLog,

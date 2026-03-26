@@ -9,10 +9,10 @@ import { describe, expect, test, mock, beforeEach } from 'bun:test';
 const mockObEval = mock(async (_vault: string, _expr: string): Promise<string> => '');
 
 mock.module('../../lib/obsidian.ts', () => ({
-  resolveVault: async (arg?: string) => arg ?? 'test-vault',
+  resolveVault: async (arg?: string): Promise<string> => arg ?? 'test-vault',
   obEval: mockObEval,
-  dailyAppend: mock(async () => undefined),
-  rollbackLog: mock(async () => undefined),
+  dailyAppend: mock(async (): Promise<void> => undefined),
+  rollbackLog: mock(async (): Promise<void> => undefined),
 }));
 
 const { addConnection } = await import('../add-connection.ts');
