@@ -4,15 +4,141 @@ An agentic knowledge nervous system: a multi-vault Obsidian v11 framework wired 
 
 ## Status
 
-| Story     | Title                                | Status                        |
-| --------- | ------------------------------------ | ----------------------------- |
-| STORY-001 | Bootstrap vault environment          | ✅ Complete                   |
-| STORY-002 | Register CLI and verify manual setup | ⚠️ Partial — GUI steps remain |
-| STORY-003 | Implement core library (lib.sh)      | 🔄 In progress                |
+### Phase 1–5 — Foundation and Bash Skill Layer
+
+| Story     | Title                                             | Status      |
+| --------- | ------------------------------------------------- | ----------- |
+| STORY-001 | Bootstrap vault environment                       | ✅ Complete |
+| STORY-002 | Register CLI and verify manual setup              | ✅ Complete |
+| STORY-003 | Implement core library (`lib.sh`)                 | ✅ Complete |
+| STORY-004 | Build incremental test harness                    | ✅ Complete |
+| STORY-005 | `create-project.sh` motor skill                   | ✅ Complete |
+| STORY-006 | `create-entity.sh` motor skill                    | ✅ Complete |
+| STORY-007 | `add-connection.sh` motor skill                   | ✅ Complete |
+| STORY-008 | `import-json.sh` motor skill                      | ✅ Complete |
+| STORY-009 | `cli-lint.sh` reflex skill                        | ✅ Complete |
+| STORY-010 | `cli-orphans.sh` reflex skill                     | ✅ Complete |
+| STORY-011 | `cli-relations.sh` reflex skill                   | ✅ Complete |
+| STORY-012 | `migrate.sh` schema migration skill               | ✅ Complete |
+| STORY-013 | `sync-topk.sh` autonomic skill                    | ✅ Complete |
+| STORY-014 | `sync-ontology.sh`, `sync-vocab.sh`               | ✅ Complete |
+| STORY-015 | `weekly-review.sh`, `morning.sh`                  | ✅ Complete |
+| STORY-016 | `context.sh` primary sensory skill                | ✅ Complete |
+| STORY-017 | `get-entity.sh` sensory skill                     | ✅ Complete |
+| STORY-018 | `get-tree.sh` sensory skill                       | ✅ Complete |
+| STORY-019 | `get-knowledge-gap.sh`, `explain-topic.sh`        | ✅ Complete |
+| STORY-020 | Agent skill registry (`skills.md`)                | ✅ Complete |
+| STORY-021 | Auditor subagent (`CLAUDE.md`)                    | ✅ Complete |
+| STORY-022 | Study vault skills (quiz, coverage, progress)     | ✅ Complete |
+| STORY-023 | Dev vault skills (adr, dependency-map, code-link) | ✅ Complete |
+| STORY-024 | E2E test suite                                    | ✅ Complete |
+
+### Phase 6 — EPIC-009: CLI Skill Integration
+
+| Story     | Title                                                      | Status      |
+| --------- | ---------------------------------------------------------- | ----------- |
+| STORY-027 | Document direct CLI commands in `PATTERNS.md`              | ✅ Complete |
+| STORY-028 | Register CLI command inventory in `skills.md`              | ✅ Complete |
+| STORY-029 | Integrate native CLI diagnostics into orchestration skills | ✅ Complete |
+| STORY-030 | Plugin development cycle in `dev-projectA/CLAUDE.md`       | ✅ Complete |
+
+### Phase 7 — EPIC-010: Production Grade: Bun Migration
+
+| Story     | Title                                                | Status      |
+| --------- | ---------------------------------------------------- | ----------- |
+| STORY-031 | Bun CLI foundation — `src/cli.ts`, types, core lib   | ✅ Complete |
+| STORY-032 | Extract note templates as typed TypeScript functions | ✅ Complete |
 
 ---
 
-## bootstrap-vault.sh
+## Architecture
+
+```
+VAULT (persistent knowledge store)
+  └── Obsidian v11 typed ontology — notes, connections, frontmatter
+
+CLI SKILL LAYER (bash nervous system I/O)
+  ├── Motor skills    — create-project, create-entity, add-connection, import-json
+  ├── Sensory skills  — context.sh, get-entity, get-tree, explain-topic
+  ├── Reflex skills   — cli-lint, cli-orphans, cli-relations
+  └── Autonomic skills— sync-vocab, sync-topk, sync-ontology, weekly-review
+
+TYPESCRIPT LAYER (production Bun CLI — EPIC-010)
+  ├── src/cli.ts      — nerv binary entry point and subcommand dispatcher
+  ├── src/types/      — EntityType, NoteEntity, ProjectConfig, Connection, CommandResult
+  ├── src/lib/        — obsidian.ts, shell.ts, logger.ts, json.ts (port of lib.sh)
+  └── src/templates/  — typed render functions for all note templates
+
+SKILL REGISTRY + AGENT LAYER
+  ├── cli/agent/skills.md         — full command inventory with intent triggers
+  ├── cli/agent/patterns.md       — subagent decision trees
+  ├── cli/core/PATTERNS.md        — eval primitives + direct CLI command reference
+  └── cli/agent/dev-projectA/CLAUDE.md — dev vault agent config and plugin dev cycle
+
+DIRECT CLI COMMANDS (EPIC-009)
+  ├── File I/O  — read, create, append, property:set
+  ├── Search    — search, backlinks, tags, files, unresolved
+  ├── Daily     — daily:read, daily:append, tasks
+  └── Plugin Dev— plugin:reload, dev:errors, dev:console, dev:screenshot, dev:dom, dev:css, dev:mobile
+```
+
+---
+
+## TypeScript / Bun CLI (`nerv`)
+
+Phase 7 (EPIC-010) establishes a production-grade TypeScript layer that mirrors the Bash skill layer. The compiled `nerv` binary replaces ad-hoc `bun run` invocations with a single self-contained executable.
+
+### Build
+
+```bash
+bun install
+bun run build          # produces bin/nerv
+nerv --version         # prints package.json version
+```
+
+### Test
+
+```bash
+bun test               # all tests
+bun run test:unit      # src/ unit tests only (no Obsidian required)
+bun run test:integration  # requires .env.integration with OBSIDIAN_RUNNING=1
+```
+
+### TypeScript modules
+
+| Path                      | Description                                                       |
+| ------------------------- | ----------------------------------------------------------------- |
+| `src/cli.ts`              | Entry point; routes `process.argv[2]` to `src/commands/<name>.ts` |
+| `src/types/entity.ts`     | `EntityType`, `EntityStatus`, `NoteEntity` interface              |
+| `src/types/project.ts`    | `ProjectConfig`, `VaultRef`                                       |
+| `src/types/connection.ts` | `Connection`, `ConnectionLine`                                    |
+| `src/types/result.ts`     | Generic `CommandResult<T>`, `ExitCode`                            |
+| `src/lib/obsidian.ts`     | `resolveVault()`, `obEval()`, `dailyAppend()`, `rollbackLog()`    |
+| `src/lib/shell.ts`        | `spawnCapture()` with 30-second timeout and `ShellTimeoutError`   |
+| `src/lib/logger.ts`       | `logError()` (exits 1), `logWarn()`                               |
+| `src/lib/json.ts`         | `encodeForJs()`, `parseJson<T>()`                                 |
+
+### Note templates (`src/templates/`)
+
+Typed TypeScript render functions extracted from the Bash heredoc templates. All functions accept a typed parameter interface and return a complete Markdown string ready for `app.vault.create`.
+
+| Export                           | Template type              |
+| -------------------------------- | -------------------------- |
+| `renderLeaf(LeafParams)`         | `type: LEAF` note          |
+| `renderBranch(BranchParams)`     | `type: BRANCH` note        |
+| `renderRoot(RootParams)`         | `type: ROOT` note          |
+| `renderOntology(OntologyParams)` | Relationship type registry |
+| `renderVocab(VocabParams)`       | Vocabulary tracking table  |
+| `renderTopk(TopkParams)`         | Overflow log scaffold      |
+| `renderBase(BaseParams)`         | Bases YAML filter view     |
+
+> All render functions are re-exported from `src/templates/index.ts`.
+
+> **Security note**: `obEval()` accepts pre-built JS expressions only. Always use
+> `encodeForJs()` from `src/lib/json.ts` when embedding any user-supplied string
+> to prevent JS injection into the Obsidian runtime.
+
+---
 
 Provisions a complete Obsidian vault in a single idempotent command.
 

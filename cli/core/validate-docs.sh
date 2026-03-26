@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # validate-docs.sh — Documentation validation script for the Ontology CLI
 #
-# Runs every CLI example from docs/cli-guide.md against a live Obsidian vault
-# and confirms cross-references between the three documentation files.
+# Runs every CLI example from docs/cli-guide/ against a live Obsidian vault
+# and confirms cross-references between the documentation files.
 #
 # Usage:
 #   validate-docs.sh <vault> [--cross-refs-only]
@@ -34,7 +34,7 @@ if [[ -z "$REPO_ROOT" ]]; then
   # Running from ~/.ontology-cli/core/ — docs must be alongside
   REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 fi
-CLI_GUIDE="$REPO_ROOT/docs/cli-guide.md"
+CLI_GUIDE="$REPO_ROOT/docs/cli-guide/cli-guide-index.md"
 PATTERNS="$REPO_ROOT/cli/agent/patterns.md"
 CORE_DIR="$SCRIPT_DIR"
 DEV_DIR="$(cd "$SCRIPT_DIR/../dev" && pwd)"

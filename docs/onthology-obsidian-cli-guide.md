@@ -699,9 +699,9 @@ operation name, and partial state.
 
 ## Cross-References
 
-| Document                | Location                         | Contents                                             |
-| ----------------------- | -------------------------------- | ---------------------------------------------------- |
-| v11 framework reference | `docs/obsidian_documentation.md` | Obsidian features, CLI registration, vault structure |
-| This guide              | `docs/cli-guide.md`              | All CLI skill signatures, parameters, examples       |
-| Agent routing patterns  | `cli/agent/patterns.md`          | Subagent decision trees, skill registry, limitations |
-| Story plans             | `docs/plan/STORY-*.md`           | Per-story acceptance criteria, design notes          |
+| Document                | Location                            | Contents                                             |
+| ----------------------- | ----------------------------------- | ---------------------------------------------------- |
+| v11 framework reference | `docs/obsidian_documentation.md`    | Obsidian features, CLI registration, vault structure |
+| This guide              | `docs/cli-guide/cli-guide-index.md` | All CLI skill signatures, parameters, examples       |
+| Agent routing patterns  | `cli/agent/patterns.md`             | Subagent decision trees, skill registry, limitations |
+| Story plans             | `docs/plan/STORY-*.md`              | Per-story acceptance criteria, design notes          |
