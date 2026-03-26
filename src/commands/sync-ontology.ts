@@ -126,6 +126,38 @@ function buildUpdateDateExpr(slug: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Programmatic API
+// ---------------------------------------------------------------------------
+
+/** Run ontology health analysis for a project. Used by weekly-review. */
+export async function syncOntology(vault: string, slug: string): Promise<OntologyResult> {
+  const relResult = await getRelations(vault, slug).catch(() => ({
+    project: slug,
+    edges: [],
+    summary: {},
+    unknownTypes: [],
+  }));
+
+  const metaRaw = await obEval(vault, buildMetaFetchExpr(slug)).catch(() => '');
+  if (!metaRaw) throw new Error('sync-ontology: Obsidian not reachable or eval failed');
+
+  const meta = parseJson<OntologyMeta>(metaRaw);
+  if (!meta) throw new Error('sync-ontology: unexpected response from Obsidian');
+
+  const edges = relResult.edges;
+  const missingInverses = detectMissingInverses(edges).slice(0, 20);
+
+  await obEval(vault, buildUpdateDateExpr(slug)).catch(() => undefined);
+
+  return {
+    entities: meta.entities,
+    edges: edges.length,
+    missingInverses,
+    incomplete: meta.incomplete,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // CLI Command
 // ---------------------------------------------------------------------------
 

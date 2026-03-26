@@ -137,6 +137,22 @@ function buildFetchExpr(slug: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Programmatic API
+// ---------------------------------------------------------------------------
+
+/** Rebuild _vocab file for a project. Used by weekly-review. */
+export async function syncVocab(vault: string, slug: string): Promise<VocabResult> {
+  const raw = await obEval(vault, buildFetchExpr(slug)).catch(() => '');
+  if (!raw) throw new Error('sync-vocab: Obsidian not reachable or eval failed');
+  const notes = parseJson<VocabNote[]>(raw) ?? [];
+  const newBody = buildVocabContent(notes, slug);
+  await obEval(vault, buildSyncExpr(slug, newBody));
+  const entryCount = notes.filter(n => n.spine).length;
+  const orphanCount = notes.filter(n => !n.spine).length;
+  return { noteCount: notes.length, entryCount, orphanCount };
+}
+
+// ---------------------------------------------------------------------------
 // CLI Command
 // ---------------------------------------------------------------------------
 

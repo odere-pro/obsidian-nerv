@@ -160,6 +160,35 @@ function buildSyncExpr(slug: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Programmatic API
+// ---------------------------------------------------------------------------
+
+export interface TopkResult {
+  noteCount: number;
+  appended: number;
+  warning: string;
+}
+
+/** Run topk overflow detection and append rows. Used by weekly-review. */
+export async function syncTopk(vault: string, slug: string): Promise<TopkResult> {
+  const raw = await obEval(vault, buildSyncExpr(slug)).catch(() => '');
+  if (!raw) throw new Error('sync-topk: Obsidian not reachable or eval failed');
+  const data = parseJson<{
+    appended?: number;
+    warning?: string;
+    noteCount?: number;
+    error?: string;
+  }>(raw);
+  if (!data) throw new Error('sync-topk: unexpected response');
+  if (data.error) throw new Error(`sync-topk: ${data.error}`);
+  return {
+    noteCount: data.noteCount ?? 0,
+    appended: data.appended ?? 0,
+    warning: data.warning ?? '',
+  };
+}
+
+// ---------------------------------------------------------------------------
 // CLI Command
 // ---------------------------------------------------------------------------
 

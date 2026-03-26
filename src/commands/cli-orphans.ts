@@ -167,6 +167,18 @@ function buildFetchExpr(folder: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Programmatic API
+// ---------------------------------------------------------------------------
+
+/** Run orphan detection against a vault folder. Used by weekly-review. */
+export async function findOrphans(vault: string, folder: string): Promise<OrphanResult> {
+  const raw = await obEval(vault, buildFetchExpr(folder)).catch(() => '[]');
+  const rawNotes = parseJson<OrphanNoteData[]>(raw) ?? [];
+  const issues = detectOrphans(rawNotes);
+  return { issues, count: issues.length, noteCount: rawNotes.length };
+}
+
+// ---------------------------------------------------------------------------
 // CLI Command
 // ---------------------------------------------------------------------------
 
