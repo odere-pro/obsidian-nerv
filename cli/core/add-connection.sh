@@ -175,7 +175,7 @@ WRITE_JS=$(cat <<'JSEOF'
     }
     if (idx === -1) return {content: body, error: 'no ## Connections section'};
 
-    // Find end of connections section (next ## heading or EOF)
+    // Find end of connections section — stop at next ## heading or EOF
     var afterConn = body.indexOf('\n## ', idx + 1);
     var insertAt  = afterConn !== -1 ? afterConn : body.length;
 

@@ -93,7 +93,7 @@ ORPHANS_JS=$(cat <<'JSEOF'
         issues.push({ type: 'BROKEN', note: f.path,
           detail: 'parent "' + rawParent + '" not found' });
       } else {
-        // MISMATCH: parent exists but doesn't list this note as a child
+        // MISMATCH: parent exists but does not list this note as a child
         var pCache = app.metadataCache.getFileCache(parentFile);
         var pFm    = (pCache && pCache.frontmatter) ? pCache.frontmatter : {};
         var children = Array.isArray(pFm.children) ? pFm.children : [];
