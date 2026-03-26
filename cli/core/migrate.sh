@@ -485,12 +485,6 @@ else:
     print('Migration complete: {} total note(s) modified'.format(total))
 
 # Signal to bash whether rollback logging is needed
-if not dry_run and total > 0:
-    sys.stdout.write('__ROLLBACK_NEEDED__\n')
-    summary_parts = []
-    for r in data.get('ops', []):
-        summary_parts.append('{} {} note(s)'.format(r.get('op', '?'), r.get('count', 0)))
-    sys.stdout.write('__ROLLBACK_SUMMARY__' + '; '.join(summary_parts) + '\n')
 PYEOF
 exit_code=$?
 
