@@ -108,9 +108,207 @@ Present the `edges` array as a readable dependency table. Highlight nodes with h
 
 ---
 
+### Rule 9 — Plugin development and debugging
+
+When the user asks to test, debug, reload, or develop a plugin — "test my plugin", "reload the plugin", "debug plugin errors", "check the console", "why is my plugin broken" — execute the 4-step feedback cycle:
+
+1. **Edit** plugin source files as needed.
+2. **Reload**: `obsidian plugin:reload vault=dev-projectA plugin=<plugin-id>`
+3. **Verify**: run `obsidian dev:errors` — if errors exist, display them and stop. If none, run `obsidian dev:console | tail -20` for warnings.
+4. **Iterate or capture**: re-edit and repeat, or run `obsidian dev:screenshot` to capture a viewport image for documentation.
+
+Use `dev-cycle.sh` as the single-command shortcut for steps 2–4:
+
+```bash
+dev-cycle.sh dev-projectA <plugin-id> [--screenshot]
+```
+
+> **Important**: `<plugin-id>` is the **directory name** under `.obsidian/plugins/` — not the display name shown in Settings. Example: `my-plugin` not `My Plugin`. Passing the display name causes a silent no-op (exit 0, no reload).
+
+Do not attempt to diagnose plugin errors without first running `dev:errors`. Do not skip the reload step — stale plugin code will produce misleading error output.
+
+---
+
+## Plugin Development Cycle
+
+### 4-Step Feedback Cycle
+
+```
+Edit source → plugin:reload → dev:errors → dev:console → iterate
+                                   ↓ errors?
+                              display + stop
+```
+
+| Step | Command                                          | Purpose                              |
+| ---- | ------------------------------------------------ | ------------------------------------ |
+| 1    | _(edit source files)_                            | Make code changes                    |
+| 2    | `obsidian plugin:reload vault=<v> plugin=<id>`   | Hot-reload without restarting        |
+| 3a   | `obsidian dev:errors vault=<v>`                  | Check for JS errors; stop if present |
+| 3b   | `obsidian dev:console vault=<v>`                 | Review warnings and log output       |
+| 4    | `obsidian dev:screenshot vault=<v>` _(optional)_ | Capture visual evidence              |
+
+Shortcut for steps 2–4:
+
+```bash
+dev-cycle.sh dev-projectA <plugin-id>            # steps 2–4 without screenshot
+dev-cycle.sh dev-projectA <plugin-id> --screenshot  # steps 2–4 with screenshot
+```
+
+---
+
+### Dev Command Reference
+
+All 7 dev commands are direct CLI invocations — no `eval` needed (single-step operations per STORY-027 decision boundary).
+
+#### `obsidian plugin:reload`
+
+Hot-reload a plugin after source changes. Triggers the same internal `unload → load` sequence as the Settings toggle — no Obsidian restart required.
+
+```bash
+obsidian plugin:reload vault=<name> plugin=<plugin-id>
+```
+
+| Parameter | Required | Description                                      |
+| --------- | -------- | ------------------------------------------------ |
+| `vault`   | yes      | Vault name                                       |
+| `plugin`  | yes      | Plugin directory name under `.obsidian/plugins/` |
+
+**Example**
+
+```bash
+obsidian plugin:reload vault=dev-projectA plugin=my-custom-plugin
+```
+
+**Example output**: _(no output on success; non-zero exit on failure)_
+
+**When to use `eval` instead**: never — reload is always a single-step operation.
+
+> **Security**: validate `plugin` against `.obsidian/plugins/` contents before invocation to avoid triggering unexpected plugin load/unload cycles.
+
+---
+
+#### `obsidian dev:errors`
+
+Capture the current JavaScript error list from the running Obsidian instance.
+
+```bash
+obsidian dev:errors vault=<name>
+```
+
+**Example output** (errors present)
+
+```
+[Error] Uncaught TypeError: Cannot read property 'path' of undefined
+  at MyPlugin.onload (main.js:42)
+```
+
+**Example output** (no errors)
+
+```
+(no errors)
+```
+
+**When to use**: always immediately after `plugin:reload`. If errors are present, display them and stop — do not proceed to `dev:console`.
+
+---
+
+#### `obsidian dev:console`
+
+Stream console output (log, warn, info, debug) from the running Obsidian instance.
+
+```bash
+obsidian dev:console vault=<name>
+```
+
+**Example output**
+
+```
+[MyPlugin] Loaded successfully
+[MyPlugin] Registered 3 commands
+[warn] EventEmitter memory leak detected
+```
+
+**When to use**: after confirming `dev:errors` is empty. Show the last 20 lines — earlier output is usually noise from unrelated plugins.
+
+> **Security**: console output may contain sensitive data (API keys, tokens) logged by other plugins. Do not commit `dev:console` output to version control or share in public channels.
+
+---
+
+#### `obsidian dev:screenshot`
+
+Capture a viewport screenshot of the running Obsidian instance. Returns the saved file path.
+
+```bash
+obsidian dev:screenshot vault=<name>
+```
+
+**Example output**
+
+```
+/tmp/obsidian-screenshot-1234567890.png
+```
+
+**When to use**: after a successful reload cycle to capture visual evidence for ADRs or bug reports. Pair with `adr.sh` for UI-related architecture decisions.
+
+> **Security**: verify the returned path is within `/tmp/` or a known safe directory before referencing it in other tools.
+
+---
+
+#### `obsidian dev:dom`
+
+Inspect the live Obsidian DOM tree.
+
+```bash
+obsidian dev:dom vault=<name>
+```
+
+**Example output**
+
+```html
+<div class="workspace">
+  <div class="workspace-split mod-root">...</div>
+</div>
+```
+
+**When to use**: debugging UI rendering issues — verify that your plugin's DOM elements are attached and have the expected structure.
+
+---
+
+#### `obsidian dev:css`
+
+Return computed CSS for a DOM selector.
+
+```bash
+obsidian dev:css vault=<name> [selector=<css-selector>]
+```
+
+**Example**
+
+```bash
+obsidian dev:css vault=dev-projectA selector=".my-plugin-widget"
+```
+
+**When to use**: debugging style overrides — confirm computed values after CSS injection and verify that theme variables resolve correctly.
+
+---
+
+#### `obsidian dev:mobile`
+
+Toggle mobile emulation mode in the running Obsidian instance.
+
+```bash
+obsidian dev:mobile vault=<name>
+```
+
+**When to use**: testing mobile-specific layout and touch interactions before publishing a plugin. Toggle once to enter mobile mode; run again to exit.
+
+> **Note**: mobile emulation may require Obsidian to be in a normal (non-fullscreen) window state. If the command exits 0 but the UI does not change, resize the window and retry.
+
+---
+
 ## Quick Reference
 
-Copy-pasteable command signatures for the 5 most-frequently invoked skills.
+Copy-pasteable command signatures for the most-frequently invoked skills.
 
 | Intent                | Command                                                                                               |
 | --------------------- | ----------------------------------------------------------------------------------------------------- |
@@ -119,3 +317,7 @@ Copy-pasteable command signatures for the 5 most-frequently invoked skills.
 | Create note           | `create-entity.sh dev-projectA <project> LEAF <slug> "<Title>" <parent_slug> <kind> [<spine>] --json` |
 | Architecture decision | `adr.sh dev-projectA <project> <slug> "<Title>" "<decision>"`                                         |
 | Dependency graph      | `dependency-map.sh dev-projectA <project_slug> --json`                                                |
+| Plugin dev cycle      | `dev-cycle.sh dev-projectA <plugin-id> [--screenshot]`                                                |
+| Reload plugin         | `obsidian plugin:reload vault=dev-projectA plugin=<plugin-id>`                                        |
+| Check plugin errors   | `obsidian dev:errors vault=dev-projectA`                                                              |
+| View console output   | `obsidian dev:console vault=dev-projectA`                                                             |
