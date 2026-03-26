@@ -72,3 +72,84 @@ Skills specific to the `dev-projectA` vault. Source from `~/.ontology-cli/dev/`.
 | Architecture decision | `adr.sh`            | `<vault> <project> <slug> "<Title>" "<decision>"`     | JSON: `{created, path, title}` | User proposes, records, or asks about an architecture decision                    |
 | Dependency map        | `dependency-map.sh` | `<vault> <project_slug> [--json]`                     | JSON: `{nodes[], edges[]}`     | User asks about system dependencies, component relationships, or dependency graph |
 | Code link             | `code-link.sh`      | `<vault> <note_path> <repo_url> <file_path> [<line>]` | JSON: `{linked, note, target}` | User asks to link a note to a source file, function, or code location             |
+
+---
+
+## Obsidian CLI — Direct Commands
+
+### When to Use
+
+Prefer direct commands for single-step operations. Use shell skills (which call `obsidian eval`) for multi-step atomic operations.
+
+Shell skills handle complex logic that requires two or more steps to execute atomically (e.g. read frontmatter _then_ write it back, or append a connection _then_ append the inverse). Direct commands are one-liners for reads, simple writes, and queries — they have no rollback on partial failure.
+
+### Summary
+
+| Command               | Purpose                                           | Output              |
+| --------------------- | ------------------------------------------------- | ------------------- |
+| `obsidian read`       | Read a note's full Markdown body                  | text                |
+| `obsidian create`     | Create a note with optional initial content       | text                |
+| `obsidian append`     | Append text to the end of a note                  | text                |
+| `obsidian property:set` | Set a single frontmatter property               | text                |
+| `obsidian search`     | Full-text search across the vault                 | text / JSON / clipboard |
+| `obsidian backlinks`  | List all notes linking to a given note            | text                |
+| `obsidian tags`       | List all tags with occurrence counts              | text                |
+| `obsidian files`      | List vault files sorted and limited               | text / clipboard    |
+| `obsidian unresolved` | List all unresolved wikilinks                     | text                |
+| `obsidian daily:read` | Read today's daily note                           | text                |
+| `obsidian daily:append` | Append text to today's daily note               | text                |
+| `obsidian tasks`      | List open tasks across the vault                  | text / JSON         |
+| `obsidian plugin:reload` | Hot-reload a plugin after code changes         | text                |
+| `obsidian dev:errors` | Capture console errors from Obsidian              | text                |
+| `obsidian dev:console` | Stream developer console output                  | text                |
+| `obsidian dev:screenshot` | Capture a screenshot of the Obsidian window  | clipboard           |
+| `obsidian dev:dom`    | Dump the Obsidian application DOM                 | text                |
+| `obsidian dev:css`    | Inspect CSS variables in the current theme        | text                |
+| `obsidian dev:mobile` | Toggle mobile layout emulation                    | text                |
+
+---
+
+### File I/O
+
+| Name             | Syntax                                                                | Output | Intent trigger                                                                                               |
+| ---------------- | --------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------ |
+| Read note        | `obsidian read vault=<name> file="<note>"`                            | text   | When the user asks to read, view, or show the full content of a specific named note                          |
+| Create note      | `obsidian create vault=<name> name="<note>" [content="<body>"]`       | text   | When the user asks to create a single note and no parent `children` array update is required                 |
+| Append to note   | `obsidian append vault=<name> file="<note>" content="<text>"`         | text   | When the user asks to add text to the end of a specific note (not to a named section like `## Connections`)  |
+| Set property     | `obsidian property:set vault=<name> file="<note>" key=<prop> value=<val>` | text | When the user asks to update exactly one frontmatter field on a specific note and the value is not a YAML array |
+
+---
+
+### Search & Query
+
+| Name             | Syntax                                                                 | Output                          | Intent trigger                                                                                              |
+| ---------------- | ---------------------------------------------------------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Full-text search | `obsidian search vault=<name> query="<term>" [--json] [--copy]`        | text; JSON with `--json`; clipboard with `--copy` | When the user asks to find notes containing a specific keyword or phrase (prefer `context.sh` for ranked results) |
+| Backlinks        | `obsidian backlinks vault=<name> file="<note>"`                        | text                            | When the user asks which specific notes link to a particular named note                                     |
+| All tags         | `obsidian tags vault=<name>`                                           | text                            | When the user asks for a complete list of all tags in the vault with their occurrence counts                 |
+| List files       | `obsidian files vault=<name> [sort=modified\|created\|name] [limit=<n>] [--copy]` | text; clipboard with `--copy` | When the user asks to list recently modified files or browse vault files sorted by a specific field         |
+| Unresolved links | `obsidian unresolved vault=<name>`                                     | text                            | When the user asks for broken links, missing notes, or unresolved wikilinks across the vault                |
+
+---
+
+### Daily Note
+
+| Name              | Syntax                                                     | Output          | Intent trigger                                                                                   |
+| ----------------- | ---------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------ |
+| Read daily note   | `obsidian daily:read vault=<name>`                         | text            | When the user asks to read, view, or show today's journal or daily note body                     |
+| Append to daily   | `obsidian daily:append vault=<name> content="<text>"`      | text            | When the user asks to log an entry or add a bullet to today's daily note (not to a named section) |
+| List open tasks   | `obsidian tasks vault=<name> [--json]`                     | text; JSON with `--json` | When the user asks to show all open to-do items or unchecked checkboxes across the vault |
+
+---
+
+### Plugin Dev
+
+| Name              | Syntax                                                          | Output    | Intent trigger                                                                                            |
+| ----------------- | --------------------------------------------------------------- | --------- | --------------------------------------------------------------------------------------------------------- |
+| Reload plugin     | `obsidian plugin:reload vault=<name> plugin=<plugin-id>`        | text      | When the user asks to hot-reload a specific plugin after making code changes                              |
+| Capture errors    | `obsidian dev:errors vault=<name>`                              | text      | When the user asks to see or capture console errors thrown by the Obsidian app or a plugin                |
+| Stream console    | `obsidian dev:console vault=<name>`                             | text      | When the user asks to monitor or stream live developer console output from the Obsidian process           |
+| Screenshot        | `obsidian dev:screenshot vault=<name>`                          | clipboard | When the user asks to take or capture a screenshot of the current Obsidian window                         |
+| Inspect DOM       | `obsidian dev:dom vault=<name>`                                 | text      | When the user asks to inspect or dump the HTML DOM of the running Obsidian application                    |
+| Inspect CSS       | `obsidian dev:css vault=<name>`                                 | text      | When the user asks to inspect CSS variables or computed styles in the current Obsidian theme               |
+| Mobile emulation  | `obsidian dev:mobile vault=<name>`                              | text      | When the user asks to toggle or test the mobile layout view inside the Obsidian desktop application       |
