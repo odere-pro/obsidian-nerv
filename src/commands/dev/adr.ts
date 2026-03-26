@@ -1,0 +1,176 @@
+// STORY-037 — Migrate domain skills (study + dev) to TypeScript
+// adr.ts — Dev skill: create an Architecture Decision Record as a LEAF note.
+//
+// Creates a LEAF note with kind: decision, decision-date: YYYY-MM-DD,
+// decision-status: proposed; body contains ### Context, ### Decision, ### Consequences.
+// Delegates entity creation to createEntity() from STORY-033.
+
+import type { Command } from '../../cli.ts';
+import type { CommandResult } from '../../types/result.ts';
+import { resolveVault, obEval } from '../../lib/obsidian.ts';
+import { encodeForJs } from '../../lib/json.ts';
+import { createEntity } from '../create-entity.ts';
+
+const ADR_SLUG_RE = /^[a-z0-9-]+$/;
+
+export function generateAdrSlug(title: string): string {
+  const dateCompact = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const slugBody = title
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  return `adr-${dateCompact}-${slugBody}`;
+}
+
+export interface AdrParams {
+  vault: string;
+  project: string;
+  title: string;
+  parentSlug?: string;
+}
+
+export interface AdrData {
+  path: string;
+  slug: string;
+  decisionDate: string;
+  decisionStatus: string;
+}
+
+export async function createAdr(params: AdrParams): Promise<CommandResult<AdrData>> {
+  const { vault, project, title, parentSlug = 'ROOT' } = params;
+
+  const slug = generateAdrSlug(title);
+  const today = new Date().toISOString().slice(0, 10);
+
+  if (!ADR_SLUG_RE.test(slug)) {
+    return {
+      ok: false,
+      data: { path: '', slug, decisionDate: today, decisionStatus: 'proposed' },
+      error: `adr: generated slug is invalid (got: ${slug}) — check title for special characters`,
+    };
+  }
+
+  const entityResult = await createEntity({
+    vault,
+    project,
+    type: 'LEAF',
+    slug,
+    title,
+    parentSlug,
+    kind: 'decision',
+  });
+
+  if (!entityResult.ok) {
+    return {
+      ok: false,
+      data: { path: '', slug, decisionDate: today, decisionStatus: 'proposed' },
+      error: entityResult.error,
+    };
+  }
+
+  const notePath = entityResult.data.path;
+  const jsPath = encodeForJs(notePath);
+  const jsDate = encodeForJs(today);
+
+  // Patch frontmatter: add decision-date and decision-status
+  const patchFmResult = await obEval(
+    vault,
+    `(async () => {
+  var f = app.vault.getAbstractFileByPath(${jsPath});
+  if (!f) return 'not-found';
+  await app.fileManager.processFrontMatter(f, function(fm) {
+    fm['decision-date']   = ${jsDate};
+    fm['decision-status'] = 'proposed';
+  });
+  return 'ok';
+})()`
+  ).catch(() => '');
+
+  if (!patchFmResult || patchFmResult === 'not-found') {
+    return {
+      ok: false,
+      data: { path: notePath, slug, decisionDate: today, decisionStatus: 'proposed' },
+      error: `adr: could not patch frontmatter for ${notePath}`,
+    };
+  }
+
+  // Patch ## Content with ADR subsections
+  const jsContextHint = encodeForJs('*What problem or force is driving this decision?*');
+  const jsDecisionHint = encodeForJs('*What was decided? State it as a full sentence.*');
+  const jsConsequencesHint = encodeForJs(
+    '*What are the resulting trade-offs, risks, and obligations?*'
+  );
+
+  const patchContentResult = await obEval(
+    vault,
+    `(async () => {
+  var f = app.vault.getAbstractFileByPath(${jsPath});
+  if (!f) return 'not-found';
+  await app.vault.process(f, function(content) {
+    var marker = '## Content';
+    var idx = content.indexOf(marker);
+    if (idx === -1) return content;
+    var after = content.substring(idx + marker.length);
+    if (after.indexOf('### Context') !== -1) return content;
+    var nextSection = after.match(/\n## /);
+    var insertAt = nextSection
+      ? idx + marker.length + nextSection.index
+      : content.length;
+    var subsections = '\n\n### Context\n\n' + ${jsContextHint} +
+      '\n\n### Decision\n\n' + ${jsDecisionHint} +
+      '\n\n### Consequences\n\n' + ${jsConsequencesHint} + '\n';
+    return content.substring(0, idx + marker.length) +
+           subsections +
+           content.substring(insertAt);
+  });
+  return 'ok';
+})()`
+  ).catch(() => '');
+
+  if (!patchContentResult || patchContentResult === 'not-found') {
+    return {
+      ok: false,
+      data: { path: notePath, slug, decisionDate: today, decisionStatus: 'proposed' },
+      error: `adr: could not patch Content sections for ${notePath}`,
+    };
+  }
+
+  return {
+    ok: true,
+    data: { path: notePath, slug, decisionDate: today, decisionStatus: 'proposed' },
+  };
+}
+
+const command: Command = {
+  name: 'dev/adr',
+  description: 'Create an Architecture Decision Record as a LEAF note',
+
+  async run(args: string[]): Promise<void> {
+    if (args.length < 3) {
+      process.stderr.write(
+        'Usage: nerv dev/adr <vault> <project_slug> "<title>" [<parent_slug>]\n'
+      );
+      process.exit(1);
+    }
+
+    const vault = await resolveVault(args[0]);
+    const project = args[1];
+    const title = args[2];
+    const parentSlug = args[3];
+
+    const result = await createAdr({ vault, project, title, parentSlug });
+
+    if (!result.ok) {
+      process.stderr.write(`ERROR: ${result.error}\n`);
+      process.exit(1);
+    }
+
+    process.stdout.write(`ADR created: ${result.data.path}\n`);
+    process.stdout.write(`  decision-date:   ${result.data.decisionDate}\n`);
+    process.stdout.write(`  decision-status: ${result.data.decisionStatus}\n`);
+  },
+};
+
+export default command;
