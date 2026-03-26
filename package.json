@@ -4,9 +4,12 @@
   "description": "",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "bun build --compile src/cli.ts --outfile=bin/nerv",
     "dev": "bun run src/index.ts",
     "start": "bun run src/index.ts",
+    "test": "bun test",
+    "test:unit": "bun test src/",
+    "test:integration": "bun test tests/integration/ --env-file=.env.integration",
     "lint": "eslint --no-error-on-unmatched-pattern",
     "lint:fix": "eslint --fix --no-error-on-unmatched-pattern",
     "prettier": "prettier --check \"**/*.{ts,json,md,yml}\"",

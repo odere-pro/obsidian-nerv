@@ -1,5 +1,7 @@
 node_modules/
 dist/
+bin/
 *.js.map
 .env
 .env.local
+.env.integration
