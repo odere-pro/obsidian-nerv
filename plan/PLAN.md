@@ -541,3 +541,145 @@ Audit the v11 framework document, the Ontology CLI companion guide, and the Agen
 5. No broken cross-references exist between the three documents.
 6. `_inbox/_rollback-log.md` recovery workflow is documented in the Agent Layer document's failure modes section.
 7. `migrate.sh` migration spec format and supported operations are documented in the Ontology CLI companion guide.
+
+---
+
+## EPIC-011 — Multi-Vault Management
+
+Introduce a `.nerv/vaults.json` registry at the git repo root so nerv can track multiple vaults within a single project. Rename `init-vault` to `add-vault`. Replace the `vault=<name>` positional convention with a universal `--vault <name>` flag on all commands. Resolution order: explicit `--vault` flag → `NERV_DEFAULT_VAULT` env variable → registry default → hard error. Vault paths must be physically inside the git repository.
+
+---
+
+### Story 041 — Vault registry library and extractVaultFlag helper
+
+**Description**
+Create `src/lib/vault-registry.ts` as the central data layer for multi-vault management. The registry stores vault entries in `.nerv/vaults.json` at the git repo root. Exports: `VaultEntry`, `VaultRegistry`, `findGitRoot`, `registryPath`, `readRegistry`, `writeRegistry`, `registerVault`, `unregisterVault`, `lookupVault`, `getDefaultVault`, `setDefaultVault`, and `extractVaultFlag`. `registerVault` validates that the vault path is physically inside the git repo root. `NERV_SKIP_GIT_ROOT_CHECK=1` disables the path guard for test environments.
+
+**Acceptance criteria**
+
+1. `registerVault(name, path)` adds entry to `.nerv/vaults.json`; is idempotent for same name + same path; rejects paths outside the git root with a descriptive error.
+2. `registerVault` sets `isDefault: true` on the first vault registered when the registry is empty.
+3. `lookupVault(name)` returns the entry; throws `logError` with `'Run: nerv list-vaults'` for unknown name.
+4. `setDefaultVault(name)` / `getDefaultVault()` round-trip correctly.
+5. `unregisterVault(name)` removes the entry; throws on unknown name; clears `isDefault` if removed entry was default.
+6. `extractVaultFlag(['--vault', 'my-vault', 'other'])` returns `{ vault: 'my-vault', rest: ['other'] }`.
+7. `extractVaultFlag(['--vault'])` calls `logError('--vault flag requires a value')`.
+8. All 12 assertions in `src/lib/__tests__/vault-registry.test.ts` pass.
+
+---
+
+### Story 042 — Rewrite resolveVault() with registry-backed resolution
+
+**Description**
+Replace `resolveVault()` in `src/lib/obsidian.ts` with a registry-backed implementation. Remove the `obsidian vault` shell fallback and the `vault=<name>` prefix convention entirely. New resolution order: explicit arg → `NERV_DEFAULT_VAULT` env → registry default → hard error with actionable message.
+
+**Acceptance criteria**
+
+1. `resolveVault('my-vault')` with `my-vault` registered and path on disk → returns `'my-vault'`.
+2. `resolveVault('my-vault')` with `my-vault` not in registry → `logError` with vault name in message.
+3. `resolveVault('my-vault')` with `my-vault` registered but path missing from disk → `logError` with path in message.
+4. `resolveVault(undefined)` with `NERV_DEFAULT_VAULT=my-vault` and vault registered → returns `'my-vault'`.
+5. `resolveVault(undefined)` with registry default set → returns default vault name.
+6. `resolveVault(undefined)` with nothing configured → `logError`: `'No vault specified. Pass --vault <name>, set NERV_DEFAULT_VAULT, or run: nerv switch-vault <name>'`.
+
+---
+
+### Story 043 — Rename init-vault to add-vault and register vaults in registry
+
+**Description**
+Rename `src/commands/init-vault.ts` to `src/commands/add-vault.ts`. Replace `--name <n>` with `--vault <n>` using `extractVaultFlag`. Add git-root path guard before `initVault()`. Call `registerVault(name, path)` after `deployAgentFiles()`. Update the integration test import path and add a registry-assertion test case. Keep all named exports unchanged.
+
+**Acceptance criteria**
+
+1. `nerv add-vault --vault my-vault --path <inside-repo>` provisions vault and writes `.nerv/vaults.json`.
+2. `nerv add-vault --vault bad --path /tmp/outside` exits 1 with `'add-vault: vault path must be inside the git repository'`.
+3. Re-running `add-vault` on an existing vault is idempotent (no files modified, no duplicate registry entry).
+4. Integration test renamed to `add-vault.integration.test.ts`; registry-assertion test passes.
+5. `nerv init-vault` exits 1 with `"nerv: unknown command 'init-vault'"`.
+
+---
+
+### Story 044 — Update all commands to use --vault flag
+
+**Description**
+Replace the `vault=<name>` positional convention with `extractVaultFlag(args)` across all 18+ command `run()` adapters. Each command strips `--vault <name>` from args first, then passes the vault value to `resolveVault()`. Update all `Usage:` strings to include `[--vault <name>]`. Update unit test args arrays from `['vault=study', ...]` to `['--vault', 'study', ...]`.
+
+**Acceptance criteria**
+
+1. No command `run()` function reads vault from `args[0]` positionally after this story.
+2. `nerv context --vault my-vault "query"` resolves vault correctly.
+3. `nerv morning` (no `--vault` flag) uses the default vault from STORY-042 resolution chain.
+4. All unit test mocks for `resolveVault` remain compatible (signature unchanged).
+5. `bun test` exits 0; `bun run typecheck` exits 0.
+
+---
+
+### Story 045 — Implement list-vaults command
+
+**Description**
+Create `src/commands/list-vaults.ts` to display all registered vaults as a column-aligned table. Empty registry prints an actionable "no vaults" message. `--json` flag emits a JSON array.
+
+**Acceptance criteria**
+
+1. `nerv list-vaults` prints an aligned `NAME / PATH / DEFAULT` table; `(default)` column shows `yes` for the default entry.
+2. Empty registry: prints `'No vaults registered. Run: nerv add-vault --vault <name> --path <path>'` and exits 0.
+3. `nerv list-vaults --json` emits a valid JSON array; empty registry emits `[]`.
+4. Unit tests for empty, single, and multi-vault registries pass.
+
+---
+
+### Story 046 — Implement current-vault command
+
+**Description**
+Create `src/commands/current-vault.ts` to show which vault would be resolved and why, without erroring. Implements its own non-throwing resolution introspection. `--vault <name>` override shows a specific vault. `--json` flag is supported.
+
+**Acceptance criteria**
+
+1. `nerv current-vault` with `NERV_DEFAULT_VAULT` set → prints vault name and `Source: env`.
+2. `nerv current-vault` with registry default set → prints vault name and `Source: default`.
+3. `nerv current-vault` with nothing configured → prints "no vault" help block with `add-vault` and `switch-vault` instructions.
+4. `nerv current-vault --vault my-vault` → shows that specific vault's name and path.
+5. Always exits 0; never calls `logError`.
+
+---
+
+### Story 047 — Implement switch-vault command
+
+**Description**
+Create `src/commands/switch-vault.ts`. Calls `setDefaultVault(name)` to set the default vault in the registry. `--vault <name>` is required. Prints confirmation with vault name and path on success.
+
+**Acceptance criteria**
+
+1. `nerv switch-vault --vault my-vault` → `isDefault: true` written to `.nerv/vaults.json`; confirmation printed.
+2. Missing `--vault` → `logError` with `'--vault'` in message.
+3. Unregistered vault → `logError` propagated from `setDefaultVault`.
+4. `nerv current-vault` shows `my-vault` after switch.
+
+---
+
+### Story 048 — Implement remove-vault command
+
+**Description**
+Create `src/commands/remove-vault.ts`. Calls `unregisterVault(name)`. Requires `--force` flag to prevent accidental removal. Does NOT delete vault files on disk. Warns when the removed vault was the default.
+
+**Acceptance criteria**
+
+1. `nerv remove-vault --vault my-vault --force` removes entry from `.nerv/vaults.json`; prints confirmation including `'Files at <path> were NOT deleted'`.
+2. Missing `--force` → exits 1 with confirmation instruction.
+3. Removing the default vault → success message appends `'Warning: no default vault is set'`.
+4. Unregistered vault + `--force` → `logError` from `unregisterVault`.
+
+---
+
+### Story 049 — Update CLI help with new commands, vault flag, and env var
+
+**Description**
+Update `src/cli.ts` COMMANDS array: replace `init-vault` with `add-vault`; add `list-vaults`, `current-vault`, `switch-vault`, `remove-vault`. Update `printHelp()` to append `Vault flag` and `Environment` sections documenting `--vault <name>` and `NERV_DEFAULT_VAULT`.
+
+**Acceptance criteria**
+
+1. `nerv --help` shows `add-vault`, `list-vaults`, `current-vault`, `switch-vault`, `remove-vault`; `init-vault` absent.
+2. Help output contains `--vault <name>  Override the active vault for any command`.
+3. Help output contains `NERV_DEFAULT_VAULT  Default vault name`.
+4. `nerv init-vault` prints `"nerv: unknown command 'init-vault'"`.
+5. `bun run typecheck` exits 0.
