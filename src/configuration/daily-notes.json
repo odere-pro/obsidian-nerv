@@ -1,0 +1,5 @@
+{
+  "dateFormat": "YYYY-MM-DD",
+  "newFileLocation": "journals/daily/",
+  "template": "_templates/tpl-daily.md"
+}

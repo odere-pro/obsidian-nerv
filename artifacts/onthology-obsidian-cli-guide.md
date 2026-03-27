@@ -699,10 +699,9 @@ operation name, and partial state.
 
 ## Cross-References
 
-| Document               | Location                            | Contents                                             |
-| ---------------------- | ----------------------------------- | ---------------------------------------------------- |
-| Obsidian reference     | `docs/obsidian-docs/`               | Obsidian features, CLI registration, vault structure |
-| Obsidian skills        | `docs/obsidian-skills/`             | Agent skill definitions (Bases, Canvas, CLI, etc.)   |
-| CLI guide              | `docs/cli-guide/cli-guide-index.md` | All CLI skill signatures, parameters, examples       |
-| Agent routing patterns | `cli/agent/patterns.md`             | Subagent decision trees, skill registry, limitations |
-| Story plans            | `docs/plan/`                        | Per-story acceptance criteria, design notes          |
+| Document               | Location                                 | Contents                                             |
+| ---------------------- | ---------------------------------------- | ---------------------------------------------------- |
+| Obsidian reference     | `artifacts/obsidian-docs/`               | Obsidian features, CLI registration, vault structure |
+| Obsidian skills        | `artifacts/obsidian-skills/`             | Agent skill definitions (Bases, Canvas, CLI, etc.)   |
+| CLI guide              | `artifacts/cli-guide/cli-guide-index.md` | All CLI skill signatures, parameters, examples       |
+| Agent routing patterns | `cli/agent/patterns.md`                  | Subagent decision trees, skill registry, limitations |

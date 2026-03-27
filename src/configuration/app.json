@@ -1,0 +1,14 @@
+{
+  "newFileLocation": "folder",
+  "newFileFolderPath": "_inbox",
+  "attachmentFolderPath": "_attachments",
+  "useMarkdownLinks": false,
+  "newLinkFormat": "shortest",
+  "autoUpdateInternalLinks": true,
+  "trashOption": "system",
+  "userIgnoreFilters": ["_templates/*", "_scripts/*"],
+  "propertiesInDocument": "visible",
+  "strictLineBreaks": false,
+  "showInlineTitle": true,
+  "readableLineLength": true
+}

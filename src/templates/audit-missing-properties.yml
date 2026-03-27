@@ -1,0 +1,21 @@
+filters:
+  and:
+    - file.inFolder("projects")
+    - 'file.ext == "md"'
+    - or:
+        - 'type == ""'
+        - 'status == ""'
+        - 'spine == ""'
+formulas:
+  missing_fields: '(if(type.isEmpty(), "type ", "") + if(status.isEmpty(), "status ", "") + if(spine.isEmpty(), "spine", "")).trim()'
+properties:
+  formula.missing_fields:
+    displayName: Missing Fields
+views:
+  - type: table
+    name: Missing Properties
+    order:
+      - file.name
+      - formula.missing_fields
+      - file.folder
+      - file.mtime

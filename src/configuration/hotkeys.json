@@ -1,0 +1,11 @@
+{
+  "templates:insert-template": [{ "modifiers": ["Alt"], "key": "T" }],
+  "switcher:open": [{ "modifiers": ["Mod"], "key": "O" }],
+  "global-search:open": [{ "modifiers": ["Mod", "Shift"], "key": "F" }],
+  "graph:open": [{ "modifiers": ["Mod"], "key": "G" }],
+  "backlink:open-backlinks": [{ "modifiers": ["Alt"], "key": "B" }],
+  "editor:open-search": [{ "modifiers": ["Mod"], "key": ";" }],
+  "command-palette:open": [{ "modifiers": ["Alt"], "key": "C" }],
+  "daily-notes:goto-today": [{ "modifiers": ["Alt"], "key": "D" }],
+  "workspaces:open": [{ "modifiers": ["Alt"], "key": "W" }]
+}

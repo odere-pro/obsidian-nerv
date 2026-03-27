@@ -1,0 +1,37 @@
+filters:
+  and:
+    - 'file.ext == "md"'
+    - not:
+        - file.inFolder("_templates")
+        - file.inFolder("_inbox")
+        - file.inFolder("journals")
+formulas:
+  has_parent: 'if(parent.isEmpty(), "⚠️ orphan", "✅ linked")'
+  link_count: 'file.links.length'
+  backlink_count: 'file.backlinks.length'
+properties:
+  formula.has_parent:
+    displayName: Parent Status
+  formula.link_count:
+    displayName: Links Out
+  formula.backlink_count:
+    displayName: Links In
+views:
+  - type: table
+    name: Orphan Notes
+    filters:
+      and:
+        - 'parent == ""'
+    order:
+      - formula.has_parent
+      - file.name
+      - type
+      - formula.link_count
+      - formula.backlink_count
+  - type: table
+    name: All Connectivity
+    order:
+      - file.name
+      - formula.has_parent
+      - formula.link_count
+      - formula.backlink_count

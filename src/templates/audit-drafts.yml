@@ -1,0 +1,27 @@
+filters:
+  and:
+    - 'file.ext == "md"'
+    - 'status == "draft"'
+    - not:
+        - file.inFolder("_templates")
+        - file.inFolder("_inbox")
+formulas:
+  days_as_draft: '(now() - file.ctime).days.round(0)'
+  last_updated: 'file.mtime.relative()'
+properties:
+  formula.days_as_draft:
+    displayName: Days as Draft
+  formula.last_updated:
+    displayName: Last Updated
+views:
+  - type: table
+    name: All Drafts
+    groupBy:
+      property: type
+      direction: ASC
+    order:
+      - file.name
+      - type
+      - formula.days_as_draft
+      - formula.last_updated
+      - spine

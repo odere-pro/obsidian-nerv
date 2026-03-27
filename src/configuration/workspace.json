@@ -1,0 +1,19 @@
+{
+  "main": { "id": "placeholder", "type": "split", "children": [], "direction": "vertical" },
+  "left": {
+    "id": "left-ribbon",
+    "type": "split",
+    "children": [],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "right-panel",
+    "type": "split",
+    "children": [],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "active": "",
+  "lastOpenFiles": []
+}

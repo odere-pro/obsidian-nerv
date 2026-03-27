@@ -6,8 +6,6 @@
 //   - EDGE_COLORS — relationship type → hex color map
 //   - NODE_GAP_X, NODE_GAP_Y, NODE_W, NODE_H — layout constants
 
-import { createHash } from 'node:crypto';
-
 // ---------------------------------------------------------------------------
 // JSON Canvas 1.0 types
 // ---------------------------------------------------------------------------
@@ -79,7 +77,7 @@ export const EDGE_COLORS: Record<string, string> = {
  * Consistent across re-runs for the same path + type pair.
  */
 export function deterministicHexId(path: string, type: string): string {
-  return createHash('sha256')
+  return new Bun.CryptoHasher('sha256')
     .update(path + '\x00' + type)
     .digest('hex')
     .slice(0, 16);
@@ -90,7 +88,7 @@ export function deterministicHexId(path: string, type: string): string {
  * based on fromNode + toNode + label.
  */
 export function deterministicEdgeId(fromNode: string, toNode: string, label: string): string {
-  return createHash('sha256')
+  return new Bun.CryptoHasher('sha256')
     .update(fromNode + '\x00' + toNode + '\x00' + label)
     .digest('hex')
     .slice(0, 16);

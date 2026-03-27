@@ -1,42 +1,14 @@
 # obsidian-nerv
 
-An agentic knowledge nervous system: a multi-vault Obsidian v11 framework wired to a macOS CLI skill layer for structured knowledge management.
-
-## Status
-
-All phases complete. The system is fully migrated to a compiled TypeScript binary (`bin/nerv`).
-
-### Foundation and Bash Skill Layer ✅
-
-- Vault bootstrap, CLI registration, core library, test harness
-- Motor skills: `create-project`, `create-entity`, `add-connection`, `import-json`
-- Reflex skills: `cli-lint`, `cli-orphans`, `cli-relations`
-- Autonomic skills: `sync-topk`, `sync-ontology`, `sync-vocab`
-- Orchestration: `weekly-review`, `morning`, schema migration
-- Sensory skills: `context`, `get-entity`, `get-tree`, `get-knowledge-gap`, `explain-topic`
-- Agent layer: skill registry, auditor subagent, study/dev vault skills, E2E tests
-
-### CLI Skill Integration ✅
-
-- Direct CLI commands documented in `PATTERNS.md`
-- Command inventory registered in `skills.md`
-- Native CLI diagnostics integrated into orchestration skills
-- Plugin development cycle in `dev-projectA/CLAUDE.md`
-
-### Production Grade: Bun Migration ✅
-
-- All skills migrated to TypeScript under `src/commands/`
-- Compiled to `bin/nerv` binary; Bash scripts removed
-- Canvas commands: `canvas:tree`, `canvas:relations`, `canvas:dependencies`
-- Web-ingest commands: `web-ingest:add`, `web-ingest:batch`, `web-ingest:monitor`
+An agentic knowledge nervous system: a multi-vault Obsidian for structured knowledge management.
 
 ---
 
 ## Architecture
 
-```
+```text
 VAULT (persistent knowledge store)
-  └── Obsidian v11 typed ontology — notes, connections, frontmatter
+  └── Obsidian typed ontology — notes, connections, frontmatter
 
 NERV CLI (unified Bun binary)
   ├── src/cli.ts        — entry point and subcommand dispatcher
@@ -48,8 +20,8 @@ NERV CLI (unified Bun binary)
 SKILL REGISTRY + AGENT LAYER
   ├── cli/agent/skills.md              — full command inventory with intent triggers
   ├── cli/agent/patterns.md            — subagent decision trees
-  ├── docs/PATTERNS.md                 — eval primitives + direct CLI command reference
-  └── cli/agent/dev-projectA/CLAUDE.md — dev vault agent config and plugin dev cycle
+  ├── cli/agent/dev-projectA/CLAUDE.md — dev vault agent config and plugin dev cycle
+  └── artifacts/PATTERNS.md            — eval primitives + direct CLI command reference
 
 OBSIDIAN CLI (native IPC commands)
   ├── File I/O  — read, create, append, property:set
@@ -123,7 +95,7 @@ Typed TypeScript render functions extracted from the Bash heredoc templates. All
 | `renderBase(BaseParams)`         | Bases YAML filter view     |
 
 > All render functions are re-exported from `src/templates/index.ts`.
-
+>
 > **Security note**: Always call `encodeForJs()` before embedding user-supplied strings in `obEval()` expressions to prevent JS injection into the Obsidian runtime.
 
 ---

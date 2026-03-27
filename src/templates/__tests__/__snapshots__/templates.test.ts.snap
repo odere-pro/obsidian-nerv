@@ -193,3 +193,172 @@ views:
       - formula.last_updated
 "
 `;
+
+exports[`renderInbox snapshot matches expected output 1`] = `
+"---
+title: "My Capture"
+captured: 2026-03-27
+source: ""
+target: ""
+status: inbox
+---
+
+> [!todo] Triage
+> - [ ] Identify note type (LEAF / BRANCH / ROOT)
+> - [ ] Determine parent
+> - [ ] Move to correct project folder
+> - [ ] Delete this inbox copy
+
+## Raw
+
+<!-- Paste raw captured content here -->
+
+## Placement Notes
+
+<!-- Where should this go? What spine does it belong to? -->
+"
+`;
+
+exports[`renderDaily snapshot matches expected output 1`] = `
+"---
+title: "2026-03-27"
+type: daily-note
+date: 2026-03-27
+tags: [journal/daily]
+---
+
+## Ontology Work Log
+
+### Entities Created
+
+<!-- List new notes created today -->
+
+### Schema Changes
+
+<!-- Frontmatter changes, new relationship types, type renames -->
+
+### Decisions
+
+<!-- Architectural or naming decisions made -->
+
+### Open Questions
+
+<!-- Questions surfaced that need follow-up -->
+
+## Triage
+
+\`\`\`query
+path:_inbox
+\`\`\`
+
+## Tasks
+
+- [ ]
+
+## Notes
+
+<!-- Freeform notes for the day -->
+"
+`;
+
+exports[`renderVaultOntology snapshot matches expected output 1`] = `
+"---
+title: "My Domain Ontology"
+type: ONTOLOGY
+spine: ""
+status: active
+created: 2026-03-27
+modified: 2026-03-27
+---
+
+# Relationship Types
+
+| \`type\` | Direction | \`inverse\` | Description |
+|--------|-----------|-----------|-------------|
+| \`triggers\` | A → B | \`triggered-by\` | A causes B to occur |
+| \`depends-on\` | A → B | \`depended-by\` | A requires B to function |
+| \`implements\` | A → B | \`implemented-by\` | A is a concrete realization of B |
+| \`extends\` | A → B | \`extended-by\` | A adds to or specializes B |
+| \`compares-to\` | A ↔ B | \`compares-to\` | A and B are compared or contrasted |
+| \`replaces\` | A → B | \`replaced-by\` | A supersedes or deprecates B |
+| \`feeds-data\` | A → B | \`fed-data-by\` | A supplies data consumed by B |
+| \`authenticates-via\` | A → B | \`authenticated-by\` | A uses B for identity verification |
+| \`contains\` | A → B | \`contained-by\` | A is a parent container of B |
+| \`mitigates\` | A → B | \`mitigated-by\` | A reduces the risk or impact of B |
+
+## Custom Types
+
+<!-- Add project-specific relationship types below (include inverse column) -->
+
+| \`type\` | Direction | \`inverse\` | Description |
+|--------|-----------|-----------|-------------|
+"
+`;
+
+exports[`renderVaultVocab snapshot matches expected output 1`] = `
+"---
+title: "My Domain Vocabulary"
+type: VOCAB
+spine: ""
+status: active
+created: 2026-03-27
+modified: 2026-03-27
+---
+
+# Vocabulary
+
+## L0 — Core Terms
+
+<!-- Foundational terms required to understand the domain -->
+
+## L1 — Primary Terms
+
+<!-- Primary domain terms -->
+
+## L2 — Secondary Terms
+
+<!-- Supporting terms -->
+
+## L3 — Peripheral Terms
+
+<!-- Edge-case or rarely-used terms -->
+
+## Shared Terms
+
+<!-- Terms shared with other spines — link to canonical definition -->
+
+## Orphan Terms
+
+<!-- Terms not yet categorized -->
+"
+`;
+
+exports[`renderVaultTopk snapshot matches expected output 1`] = `
+"---
+title: "My Domain Top-K"
+type: TOPK
+spine: ""
+status: active
+created: 2026-03-27
+modified: 2026-03-27
+---
+
+# Top-K Limits
+
+| Category | Limit | Current Count | Notes |
+|----------|-------|---------------|-------|
+| Root notes | 10 | 0 | Hard cap — split spine if exceeded |
+| Branch notes per root | 20 | 0 | |
+| Leaf notes per branch | 50 | 0 | |
+| Relationship types | 15 | 10 | Includes 10 defaults |
+| Vocab terms (total) | 200 | 0 | |
+
+## Overflow Log
+
+<!-- Record here when a limit is approached or exceeded -->
+
+## Split History
+
+<!-- Record spine splits performed to maintain top-k limits -->
+"
+`;

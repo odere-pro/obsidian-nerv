@@ -1,0 +1,45 @@
+filters:
+  and:
+    - file.inFolder("projects/PROJECT_SLUG_PLACEHOLDER")
+    - 'file.ext == "md"'
+formulas:
+  status_icon: 'if(status == "active", "🟢", if(status == "draft", "🟡", if(status == "archived", "⚫", "⚪")))'
+  last_updated: 'file.mtime.relative()'
+  link_count: 'file.links.length'
+properties:
+  formula.status_icon:
+    displayName: ''
+  formula.last_updated:
+    displayName: Updated
+  formula.link_count:
+    displayName: Links
+views:
+  - type: table
+    name: All Notes
+    groupBy:
+      property: type
+      direction: ASC
+    order:
+      - formula.status_icon
+      - file.name
+      - type
+      - status
+      - formula.last_updated
+      - formula.link_count
+  - type: table
+    name: Drafts
+    filters:
+      and:
+        - 'status == "draft"'
+    order:
+      - formula.status_icon
+      - file.name
+      - type
+      - formula.last_updated
+  - type: cards
+    name: Browse
+    order:
+      - file.name
+      - type
+      - formula.status_icon
+      - formula.last_updated

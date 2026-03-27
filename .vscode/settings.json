@@ -26,5 +26,10 @@
   },
   "[markdown]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "chat.tools.terminal.autoApprove": {
+    "/usr/bin/file": true,
+    "bun": true,
+    "/Users/oleksandrderechei/git/obsidian-nerv/bin/nerv": true
   }
 }

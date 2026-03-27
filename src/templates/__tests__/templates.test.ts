@@ -1,11 +1,13 @@
 import { describe, expect, test } from 'bun:test';
 import { renderBase } from '../base';
 import { renderBranch } from '../branch';
+import { renderDaily } from '../daily';
+import { renderInbox } from '../inbox';
 import { renderLeaf } from '../leaf';
-import { renderOntology } from '../ontology';
+import { renderOntology, renderVaultOntology } from '../ontology';
 import { renderRoot } from '../root';
-import { renderTopk } from '../topk';
-import { renderVocab } from '../vocab';
+import { renderTopk, renderVaultTopk } from '../topk';
+import { renderVaultVocab, renderVocab } from '../vocab';
 
 // ---------------------------------------------------------------------------
 // Shared fixtures
@@ -286,5 +288,216 @@ describe('renderBase', () => {
 
   test('snapshot matches expected output', () => {
     expect(renderBase(baseParams)).toMatchSnapshot();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// renderInbox
+// ---------------------------------------------------------------------------
+describe('renderInbox', () => {
+  const params = { title: 'My Capture', captured: '2026-03-27' };
+
+  test('contains YAML frontmatter with title, captured, status', () => {
+    const out = renderInbox(params);
+    expect(out).toContain('title: "My Capture"');
+    expect(out).toContain('captured: 2026-03-27');
+    expect(out).toContain('status: inbox');
+    expect(out).toContain('source: ""');
+    expect(out).toContain('target: ""');
+  });
+
+  test('contains triage checklist', () => {
+    const out = renderInbox(params);
+    expect(out).toContain('> [!todo] Triage');
+    expect(out).toContain('Identify note type');
+    expect(out).toContain('Determine parent');
+  });
+
+  test('contains Raw and Placement Notes sections', () => {
+    const out = renderInbox(params);
+    expect(out).toContain('## Raw');
+    expect(out).toContain('## Placement Notes');
+  });
+
+  test('contains no undefined or null values', () => {
+    const out = renderInbox(params);
+    expect(out).not.toContain('undefined');
+    expect(out).not.toContain('null');
+  });
+
+  test('works with Obsidian template variables', () => {
+    const out = renderInbox({ title: '{{title}}', captured: '{{date}}' });
+    expect(out).toContain('title: "{{title}}"');
+    expect(out).toContain('captured: {{date}}');
+  });
+
+  test('snapshot matches expected output', () => {
+    expect(renderInbox(params)).toMatchSnapshot();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// renderDaily
+// ---------------------------------------------------------------------------
+describe('renderDaily', () => {
+  const params = { date: '2026-03-27' };
+
+  test('contains YAML frontmatter with title, type, date, tags', () => {
+    const out = renderDaily(params);
+    expect(out).toContain('title: "2026-03-27"');
+    expect(out).toContain('type: daily-note');
+    expect(out).toContain('date: 2026-03-27');
+    expect(out).toContain('tags: [journal/daily]');
+  });
+
+  test('contains all work log subsections', () => {
+    const out = renderDaily(params);
+    expect(out).toContain('### Entities Created');
+    expect(out).toContain('### Schema Changes');
+    expect(out).toContain('### Decisions');
+    expect(out).toContain('### Open Questions');
+  });
+
+  test('contains triage query block', () => {
+    const out = renderDaily(params);
+    expect(out).toContain('```query');
+    expect(out).toContain('path:_inbox');
+  });
+
+  test('contains Tasks and Notes sections', () => {
+    const out = renderDaily(params);
+    expect(out).toContain('## Tasks');
+    expect(out).toContain('## Notes');
+  });
+
+  test('contains no undefined or null values', () => {
+    const out = renderDaily(params);
+    expect(out).not.toContain('undefined');
+    expect(out).not.toContain('null');
+  });
+
+  test('works with Obsidian template variables', () => {
+    const out = renderDaily({ date: '{{date}}' });
+    expect(out).toContain('title: "{{date}}"');
+    expect(out).toContain('date: {{date}}');
+  });
+
+  test('snapshot matches expected output', () => {
+    expect(renderDaily(params)).toMatchSnapshot();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// renderVaultOntology
+// ---------------------------------------------------------------------------
+describe('renderVaultOntology', () => {
+  const params = { title: 'My Domain', created: '2026-03-27', modified: '2026-03-27' };
+
+  test('contains full vault template frontmatter', () => {
+    const out = renderVaultOntology(params);
+    expect(out).toContain('title: "My Domain Ontology"');
+    expect(out).toContain('type: ONTOLOGY');
+    expect(out).toContain('spine: ""');
+    expect(out).toContain('status: active');
+    expect(out).toContain('created: 2026-03-27');
+    expect(out).toContain('modified: 2026-03-27');
+  });
+
+  test('contains exactly 10 relationship rows with Direction column', () => {
+    const out = renderVaultOntology(params);
+    // Match data rows (not header rows starting with `| \`type\``)
+    const rows = out.split('\n').filter(l => l.startsWith('| `') && !l.startsWith('| `type`'));
+    expect(rows).toHaveLength(10);
+    expect(out).toContain('Direction');
+    expect(out).toContain('A → B');
+  });
+
+  test('contains Custom Types section', () => {
+    const out = renderVaultOntology(params);
+    expect(out).toContain('## Custom Types');
+  });
+
+  test('works with Obsidian template variables', () => {
+    const out = renderVaultOntology({
+      title: '{{title}}',
+      created: '{{date}}',
+      modified: '{{date}}',
+    });
+    expect(out).toContain('title: "{{title}} Ontology"');
+  });
+
+  test('snapshot matches expected output', () => {
+    expect(renderVaultOntology(params)).toMatchSnapshot();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// renderVaultVocab
+// ---------------------------------------------------------------------------
+describe('renderVaultVocab', () => {
+  const params = { title: 'My Domain', created: '2026-03-27', modified: '2026-03-27' };
+
+  test('contains full vault template frontmatter', () => {
+    const out = renderVaultVocab(params);
+    expect(out).toContain('title: "My Domain Vocabulary"');
+    expect(out).toContain('type: VOCAB');
+    expect(out).toContain('spine: ""');
+    expect(out).toContain('status: active');
+    expect(out).toContain('created: 2026-03-27');
+  });
+
+  test('contains all vocabulary level sections', () => {
+    const out = renderVaultVocab(params);
+    expect(out).toContain('## L0 — Core Terms');
+    expect(out).toContain('## L1 — Primary Terms');
+    expect(out).toContain('## L2 — Secondary Terms');
+    expect(out).toContain('## L3 — Peripheral Terms');
+    expect(out).toContain('## Shared Terms');
+    expect(out).toContain('## Orphan Terms');
+  });
+
+  test('contains HTML comment guides', () => {
+    const out = renderVaultVocab(params);
+    expect(out).toContain('<!-- Foundational terms');
+    expect(out).toContain('<!-- Terms not yet categorized');
+  });
+
+  test('snapshot matches expected output', () => {
+    expect(renderVaultVocab(params)).toMatchSnapshot();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// renderVaultTopk
+// ---------------------------------------------------------------------------
+describe('renderVaultTopk', () => {
+  const params = { title: 'My Domain', created: '2026-03-27', modified: '2026-03-27' };
+
+  test('contains full vault template frontmatter', () => {
+    const out = renderVaultTopk(params);
+    expect(out).toContain('title: "My Domain Top-K"');
+    expect(out).toContain('type: TOPK');
+    expect(out).toContain('spine: ""');
+    expect(out).toContain('status: active');
+    expect(out).toContain('created: 2026-03-27');
+  });
+
+  test('contains limits table with 5 category rows', () => {
+    const out = renderVaultTopk(params);
+    expect(out).toContain('| Root notes');
+    expect(out).toContain('| Branch notes per root');
+    expect(out).toContain('| Leaf notes per branch');
+    expect(out).toContain('| Relationship types');
+    expect(out).toContain('| Vocab terms (total)');
+  });
+
+  test('contains Overflow Log and Split History sections', () => {
+    const out = renderVaultTopk(params);
+    expect(out).toContain('## Overflow Log');
+    expect(out).toContain('## Split History');
+  });
+
+  test('snapshot matches expected output', () => {
+    expect(renderVaultTopk(params)).toMatchSnapshot();
   });
 });
