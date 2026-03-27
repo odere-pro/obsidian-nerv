@@ -7,6 +7,7 @@ import type { Command } from '../cli';
 import { encodeForJs, parseJson } from '../lib/json';
 import { logError, logWarn } from '../lib/logger';
 import { obEval, resolveVault } from '../lib/obsidian';
+import { extractVaultFlag } from '../lib/vault-registry';
 
 const REL_TYPE_RE = /^[a-z][a-z0-9-]*$/;
 
@@ -244,18 +245,20 @@ const command: Command = {
   name: 'add-connection',
   description: 'Write a typed bidirectional connection between two notes',
   async run(args: string[]): Promise<void> {
-    if (args.length < 4) {
+    const { vault: vaultArg, rest } = extractVaultFlag(args);
+
+    if (rest.length < 3) {
       process.stderr.write(
-        'Usage: nerv add-connection <vault|vault=name> <source_path> <rel_type> <target_path> [<context>]\n'
+        'Usage: nerv add-connection [--vault <name>] <source_path> <rel_type> <target_path> [<context>]\n'
       );
       process.exit(1);
     }
 
-    const vault = await resolveVault(args[0]);
-    const sourcePath = args[1];
-    const relType = args[2];
-    const targetPath = args[3];
-    const context = args[4] ?? '';
+    const vault = await resolveVault(vaultArg);
+    const sourcePath = rest[0];
+    const relType = rest[1];
+    const targetPath = rest[2];
+    const context = rest[3] ?? '';
 
     if (!REL_TYPE_RE.test(relType)) {
       logError(

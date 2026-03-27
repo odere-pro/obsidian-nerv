@@ -16,6 +16,7 @@ import type { Command } from '../cli';
 import { encodeForJs, parseJson } from '../lib/json';
 import { logError } from '../lib/logger';
 import { obEval, resolveVault } from '../lib/obsidian';
+import { extractVaultFlag } from '../lib/vault-registry';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -196,13 +197,15 @@ const command: Command = {
   description: 'Append overflow log entries to _topk.<project>.md',
 
   async run(args: string[]): Promise<void> {
-    if (args.length < 2) {
-      process.stderr.write('Usage: nerv sync-topk <vault|vault=name> <project_slug>\n');
+    const { vault: vaultArg, rest } = extractVaultFlag(args);
+
+    if (rest.length < 1) {
+      process.stderr.write('Usage: nerv sync-topk [--vault <name>] <project_slug>\n');
       process.exit(1);
     }
 
-    const vault = await resolveVault(args[0]);
-    const slug = args[1];
+    const vault = await resolveVault(vaultArg);
+    const slug = rest[0];
 
     if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
       logError(

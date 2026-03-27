@@ -21,6 +21,7 @@ import { getRelations } from './cli-relations';
 import { syncOntology } from './sync-ontology';
 import { syncTopk } from './sync-topk';
 import { syncVocab } from './sync-vocab';
+import { extractVaultFlag } from '../lib/vault-registry';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -189,21 +190,21 @@ const command: Command = {
 
   async run(args: string[]): Promise<void> {
     let jsonOutput = false;
+    const { vault: vaultArg, rest } = extractVaultFlag(args);
+
     const positional: string[] = [];
-    for (const a of args) {
+    for (const a of rest) {
       if (a === '--json') jsonOutput = true;
       else positional.push(a);
     }
 
-    if (positional.length < 2) {
-      process.stderr.write(
-        'Usage: nerv weekly-review <vault|vault=name> <project_slug> [--json]\n'
-      );
+    if (positional.length < 1) {
+      process.stderr.write('Usage: nerv weekly-review [--vault <name>] <project_slug> [--json]\n');
       process.exit(1);
     }
 
-    const vault = await resolveVault(positional[0]);
-    const slug = positional[1];
+    const vault = await resolveVault(vaultArg);
+    const slug = positional[0];
 
     if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
       process.stderr.write(

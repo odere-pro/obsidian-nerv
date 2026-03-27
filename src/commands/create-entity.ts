@@ -10,6 +10,7 @@ import { dailyAppend, obEval, resolveVault, rollbackLog } from '../lib/obsidian'
 import { renderBranch, renderLeaf, renderRoot } from '../templates/index';
 import type { EntityType } from '../types/entity';
 import type { CommandResult } from '../types/result';
+import { extractVaultFlag } from '../lib/vault-registry';
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 const VALID_TYPES: EntityType[] = ['LEAF', 'BRANCH', 'ROOT'];
@@ -221,7 +222,9 @@ const command: Command = {
   async run(args: string[]): Promise<void> {
     // Strip --json flag before positional assignment
     let jsonOutput = false;
-    const positional = args.filter(a => {
+    const { vault: vaultArg, rest } = extractVaultFlag(args);
+
+    const positional = rest.filter(a => {
       if (a === '--json') {
         jsonOutput = true;
         return false;
@@ -231,19 +234,19 @@ const command: Command = {
 
     if (positional.length < 7) {
       process.stderr.write(
-        'Usage: nerv create-entity <vault> <project> <TYPE> <slug> "<Title>" <parent_slug> <kind> [<spine>] [--json]\n'
+        'Usage: nerv create-entity [--vault <name>] <project> <TYPE> <slug> "<Title>" <parent_slug> <kind> [<spine>] [--json]\n'
       );
       process.exit(1);
     }
 
-    const vault = await resolveVault(positional[0]);
-    const project = positional[1];
-    const type = positional[2].toUpperCase() as EntityType;
-    const slug = positional[3];
-    const title = positional[4];
-    const parentSlug = positional[5];
-    const kind = positional[6];
-    const spine = positional[7];
+    const vault = await resolveVault(vaultArg);
+    const project = positional[0];
+    const type = positional[1].toUpperCase() as EntityType;
+    const slug = positional[2];
+    const title = positional[3];
+    const parentSlug = positional[4];
+    const kind = positional[5];
+    const spine = positional[6];
 
     if (!VALID_TYPES.includes(type)) {
       if (jsonOutput) {

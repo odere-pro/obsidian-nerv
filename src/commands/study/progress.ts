@@ -7,6 +7,7 @@ import type { Command } from '../../cli';
 import { encodeForJs, parseJson } from '../../lib/json';
 import { obEval, resolveVault } from '../../lib/obsidian';
 import type { CommandResult } from '../../types/result';
+import { extractVaultFlag } from '../../lib/vault-registry';
 
 export interface ProgressData {
   project: string;
@@ -103,25 +104,27 @@ const command: Command = {
 
   async run(args: string[]): Promise<void> {
     let format = 'json';
+    const { vault: vaultArg, rest } = extractVaultFlag(args);
+
     const positional: string[] = [];
 
-    for (let i = 0; i < args.length; i++) {
-      if (args[i] === '--format') {
-        format = args[++i] ?? 'json';
+    for (let i = 0; i < rest.length; i++) {
+      if (rest[i] === '--format') {
+        format = rest[++i] ?? 'json';
       } else {
-        positional.push(args[i]);
+        positional.push(rest[i]);
       }
     }
 
-    if (positional.length < 2) {
+    if (positional.length < 1) {
       process.stderr.write(
-        'Usage: nerv study/progress <vault> <project_slug> [--format compact]\n'
+        'Usage: nerv study/progress [--vault <name>] <project_slug> [--format compact]\n'
       );
       process.exit(1);
     }
 
-    const vault = await resolveVault(positional[0]);
-    const project = positional[1];
+    const vault = await resolveVault(vaultArg);
+    const project = positional[0];
 
     const result = await getProgress(vault, project);
 

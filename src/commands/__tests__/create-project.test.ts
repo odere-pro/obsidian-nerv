@@ -113,13 +113,12 @@ describe('create-project', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // vault=<name> keyword form
+  // --vault flag form
   // ---------------------------------------------------------------------------
-  test('accepts vault=<name> keyword argument form (resolved by resolveVault)', async () => {
+  test('accepts --vault flag form (resolved by resolveVault)', async () => {
     mockObEval.mockImplementation(async () => 'absent');
-    // resolveVault is mocked to return arg as-is so vault=study → 'vault=study'
-    // Just verifying createProject doesn't blow up when given that form
-    await createProject({ vault: 'vault=study', slug: 'p', title: 'T' });
+    // resolveVault is mocked to return arg as-is so 'study' → 'study'
+    await createProject({ vault: 'study', slug: 'p', title: 'T' });
     expect(mockObEval).toHaveBeenCalled();
   });
 });

@@ -9,6 +9,7 @@ import { encodeForJs } from '../../lib/json';
 import { obEval, resolveVault } from '../../lib/obsidian';
 import type { CommandResult } from '../../types/result';
 import { createEntity } from '../create-entity';
+import { extractVaultFlag } from '../../lib/vault-registry';
 
 const ADR_SLUG_RE = /^[a-z0-9-]+$/;
 
@@ -147,17 +148,19 @@ const command: Command = {
   description: 'Create an Architecture Decision Record as a LEAF note',
 
   async run(args: string[]): Promise<void> {
-    if (args.length < 3) {
+    const { vault: vaultArg, rest } = extractVaultFlag(args);
+
+    if (rest.length < 2) {
       process.stderr.write(
-        'Usage: nerv dev/adr <vault> <project_slug> "<title>" [<parent_slug>]\n'
+        'Usage: nerv dev/adr [--vault <name>] <project_slug> "<title>" [<parent_slug>]\n'
       );
       process.exit(1);
     }
 
-    const vault = await resolveVault(args[0]);
-    const project = args[1];
-    const title = args[2];
-    const parentSlug = args[3];
+    const vault = await resolveVault(vaultArg);
+    const project = rest[0];
+    const title = rest[1];
+    const parentSlug = rest[2];
 
     const result = await createAdr({ vault, project, title, parentSlug });
 

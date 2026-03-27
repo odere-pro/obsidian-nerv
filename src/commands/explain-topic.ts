@@ -23,6 +23,7 @@ import { obEval, resolveVault } from '../lib/obsidian';
 import { scoreNote } from './context';
 import type { EntityNote, EntityOutput } from './get-entity';
 import { resolveEntity } from './get-entity';
+import { extractVaultFlag } from '../lib/vault-registry';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -275,13 +276,15 @@ const command: Command = {
   description: 'Assemble a teaching bundle for a queried topic',
 
   async run(args: string[]): Promise<void> {
-    if (args.length < 2) {
-      process.stderr.write('Usage: nerv explain-topic <vault|vault=name> "<query>"\n');
+    const { vault: vaultArg, rest } = extractVaultFlag(args);
+
+    if (rest.length < 1) {
+      process.stderr.write('Usage: nerv explain-topic [--vault <name>] "<query>"\n');
       process.exit(1);
     }
 
-    const vault = await resolveVault(args[0]);
-    const query = args[1];
+    const vault = await resolveVault(vaultArg);
+    const query = rest[0];
     const result = await explainTopic(vault, query);
 
     if (!result) {

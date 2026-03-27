@@ -8,6 +8,7 @@ import type { Command } from '../../cli';
 import { encodeForJs, parseJson } from '../../lib/json';
 import { obEval, resolveVault } from '../../lib/obsidian';
 import type { CommandResult } from '../../types/result';
+import { extractVaultFlag } from '../../lib/vault-registry';
 
 export interface CodeLinkData {
   appended: boolean;
@@ -124,14 +125,18 @@ const command: Command = {
   description: 'Append a code-path reference to ## Connections in a note',
 
   async run(args: string[]): Promise<void> {
-    if (args.length < 3) {
-      process.stderr.write('Usage: nerv dev/code-link <vault> "<note-path>" "<code-path>"\n');
+    const { vault: vaultArg, rest } = extractVaultFlag(args);
+
+    if (rest.length < 2) {
+      process.stderr.write(
+        'Usage: nerv dev/code-link [--vault <name>] "<note-path>" "<code-path>"\n'
+      );
       process.exit(1);
     }
 
-    const vault = await resolveVault(args[0]);
-    const notePath = args[1];
-    const codePath = args[2];
+    const vault = await resolveVault(vaultArg);
+    const notePath = rest[0];
+    const codePath = rest[1];
 
     const result = await codeLink(vault, notePath, codePath);
 

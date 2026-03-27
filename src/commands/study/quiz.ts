@@ -8,6 +8,7 @@ import type { Command } from '../../cli';
 import { encodeForJs, parseJson } from '../../lib/json';
 import { obEval, resolveVault } from '../../lib/obsidian';
 import type { CommandResult } from '../../types/result';
+import { extractVaultFlag } from '../../lib/vault-registry';
 
 const QUIZ_INSTRUCTION =
   "You are a quiz generator grounded exclusively in the user's knowledge vault. " +
@@ -148,18 +149,22 @@ const command: Command = {
   description: 'Generate a vault-grounded quiz bundle from project notes',
 
   async run(args: string[]): Promise<void> {
-    if (args.length < 3) {
-      process.stderr.write('Usage: nerv study/quiz <vault> <project_slug> <spine> [<limit>]\n');
+    const { vault: vaultArg, rest } = extractVaultFlag(args);
+
+    if (rest.length < 2) {
+      process.stderr.write(
+        'Usage: nerv study/quiz [--vault <name>] <project_slug> <spine> [<limit>]\n'
+      );
       process.exit(1);
     }
 
-    const vault = await resolveVault(args[0]);
-    const project = args[1];
-    const spine = args[2];
-    const limit = args[3] ? parseInt(args[3], 10) : 5;
+    const vault = await resolveVault(vaultArg);
+    const project = rest[0];
+    const spine = rest[1];
+    const limit = rest[2] ? parseInt(rest[2], 10) : 5;
 
     if (isNaN(limit) || limit < 1) {
-      process.stderr.write(`ERROR: quiz: limit must be a positive integer (got: ${args[3]})\n`);
+      process.stderr.write(`ERROR: quiz: limit must be a positive integer (got: ${rest[2]})\n`);
       process.exit(1);
     }
 

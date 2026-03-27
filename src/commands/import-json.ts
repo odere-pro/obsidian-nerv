@@ -9,6 +9,7 @@ import { logError } from '../lib/logger';
 import { obEval, resolveVault } from '../lib/obsidian';
 import type { EntityType } from '../types/entity';
 import { createEntity } from './create-entity';
+import { extractVaultFlag } from '../lib/vault-registry';
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 const STANDARD_FIELDS = new Set(['name', 'type', 'kind', 'spine', 'parent']);
@@ -121,16 +122,16 @@ const command: Command = {
   name: 'import-json',
   description: 'Bulk-create notes from a JSON array file',
   async run(args: string[]): Promise<void> {
-    if (args.length < 3) {
-      process.stderr.write(
-        'Usage: nerv import-json <vault|vault=name> <project_slug> <json_file>\n'
-      );
+    const { vault: vaultArg, rest } = extractVaultFlag(args);
+
+    if (rest.length < 2) {
+      process.stderr.write('Usage: nerv import-json [--vault <name>] <project_slug> <json_file>\n');
       process.exit(1);
     }
 
-    const vault = await resolveVault(args[0]);
-    const projectSlug = args[1];
-    const jsonFile = args[2];
+    const vault = await resolveVault(vaultArg);
+    const projectSlug = rest[0];
+    const jsonFile = rest[1];
 
     if (!SLUG_RE.test(projectSlug)) {
       logError(

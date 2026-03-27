@@ -21,6 +21,7 @@
 import type { Command } from '../cli';
 import { encodeForJs, parseJson } from '../lib/json';
 import { obEval, resolveVault, rollbackLog } from '../lib/obsidian';
+import { extractVaultFlag } from '../lib/vault-registry';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -372,22 +373,24 @@ const command: Command = {
 
   async run(args: string[]): Promise<void> {
     let dryRun = false;
+    const { vault: vaultArg, rest } = extractVaultFlag(args);
+
     const positional: string[] = [];
-    for (const a of args) {
+    for (const a of rest) {
       if (a === '--dry-run') dryRun = true;
       else positional.push(a);
     }
 
-    if (positional.length < 3) {
+    if (positional.length < 2) {
       process.stderr.write(
-        'Usage: nerv migrate <vault|vault=name> <project_slug> <spec_file> [--dry-run]\n'
+        'Usage: nerv migrate [--vault <name>] <project_slug> <spec_file> [--dry-run]\n'
       );
       process.exit(1);
     }
 
-    const vault = await resolveVault(positional[0]);
-    const slug = positional[1];
-    const specPath = positional[2];
+    const vault = await resolveVault(vaultArg);
+    const slug = positional[0];
+    const specPath = positional[1];
 
     if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
       process.stderr.write(

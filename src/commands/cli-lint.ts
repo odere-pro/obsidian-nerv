@@ -9,6 +9,7 @@
 import type { Command } from '../cli';
 import { encodeForJs, parseJson } from '../lib/json';
 import { obEval, resolveVault } from '../lib/obsidian';
+import { extractVaultFlag } from '../lib/vault-registry';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -313,19 +314,16 @@ const command: Command = {
 
   async run(args: string[]): Promise<void> {
     let jsonOutput = false;
+    const { vault: vaultArg, rest } = extractVaultFlag(args);
+
     const positional: string[] = [];
-    for (const a of args) {
+    for (const a of rest) {
       if (a === '--json') jsonOutput = true;
       else positional.push(a);
     }
 
-    if (positional.length < 1) {
-      process.stderr.write('Usage: nerv cli-lint <vault|vault=name> [<folder>] [--json]\n');
-      process.exit(1);
-    }
-
-    const vault = await resolveVault(positional[0]);
-    const folder = positional[1] ?? '';
+    const vault = await resolveVault(vaultArg);
+    const folder = positional[0] ?? '';
     const result = await lintProject(vault, folder);
 
     if (jsonOutput) {

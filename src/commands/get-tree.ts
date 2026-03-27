@@ -9,6 +9,7 @@
 import type { Command } from '../cli';
 import { encodeForJs, parseJson } from '../lib/json';
 import { obEval, resolveVault } from '../lib/obsidian';
+import { extractVaultFlag } from '../lib/vault-registry';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -178,29 +179,30 @@ const command: Command = {
   description: 'Return the hierarchical note tree for a project',
 
   async run(args: string[]): Promise<void> {
+    const { vault: vaultArg, rest } = extractVaultFlag(args);
     const positional: string[] = [];
     let maxDepth = 50;
 
-    for (let i = 0; i < args.length; i++) {
-      if (args[i] === '--depth') {
-        const d = parseInt(args[++i] ?? '', 10);
+    for (let i = 0; i < rest.length; i++) {
+      if (rest[i] === '--depth') {
+        const d = parseInt(rest[++i] ?? '', 10);
         if (isNaN(d) || d < 1) {
           process.stderr.write('ERROR: get-tree: --depth requires a positive integer\n');
           process.exit(1);
         }
         maxDepth = d;
       } else {
-        positional.push(args[i]);
+        positional.push(rest[i]);
       }
     }
 
-    if (positional.length < 2) {
-      process.stderr.write('Usage: nerv get-tree <vault|vault=name> <project_slug> [--depth N]\n');
+    if (positional.length < 1) {
+      process.stderr.write('Usage: nerv get-tree [--vault <name>] <project_slug> [--depth N]\n');
       process.exit(1);
     }
 
-    const vault = await resolveVault(positional[0]);
-    const slug = positional[1];
+    const vault = await resolveVault(vaultArg);
+    const slug = positional[0];
 
     if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
       process.stderr.write(

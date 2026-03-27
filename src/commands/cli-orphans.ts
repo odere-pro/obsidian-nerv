@@ -8,6 +8,7 @@
 import type { Command } from '../cli';
 import { encodeForJs, parseJson } from '../lib/json';
 import { obEval, resolveVault } from '../lib/obsidian';
+import { extractVaultFlag } from '../lib/vault-registry';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -188,27 +189,22 @@ const command: Command = {
   async run(args: string[]): Promise<void> {
     let jsonOutput = false;
     let projectFilter = '';
+    const { vault: vaultArg, rest } = extractVaultFlag(args);
+
     const positional: string[] = [];
 
-    for (let i = 0; i < args.length; i++) {
-      if (args[i] === '--json') {
+    for (let i = 0; i < rest.length; i++) {
+      if (rest[i] === '--json') {
         jsonOutput = true;
-      } else if (args[i] === '--project' && args[i + 1]) {
-        projectFilter = `projects/${args[++i]}`;
+      } else if (rest[i] === '--project' && rest[i + 1]) {
+        projectFilter = `projects/${rest[++i]}`;
       } else {
-        positional.push(args[i]);
+        positional.push(rest[i]);
       }
     }
 
-    if (positional.length < 1) {
-      process.stderr.write(
-        'Usage: nerv cli-orphans <vault|vault=name> [--project <slug>] [--json]\n'
-      );
-      process.exit(1);
-    }
-
-    const vault = await resolveVault(positional[0]);
-    const folder = projectFilter || positional[1] || '';
+    const vault = await resolveVault(vaultArg);
+    const folder = projectFilter || positional[0] || '';
     const raw = await obEval(vault, buildFetchExpr(folder)).catch(() => '[]');
     const rawNotes = parseJson<OrphanNoteData[]>(raw) ?? [];
     const issues = detectOrphans(rawNotes);

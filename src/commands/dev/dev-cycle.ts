@@ -11,6 +11,7 @@
 import { spawnSync } from 'child_process';
 import type { Command } from '../../cli';
 import { resolveVault } from '../../lib/obsidian';
+import { extractVaultFlag } from '../../lib/vault-registry';
 
 const PLUGIN_ID_RE = /^[a-zA-Z0-9_-]+$/;
 
@@ -30,8 +31,10 @@ const command: Command = {
 
   async run(args: string[]): Promise<void> {
     let screenshot = false;
+    const { vault: vaultArg, rest } = extractVaultFlag(args);
+
     const positional: string[] = [];
-    for (const a of args) {
+    for (const a of rest) {
       if (a === '--screenshot') {
         screenshot = true;
       } else {
@@ -39,13 +42,15 @@ const command: Command = {
       }
     }
 
-    if (positional.length < 2) {
-      process.stderr.write('Usage: nerv dev/dev-cycle <vault> <plugin-id> [--screenshot]\n');
+    if (positional.length < 1) {
+      process.stderr.write(
+        'Usage: nerv dev/dev-cycle [--vault <name>] <plugin-id> [--screenshot]\n'
+      );
       process.exit(1);
     }
 
-    const vault = await resolveVault(positional[0]);
-    const pluginId = positional[1];
+    const vault = await resolveVault(vaultArg);
+    const pluginId = positional[0];
 
     if (!PLUGIN_ID_RE.test(pluginId)) {
       process.stderr.write(

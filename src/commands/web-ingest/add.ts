@@ -4,7 +4,7 @@
 // content into the note body.
 //
 // Programmatic API:  ingestUrl(url, vault, project, parent?)
-// CLI:               nerv web-ingest/add <vault> <project> <url> [<parent_slug>] [--json]
+// CLI:               nerv web-ingest/add [--vault <name>] <project> <url> [<parent_slug>] [--json]
 
 import type { Command } from '../../cli';
 import { fetchAndParse, generateUrlSlug } from '../../lib/defuddle';
@@ -12,6 +12,7 @@ import { encodeForJs } from '../../lib/json';
 import { dailyAppend, obEval, resolveVault } from '../../lib/obsidian';
 import type { CommandResult } from '../../types/result';
 import { createEntity } from '../create-entity';
+import { extractVaultFlag } from '../../lib/vault-registry';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -309,7 +310,9 @@ const command: Command = {
 
   async run(args: string[]): Promise<void> {
     let jsonOutput = false;
-    const positional = args.filter(a => {
+    const { vault: vaultArg, rest } = extractVaultFlag(args);
+
+    const positional = rest.filter(a => {
       if (a === '--json') {
         jsonOutput = true;
         return false;
@@ -317,17 +320,17 @@ const command: Command = {
       return true;
     });
 
-    if (positional.length < 3) {
+    if (positional.length < 2) {
       process.stderr.write(
-        'Usage: nerv web-ingest/add <vault> <project> <url> [<parent_slug>] [--json]\n'
+        'Usage: nerv web-ingest/add [--vault <name>] <project> <url> [<parent_slug>] [--json]\n'
       );
       process.exit(1);
     }
 
-    const vault = await resolveVault(positional[0]);
-    const project = positional[1];
-    const url = positional[2];
-    const parent = positional[3];
+    const vault = await resolveVault(vaultArg);
+    const project = positional[0];
+    const url = positional[1];
+    const parent = positional[2];
 
     const result = await ingestUrl(url, vault, project, parent);
 

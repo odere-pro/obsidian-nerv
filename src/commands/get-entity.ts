@@ -17,6 +17,7 @@
 import type { Command } from '../cli';
 import { parseJson } from '../lib/json';
 import { obEval, resolveVault } from '../lib/obsidian';
+import { extractVaultFlag } from '../lib/vault-registry';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -259,13 +260,15 @@ const command: Command = {
   description: 'Deep single-note retrieval with 5-level match resolution',
 
   async run(args: string[]): Promise<void> {
-    if (args.length < 2) {
-      process.stderr.write('Usage: nerv get-entity <vault|vault=name> "<search-term>"\n');
+    const { vault: vaultArg, rest } = extractVaultFlag(args);
+
+    if (rest.length < 1) {
+      process.stderr.write('Usage: nerv get-entity [--vault <name>] "<search-term>"\n');
       process.exit(1);
     }
 
-    const vault = await resolveVault(args[0]);
-    const query = args[1];
+    const vault = await resolveVault(vaultArg);
+    const query = rest[0];
     const result = await getEntity(vault, query);
 
     if (!result) {

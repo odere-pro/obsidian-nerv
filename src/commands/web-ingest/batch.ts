@@ -5,11 +5,12 @@
 // Input file schema: { "urls": ["https://...", ...], "parent": "parent-slug" (optional) }
 // Output schema:     { "ingested": N, "skipped": M, "failed": K, "totalTokens": N }
 //
-// CLI: nerv web-ingest/batch <vault> <project> <path-to-json> [--json]
+// CLI: nerv web-ingest/batch [--vault <name>] <project> <path-to-json> [--json]
 
 import type { Command } from '../../cli';
 import { resolveVault } from '../../lib/obsidian';
 import { ingestUrl } from './add';
+import { extractVaultFlag } from '../../lib/vault-registry';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -73,7 +74,9 @@ const command: Command = {
 
   async run(args: string[]): Promise<void> {
     let jsonOutput = false;
-    const positional = args.filter(a => {
+    const { vault: vaultArg, rest } = extractVaultFlag(args);
+
+    const positional = rest.filter(a => {
       if (a === '--json') {
         jsonOutput = true;
         return false;
@@ -81,16 +84,16 @@ const command: Command = {
       return true;
     });
 
-    if (positional.length < 3) {
+    if (positional.length < 2) {
       process.stderr.write(
-        'Usage: nerv web-ingest/batch <vault> <project> <batch-json-path> [--json]\n'
+        'Usage: nerv web-ingest/batch [--vault <name>] <project> <batch-json-path> [--json]\n'
       );
       process.exit(1);
     }
 
-    const vault = await resolveVault(positional[0]);
-    const project = positional[1];
-    const batchPath = positional[2];
+    const vault = await resolveVault(vaultArg);
+    const project = positional[0];
+    const batchPath = positional[1];
 
     let batchFile: BatchFile;
     try {

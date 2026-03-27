@@ -13,6 +13,7 @@ import {
   renderTopk,
   renderVocab,
 } from '../templates/index';
+import { extractVaultFlag } from '../lib/vault-registry';
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 
@@ -141,13 +142,15 @@ const command: Command = {
   name: 'create-project',
   description: 'Scaffold a new project (5 files) inside a vault',
   async run(args: string[]): Promise<void> {
-    if (args.length < 3) {
-      process.stderr.write('Usage: nerv create-project <vault|vault=name> <slug> "<Title>"\n');
+    const { vault: vaultArg, rest } = extractVaultFlag(args);
+
+    if (rest.length < 2) {
+      process.stderr.write('Usage: nerv create-project [--vault <name>] <slug> "<Title>"\n');
       process.exit(1);
     }
-    const vault = await resolveVault(args[0]);
-    const slug = args[1];
-    const title = args[2];
+    const vault = await resolveVault(vaultArg);
+    const slug = rest[0];
+    const title = rest[1];
     await createProject({ vault, slug, title }).catch((e: unknown) => {
       logError(e instanceof Error ? e.message : String(e));
     });

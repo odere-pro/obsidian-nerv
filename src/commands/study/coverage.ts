@@ -8,6 +8,7 @@ import type { Command } from '../../cli';
 import { encodeForJs, parseJson } from '../../lib/json';
 import { obEval, resolveVault } from '../../lib/obsidian';
 import type { CommandResult } from '../../types/result';
+import { extractVaultFlag } from '../../lib/vault-registry';
 
 export interface CoverageDomain {
   spine: string;
@@ -144,13 +145,15 @@ const command: Command = {
   description: 'Report spine-domain coverage metrics for a project',
 
   async run(args: string[]): Promise<void> {
-    if (args.length < 2) {
-      process.stderr.write('Usage: nerv study/coverage <vault> <project_slug>\n');
+    const { vault: vaultArg, rest } = extractVaultFlag(args);
+
+    if (rest.length < 1) {
+      process.stderr.write('Usage: nerv study/coverage [--vault <name>] <project_slug>\n');
       process.exit(1);
     }
 
-    const vault = await resolveVault(args[0]);
-    const project = args[1];
+    const vault = await resolveVault(vaultArg);
+    const project = rest[0];
 
     const result = await getCoverage(vault, project);
 

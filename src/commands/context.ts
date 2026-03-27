@@ -18,6 +18,7 @@
 import type { Command } from '../cli';
 import { parseJson } from '../lib/json';
 import { obEval, resolveVault } from '../lib/obsidian';
+import { extractVaultFlag } from '../lib/vault-registry';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -285,14 +286,16 @@ const command: Command = {
   description: 'Relevance-scored vault retrieval for a query',
 
   async run(args: string[]): Promise<void> {
-    if (args.length < 2) {
-      process.stderr.write('Usage: nerv context <vault|vault=name> "<query>" [<limit>]\n');
+    const { vault: vaultArg, rest } = extractVaultFlag(args);
+
+    if (rest.length < 1) {
+      process.stderr.write('Usage: nerv context [--vault <name>] "<query>" [<limit>]\n');
       process.exit(1);
     }
 
-    const vault = await resolveVault(args[0]);
-    const query = args[1];
-    const limitStr = args[2] ?? '5';
+    const vault = await resolveVault(vaultArg);
+    const query = rest[0];
+    const limitStr = rest[1] ?? '5';
     const limit = parseInt(limitStr, 10);
 
     if (isNaN(limit) || limit < 1) {

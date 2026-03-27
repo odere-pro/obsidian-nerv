@@ -7,6 +7,7 @@ import type { Command } from '../../cli';
 import { resolveVault } from '../../lib/obsidian';
 import type { CommandResult } from '../../types/result';
 import { getRelations, type Edge } from '../cli-relations';
+import { extractVaultFlag } from '../../lib/vault-registry';
 
 export type DependencyFormat = 'json' | 'dot';
 
@@ -58,30 +59,32 @@ const command: Command = {
 
   async run(args: string[]): Promise<void> {
     let format: DependencyFormat = 'json';
+    const { vault: vaultArg, rest } = extractVaultFlag(args);
+
     const positional: string[] = [];
 
-    for (let i = 0; i < args.length; i++) {
-      if (args[i] === '--format') {
-        const fmt = args[++i];
+    for (let i = 0; i < rest.length; i++) {
+      if (rest[i] === '--format') {
+        const fmt = rest[++i];
         if (fmt !== 'json' && fmt !== 'dot') {
           process.stderr.write(`ERROR: dependency-map: unknown format: ${fmt} (json|dot)\n`);
           process.exit(1);
         }
         format = fmt;
       } else {
-        positional.push(args[i]);
+        positional.push(rest[i]);
       }
     }
 
-    if (positional.length < 2) {
+    if (positional.length < 1) {
       process.stderr.write(
-        'Usage: nerv dev/dependency-map <vault> <project_slug> [--format json|dot]\n'
+        'Usage: nerv dev/dependency-map [--vault <name>] <project_slug> [--format json|dot]\n'
       );
       process.exit(1);
     }
 
-    const vault = await resolveVault(positional[0]);
-    const project = positional[1];
+    const vault = await resolveVault(vaultArg);
+    const project = positional[0];
 
     const result = await getDependencyMap(vault, project);
 

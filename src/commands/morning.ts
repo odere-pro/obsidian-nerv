@@ -7,18 +7,19 @@
 //   4. obsidian unresolved     — list unresolved wikilinks
 //
 // Install cron entry for weekday 08:00:
-//   0 8 * * 1-5 ~/.ontology-cli/bin/nerv morning <vault>
+//   0 8 * * 1-5 ~/.ontology-cli/bin/nerv morning [--vault <name>]
 
 import type { Command } from '../cli';
 import { resolveVault } from '../lib/obsidian';
 import { spawnCapture } from '../lib/shell';
+import { extractVaultFlag } from '../lib/vault-registry';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
 /** Cron expression for weekday 08:00 morning startup. */
-export const CRON_ENTRY = '0 8 * * 1-5 ~/.ontology-cli/bin/nerv morning <vault>';
+export const CRON_ENTRY = '0 8 * * 1-5 ~/.ontology-cli/bin/nerv morning [--vault <name>]';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -122,7 +123,8 @@ const command: Command = {
     'Daily startup sequence: open daily note, inbox count, recent files, unresolved links',
 
   async run(args: string[]): Promise<void> {
-    const vault = await resolveVault(args[0]);
+    const { vault: vaultArg } = extractVaultFlag(args);
+    const vault = await resolveVault(vaultArg);
     await runMorning(vault, { spawnCapture });
   },
 };

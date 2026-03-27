@@ -3,12 +3,13 @@
 // State (last-checked timestamp + seen article URLs) is persisted in
 // `_inbox/_web-ingest-state.json` inside the vault via the Obsidian CLI.
 //
-// CLI: nerv web-ingest/monitor <vault> <project> <feed-url> [--interval 3600] [--once] [--max-articles 10]
+// CLI: nerv web-ingest/monitor [--vault <name>] <project> <feed-url> [--interval 3600] [--once] [--max-articles 10]
 
 import type { Command } from '../../cli';
 import { encodeForJs } from '../../lib/json';
 import { obEval, resolveVault } from '../../lib/obsidian';
 import { ingestUrl } from './add';
+import { extractVaultFlag } from '../../lib/vault-registry';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -244,31 +245,33 @@ const command: Command = {
     let maxArticles = 10;
     let parent: string | undefined;
 
+    const { vault: vaultArg, rest } = extractVaultFlag(args);
+
     const positional: string[] = [];
-    for (let i = 0; i < args.length; i++) {
-      if (args[i] === '--interval' && args[i + 1]) {
-        interval = parseInt(args[++i], 10) || 3600;
-      } else if (args[i] === '--once') {
+    for (let i = 0; i < rest.length; i++) {
+      if (rest[i] === '--interval' && rest[i + 1]) {
+        interval = parseInt(rest[++i], 10) || 3600;
+      } else if (rest[i] === '--once') {
         once = true;
-      } else if (args[i] === '--max-articles' && args[i + 1]) {
-        maxArticles = Math.min(parseInt(args[++i], 10) || 10, 100);
-      } else if (args[i] === '--parent' && args[i + 1]) {
-        parent = args[++i];
+      } else if (rest[i] === '--max-articles' && rest[i + 1]) {
+        maxArticles = Math.min(parseInt(rest[++i], 10) || 10, 100);
+      } else if (rest[i] === '--parent' && rest[i + 1]) {
+        parent = rest[++i];
       } else {
-        positional.push(args[i]);
+        positional.push(rest[i]);
       }
     }
 
-    if (positional.length < 3) {
+    if (positional.length < 2) {
       process.stderr.write(
-        'Usage: nerv web-ingest/monitor <vault> <project> <feed-url> [--interval 3600] [--once] [--max-articles 10] [--parent slug]\n'
+        'Usage: nerv web-ingest/monitor [--vault <name>] <project> <feed-url> [--interval 3600] [--once] [--max-articles 10] [--parent slug]\n'
       );
       process.exit(1);
     }
 
-    const vault = await resolveVault(positional[0]);
-    const project = positional[1];
-    const feedUrl = positional[2];
+    const vault = await resolveVault(vaultArg);
+    const project = positional[0];
+    const feedUrl = positional[1];
 
     await runMonitor(vault, project, feedUrl, { interval, once, maxArticles, parent });
   },
