@@ -17,7 +17,11 @@ export interface Command {
 // Static command registry — keep in sync with src/commands/
 // ---------------------------------------------------------------------------
 const COMMANDS: Array<{ name: string; description: string }> = [
-  { name: 'init-vault', description: 'Provision a new Obsidian vault (idempotent)' },
+  { name: 'add-vault', description: 'Provision and register a new vault (idempotent)' },
+  { name: 'list-vaults', description: 'List all registered vaults' },
+  { name: 'current-vault', description: 'Show the vault that would be used by default' },
+  { name: 'switch-vault', description: 'Set the default vault for all commands' },
+  { name: 'remove-vault', description: 'Unregister a vault (does not delete files)' },
   { name: 'create-entity', description: 'Create a new entity note' },
   { name: 'create-project', description: 'Create a new project' },
   { name: 'get-entity', description: 'Look up an entity by name' },
@@ -50,7 +54,7 @@ function printHelp(): void {
   const maxLen = Math.max(...COMMANDS.map(c => c.name.length));
   const lines = COMMANDS.map(c => `  ${c.name.padEnd(maxLen)}  ${c.description}`);
   process.stdout.write(
-    `nerv v${packageVersion()}\n\nUsage: nerv <command> [options]\n\nCommands:\n${lines.join('\n')}\n\nRun 'nerv <command> --help' for command-specific options.\n`
+    `nerv v${packageVersion()}\n\nUsage: nerv <command> [options]\n\nCommands:\n${lines.join('\n')}\n\nRun 'nerv <command> --help' for command-specific options.\n\nVault flag:\n  --vault <name>  Override the active vault for any command\n\nEnvironment:\n  NERV_DEFAULT_VAULT  Default vault name (must be registered via: nerv add-vault)\n`
   );
 }
 
