@@ -1,13 +1,13 @@
 //
-// E2E integration test for init-vault.
+// E2E integration test for add-vault.
 // Creates a real vault at ./docs/vaults using the default path convention.
 // Does NOT require Obsidian to be running — filesystem assertions only.
 //
-// Run: bun test tests/integration/motor/init-vault.integration.test.ts
+// Run: bun test tests/integration/motor/add-vault.integration.test.ts
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { join, resolve } from 'node:path';
-import { VAULT_DIRS, buildVaultFileMap, initVault } from '../../../src/commands/init-vault';
+import { VAULT_DIRS, buildVaultFileMap, initVault } from '../../../src/commands/add-vault';
 
 const VAULT_NAME = Bun.env.NERV_TEST_VAULT ?? 'e2e-integration-test-vault';
 const VAULT_PATH = resolve(Bun.env.NERV_VAULT_PATH ?? './docs/vaults');
@@ -28,7 +28,7 @@ afterAll(async () => {
 // Suite
 // ---------------------------------------------------------------------------
 
-describe('init-vault e2e', () => {
+describe('add-vault e2e', () => {
   test('provisions vault without throwing', async () => {
     const result = await initVault({ name: VAULT_NAME, path: VAULT_PATH });
     expect(result).toBeDefined();
@@ -82,5 +82,17 @@ describe('init-vault e2e', () => {
     const nonGit = second.created.filter(f => !f.endsWith('.gitignore'));
     expect(nonGit).toHaveLength(0);
     expect(second.skipped.some(f => f.endsWith('app.json'))).toBe(true);
+  });
+
+  test('registers vault in .nerv/vaults.json after provisioning', async () => {
+    const { registerVault } = await import('../../../src/lib/vault-registry');
+    process.env['NERV_SKIP_GIT_ROOT_CHECK'] = '1';
+    await registerVault(VAULT_NAME, VAULT_PATH);
+    delete process.env['NERV_SKIP_GIT_ROOT_CHECK'];
+
+    const registryPath = resolve(VAULT_PATH, '../../../.nerv/vaults.json');
+    const raw = await Bun.file(registryPath).text();
+    const registry = JSON.parse(raw) as { vaults: { name: string }[] };
+    expect(registry.vaults.some(v => v.name === VAULT_NAME)).toBe(true);
   });
 });
