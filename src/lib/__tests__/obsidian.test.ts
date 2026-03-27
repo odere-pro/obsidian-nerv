@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test';
+import { mkdir, rm } from 'node:fs/promises';
+import { join } from 'node:path';
 
 // ---------------------------------------------------------------------------
 // Mock shell before importing obsidian so spawnCapture is intercepted.
@@ -22,48 +24,124 @@ mock.module('../shell', () => ({
   ShellTimeoutError: class ShellTimeoutError extends Error {},
 }));
 
+// Import vault-registry so we can mock it for resolveVault tests
+import * as vaultRegistry from '../vault-registry';
+
 // Import AFTER mock.module() is in place
 const { resolveVault, obEval } = await import('../obsidian');
 
+// ---------------------------------------------------------------------------
+// Test helpers for resolveVault
+// ---------------------------------------------------------------------------
+
+const TMPDIR = Bun.env['TMPDIR'] ?? '/tmp';
+let testDir: string;
+
+function mockRegistryPath(dir: string): void {
+  spyOn(vaultRegistry, 'registryPath').mockImplementation(async () => join(dir, 'vaults.json'));
+}
+
 describe('resolveVault', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    testDir = join(TMPDIR, `nerv-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    await mkdir(testDir, { recursive: true });
+    process.env['NERV_SKIP_GIT_ROOT_CHECK'] = '1';
+    delete process.env['NERV_DEFAULT_VAULT'];
+    mockRegistryPath(testDir);
     mockSpawnCapture.mockReset();
   });
 
-  test('returns name directly from vault= prefix', async () => {
-    const name = await resolveVault('vault=study');
-    expect(name).toBe('study');
-    // No subprocess needed for vault= form
-    expect(mockSpawnCapture).not.toHaveBeenCalled();
+  afterEach(async () => {
+    delete process.env['NERV_SKIP_GIT_ROOT_CHECK'];
+    delete process.env['NERV_DEFAULT_VAULT'];
+    await rm(testDir, { recursive: true, force: true });
+    mock.restore();
   });
 
-  test('returns bare string arg as-is', async () => {
+  test('resolveVault(name) with vault registered and path on disk → returns name', async () => {
+    await vaultRegistry.registerVault('my-vault', testDir);
     const name = await resolveVault('my-vault');
     expect(name).toBe('my-vault');
-    expect(mockSpawnCapture).not.toHaveBeenCalled();
   });
 
-  test('falls back to obsidian vault command when arg is undefined', async () => {
-    mockSpawnCapture.mockImplementation(async () => ({
-      stdout: 'name\tstudy\npath\t/Users/me/study\n',
-      stderr: '',
-      exitCode: 0,
-    }));
+  test('resolveVault(name) with vault not in registry → logError called', async () => {
+    const stderrSpy = spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const exitSpy = spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('process.exit called');
+    });
 
+    try {
+      await resolveVault('missing');
+    } catch {
+      // expected
+    }
+
+    const msg = (stderrSpy.mock.calls[0]?.[0] as string) ?? '';
+    expect(msg).toContain('missing');
+    exitSpy.mockRestore();
+    stderrSpy.mockRestore();
+  });
+
+  test('resolveVault(name) with vault registered but path missing from disk → logError with path', async () => {
+    const missingPath = join(testDir, 'does-not-exist');
+    // Write registry entry directly with a non-existent path
+    const registryFile = join(testDir, 'vaults.json');
+    await Bun.write(
+      registryFile,
+      JSON.stringify({ vaults: [{ name: 'phantom', path: missingPath, isDefault: true }] })
+    );
+
+    const stderrSpy = spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const exitSpy = spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('process.exit called');
+    });
+
+    try {
+      await resolveVault('phantom');
+    } catch {
+      // expected
+    }
+
+    const msg = (stderrSpy.mock.calls[0]?.[0] as string) ?? '';
+    expect(msg).toContain('phantom');
+    expect(msg).toContain(missingPath);
+    expect(msg).toContain('does not exist');
+    exitSpy.mockRestore();
+    stderrSpy.mockRestore();
+  });
+
+  test('resolveVault(undefined) with NERV_DEFAULT_VAULT set and vault registered → returns name', async () => {
+    await vaultRegistry.registerVault('my-vault', testDir);
+    process.env['NERV_DEFAULT_VAULT'] = 'my-vault';
     const name = await resolveVault(undefined);
-    expect(name).toBe('study');
-    expect(mockSpawnCapture).toHaveBeenCalledWith(['obsidian', 'vault']);
+    expect(name).toBe('my-vault');
   });
 
-  test('falls back to obsidian vault command when arg is empty string', async () => {
-    mockSpawnCapture.mockImplementation(async () => ({
-      stdout: 'name\tdev-vault\n',
-      stderr: '',
-      exitCode: 0,
-    }));
+  test('resolveVault(undefined) with no env and registry default set → returns default vault name', async () => {
+    await vaultRegistry.registerVault('default-vault', testDir);
+    // First vault gets isDefault: true automatically
+    const name = await resolveVault(undefined);
+    expect(name).toBe('default-vault');
+  });
 
-    const name = await resolveVault('');
-    expect(name).toBe('dev-vault');
+  test('resolveVault(undefined) with no env and no registry default → logError with actionable message', async () => {
+    const stderrSpy = spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const exitSpy = spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('process.exit called');
+    });
+
+    try {
+      await resolveVault(undefined);
+    } catch {
+      // expected
+    }
+
+    const msg = (stderrSpy.mock.calls[0]?.[0] as string) ?? '';
+    expect(msg).toContain('No vault specified');
+    expect(msg).toContain('--vault');
+    expect(msg).toContain('NERV_DEFAULT_VAULT');
+    exitSpy.mockRestore();
+    stderrSpy.mockRestore();
   });
 });
 

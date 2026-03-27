@@ -2,40 +2,69 @@
 // TypeScript port of cli/core/lib.sh — resolveVault, ob_eval, daily_append,
 // and rollback_log functions.
 
+import { access } from 'node:fs/promises';
 import { encodeForJs } from './json';
 import { logError } from './logger';
 import { spawnCapture } from './shell';
+import { type VaultEntry, getDefaultVault, lookupVault } from './vault-registry';
 
 /**
  * Resolve the target vault name.
  *
- * Accepts either a positional string or a `vault=<name>` prefix form.
- * Falls back to the currently active vault via `obsidian vault`.
+ * Resolution order:
+ *   1. Explicit `vault` arg → lookupVault(arg)
+ *   2. `NERV_DEFAULT_VAULT` env variable → lookupVault(env)
+ *   3. Registry default → getDefaultVault()
+ *   4. Hard error
  *
- * @param arg - Optional: a bare vault name, a `vault=<name>` string, or undefined.
+ * Every resolved entry is validated for on-disk existence.
+ *
+ * @param vault - Optional: a vault name (typically extracted via --vault flag), or undefined.
  * @returns The resolved vault name.
  * @throws via logError if no vault can be determined.
  */
-export async function resolveVault(arg?: string): Promise<string> {
-  if (arg !== undefined && arg !== '') {
-    if (arg.startsWith('vault=')) {
-      return arg.slice('vault='.length);
-    }
-    return arg;
+export async function resolveVault(vault?: string): Promise<string> {
+  let entry: VaultEntry | undefined;
+
+  // Priority 1 — explicit arg
+  if (vault !== undefined && vault !== '') {
+    entry = await lookupVault(vault);
   }
 
-  // Fall back to the active vault reported by the CLI
-  const { stdout, exitCode } = await spawnCapture(['obsidian', 'vault']);
-  if (exitCode === 0) {
-    for (const line of stdout.split('\n')) {
-      const parts = line.split('\t');
-      if (parts[0]?.trim() === 'name' && parts[1]?.trim()) {
-        return parts[1].trim();
-      }
+  // Priority 2 — env variable
+  if (!entry) {
+    const envVault = Bun.env['NERV_DEFAULT_VAULT'];
+    if (envVault) {
+      entry = await lookupVault(envVault);
     }
   }
 
-  logError('Could not determine active vault. Pass vault=<name> explicitly.');
+  // Priority 3 — registry default
+  if (!entry) {
+    entry = await getDefaultVault();
+  }
+
+  // Priority 4 — error
+  if (!entry) {
+    logError(
+      'No vault specified. Pass --vault <name>, set NERV_DEFAULT_VAULT, or run: nerv switch-vault <name>'
+    );
+  }
+
+  // Disk-existence validation
+  let pathExists = true;
+  try {
+    await access(entry.path);
+  } catch {
+    pathExists = false;
+  }
+  if (!pathExists) {
+    logError(
+      `Vault "${entry.name}" is registered but its path does not exist: ${entry.path}. Run: nerv add-vault --vault ${entry.name} --path ${entry.path}`
+    );
+  }
+
+  return entry.name;
 }
 
 /**
@@ -115,6 +144,7 @@ export async function rollbackLog(
   const jsEntry = encodeForJs(entry + '\n');
   const jsHeader = encodeForJs(header);
 
+  // FIXME: Find better solution for eval expression construction. This is very brittle and error-prone, especially with the need to embed both header and entry, and the requirement for the entire expression to be a single line.
   const expr = `(async () => {
   const path = '_inbox/_rollback-log.md';
   const f = app.vault.getAbstractFileByPath(path);
