@@ -8,21 +8,12 @@
 //
 // <plugin-id> is the directory name under .obsidian/plugins/, NOT the display name.
 
-import { spawnSync } from 'child_process';
 import type { Command } from '../../cli';
 import { resolveVault } from '../../lib/obsidian';
 import { extractVaultFlag } from '../../lib/vault-registry';
+import { getDevOps } from '../../ports/provider';
 
 const PLUGIN_ID_RE = /^[a-zA-Z0-9_-]+$/;
-
-function obsidian(args: string[]): { stdout: string; stderr: string; status: number } {
-  const result = spawnSync('obsidian', args, { encoding: 'utf-8' });
-  return {
-    stdout: result.stdout ?? '',
-    stderr: result.stderr ?? '',
-    status: result.status ?? 1,
-  };
-}
 
 const command: Command = {
   name: 'dev/dev-cycle',
@@ -60,23 +51,16 @@ const command: Command = {
       process.exit(1);
     }
 
+    const devOps = getDevOps();
+
     // Step 1 — Reload
     process.stdout.write(`[dev-cycle] Step 1/4: reloading plugin "${pluginId}"...\n`);
-    const reload = obsidian([`plugin:reload`, `vault=${vault}`, `plugin=${pluginId}`]);
-    if (reload.status !== 0) {
-      process.stderr.write(
-        `ERROR: dev-cycle: plugin:reload failed for "${pluginId}"\n` +
-          `       Verify the plugin ID matches the directory under .obsidian/plugins/\n`
-      );
-      if (reload.stderr) process.stderr.write(reload.stderr);
-      process.exit(1);
-    }
+    await devOps.reloadPlugin(vault, pluginId);
     process.stdout.write(`[dev-cycle] Reload: OK\n`);
 
     // Step 2 — Errors
     process.stdout.write(`[dev-cycle] Step 2/4: checking for errors...\n`);
-    const errors = obsidian([`dev:errors`, `vault=${vault}`]);
-    const errorsOut = errors.stdout.trim();
+    const errorsOut = (await devOps.captureErrors(vault)).trim();
 
     if (errorsOut) {
       process.stdout.write(`[dev-cycle] ERRORS FOUND — stopping cycle:\n`);
@@ -88,8 +72,7 @@ const command: Command = {
 
     // Step 3 — Console (last 20 lines)
     process.stdout.write(`[dev-cycle] Step 3/4: capturing console output...\n`);
-    const consoleResult = obsidian([`dev:console`, `vault=${vault}`]);
-    const consoleOut = consoleResult.stdout.trim();
+    const consoleOut = (await devOps.captureConsole(vault)).trim();
 
     if (consoleOut) {
       const lines = consoleOut.split('\n').slice(-20);
@@ -101,8 +84,7 @@ const command: Command = {
     // Step 4 — Screenshot (only with --screenshot flag)
     if (screenshot) {
       process.stdout.write(`[dev-cycle] Step 4/4: capturing screenshot...\n`);
-      const screenshotResult = obsidian([`dev:screenshot`, `vault=${vault}`]);
-      const screenshotOut = screenshotResult.stdout.trim();
+      const screenshotOut = (await devOps.captureScreenshot(vault)).trim();
       if (screenshotOut) {
         process.stdout.write(`[dev-cycle] Screenshot saved: ${screenshotOut}\n`);
       } else {
