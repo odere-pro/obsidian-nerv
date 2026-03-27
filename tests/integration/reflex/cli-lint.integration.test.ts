@@ -5,10 +5,10 @@
 // Creates deliberately malformed notes in the vault, runs lintProject(),
 // verifies each of the 11 rules fires, then cleans up.
 
-import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
-import { lintProject } from '../../../src/commands/cli-lint.ts';
-import { obEval } from '../../../src/lib/obsidian.ts';
-import { encodeForJs } from '../../../src/lib/json.ts';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+import { lintProject } from '../../../src/commands/cli-lint';
+import { encodeForJs } from '../../../src/lib/json';
+import { obEval } from '../../../src/lib/obsidian';
 
 const VAULT = process.env.TEST_VAULT ?? 'study';
 const LINT_DIR = 'projects/_lint-test-ts';

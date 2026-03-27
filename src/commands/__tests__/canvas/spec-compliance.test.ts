@@ -8,12 +8,12 @@
 //   IDs: 16-character lowercase hex strings
 
 import { describe, expect, test } from 'bun:test';
-import { buildTreeCanvas } from '../../canvas/tree.ts';
-import { buildRelationsCanvas } from '../../canvas/relations.ts';
-import { buildDependenciesCanvas } from '../../canvas/dependencies.ts';
-import type { TreeNode } from '../../get-tree.ts';
-import type { CanvasData, CanvasNode, CanvasEdge } from '../../../lib/canvas.ts';
-import type { Edge } from '../../cli-relations.ts';
+import type { CanvasData, CanvasEdge, CanvasNode } from '../../../lib/canvas';
+import { buildDependenciesCanvas } from '../../canvas/dependencies';
+import { buildRelationsCanvas } from '../../canvas/relations';
+import { buildTreeCanvas } from '../../canvas/tree';
+import type { Edge } from '../../cli-relations';
+import type { TreeNode } from '../../get-tree';
 
 // ---------------------------------------------------------------------------
 // Shared spec validator

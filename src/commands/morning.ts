@@ -1,5 +1,5 @@
 // STORY-036 — Migrate orchestration and migration skills to TypeScript
-// morning.ts — Orchestration skill: daily startup sequence.
+// morning — Orchestration skill: daily startup sequence.
 //
 // Executes 4 steps in sequence using spawnCapture for all Obsidian CLI calls:
 //   1. obsidian daily          — open today's daily note
@@ -10,9 +10,9 @@
 // Install cron entry for weekday 08:00:
 //   0 8 * * 1-5 ~/.ontology-cli/bin/nerv morning <vault>
 
-import type { Command } from '../cli.ts';
-import { resolveVault } from '../lib/obsidian.ts';
-import { spawnCapture } from '../lib/shell.ts';
+import type { Command } from '../cli';
+import { resolveVault } from '../lib/obsidian';
+import { spawnCapture } from '../lib/shell';
 
 // ---------------------------------------------------------------------------
 // Constants

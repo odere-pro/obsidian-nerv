@@ -7,12 +7,12 @@
 // Programmatic API:  ingestUrl(url, vault, project, parent?)
 // CLI:               nerv web-ingest/add <vault> <project> <url> [<parent_slug>] [--json]
 
-import type { Command } from '../../cli.ts';
-import type { CommandResult } from '../../types/result.ts';
-import { resolveVault, obEval, dailyAppend } from '../../lib/obsidian.ts';
-import { encodeForJs } from '../../lib/json.ts';
-import { createEntity } from '../create-entity.ts';
-import { fetchAndParse, generateUrlSlug } from '../../lib/defuddle.ts';
+import type { Command } from '../../cli';
+import { fetchAndParse, generateUrlSlug } from '../../lib/defuddle';
+import { encodeForJs } from '../../lib/json';
+import { dailyAppend, obEval, resolveVault } from '../../lib/obsidian';
+import type { CommandResult } from '../../types/result';
+import { createEntity } from '../create-entity';
 
 // ---------------------------------------------------------------------------
 // Constants

@@ -6,10 +6,10 @@
 //
 // CLI: nerv web-ingest/monitor <vault> <project> <feed-url> [--interval 3600] [--once] [--max-articles 10]
 
-import type { Command } from '../../cli.ts';
-import { resolveVault, obEval } from '../../lib/obsidian.ts';
-import { encodeForJs } from '../../lib/json.ts';
-import { ingestUrl } from './add.ts';
+import type { Command } from '../../cli';
+import { encodeForJs } from '../../lib/json';
+import { obEval, resolveVault } from '../../lib/obsidian';
+import { ingestUrl } from './add';
 
 // ---------------------------------------------------------------------------
 // Types

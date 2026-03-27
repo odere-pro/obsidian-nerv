@@ -1,13 +1,13 @@
 // STORY-037 — Migrate domain skills (study + dev) to TypeScript
-// progress.ts — Study skill: study progress dashboard for a project.
+// progress — Study skill: study progress dashboard for a project.
 //
 // Returns note counts by status, completion %, word/edge metrics,
 // and notes modified in the last 7 days. Supports --format compact.
 
-import type { Command } from '../../cli.ts';
-import type { CommandResult } from '../../types/result.ts';
-import { resolveVault, obEval } from '../../lib/obsidian.ts';
-import { encodeForJs, parseJson } from '../../lib/json.ts';
+import type { Command } from '../../cli';
+import { encodeForJs, parseJson } from '../../lib/json';
+import { obEval, resolveVault } from '../../lib/obsidian';
+import type { CommandResult } from '../../types/result';
 
 export interface ProgressData {
   project: string;

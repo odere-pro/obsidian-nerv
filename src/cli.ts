@@ -47,7 +47,7 @@ async function main(): Promise<void> {
   // Dynamically import the command module so each command is code-split
   let mod: { default: Command };
   try {
-    mod = (await import(`./commands/${subcommand}.ts`)) as { default: Command };
+    mod = (await import(`./commands/${subcommand}`)) as { default: Command };
   } catch {
     process.stderr.write(`nerv: unknown command '${subcommand}'\n`);
     printUsage([]);

@@ -3,9 +3,9 @@
 // TypeScript port of cli/core/lib.sh — resolveVault, ob_eval, daily_append,
 // and rollback_log functions.
 
-import { spawnCapture } from './shell.ts';
-import { logError } from './logger.ts';
-import { encodeForJs } from './json.ts';
+import { encodeForJs } from './json';
+import { logError } from './logger';
+import { spawnCapture } from './shell';
 
 /**
  * Resolve the target vault name.

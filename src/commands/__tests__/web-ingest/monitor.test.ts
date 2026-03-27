@@ -1,7 +1,7 @@
 // STORY-040 — Unit tests for web-ingest/monitor command
 // Tests RSS/Atom parsing, state management helpers, and article filtering.
 
-import { describe, expect, test, mock, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -9,21 +9,21 @@ import { describe, expect, test, mock, beforeEach } from 'bun:test';
 
 const mockObEval = mock(async (): Promise<string> => 'NOT_FOUND');
 
-mock.module('../../../lib/obsidian.ts', () => ({
+mock.module('../../../lib/obsidian', () => ({
   resolveVault: async (arg?: string): Promise<string> => arg ?? 'test-vault',
   obEval: mockObEval,
   dailyAppend: mock(async () => undefined),
   rollbackLog: mock(async () => undefined),
 }));
 
-mock.module('../../web-ingest/add.ts', () => ({
+mock.module('../../web-ingest/add', () => ({
   ingestUrl: mock(async (url: string) => ({
     ok: true as const,
     data: { ingested: true, path: `proj/${url}`, title: 'T', url, wordCount: 5, tokenEstimate: 7 },
   })),
 }));
 
-const { parseFeed, loadState, saveState } = await import('../../web-ingest/monitor.ts');
+const { parseFeed, loadState, saveState } = await import('../../web-ingest/monitor');
 
 // ---------------------------------------------------------------------------
 // parseFeed — RSS 2.0

@@ -1,5 +1,5 @@
 // STORY-035 — Migrate sensory skills to TypeScript
-// get-knowledge-gap.ts — Sensory skill: identify structural deficiencies in a project.
+// get-knowledge-gap — Sensory skill: identify structural deficiencies in a project.
 //
 // Exports:
 //   - GapNote (input type for gap analysis functions)
@@ -17,9 +17,9 @@
 //   lowLinkCount   — ROOT or BRANCH with < 2 typed connections
 //   unresolvedLinks — notes containing broken wikilinks (pre-resolved by Obsidian in fetch)
 
-import type { Command } from '../cli.ts';
-import { resolveVault, obEval } from '../lib/obsidian.ts';
-import { encodeForJs, parseJson } from '../lib/json.ts';
+import type { Command } from '../cli';
+import { encodeForJs, parseJson } from '../lib/json';
+import { obEval, resolveVault } from '../lib/obsidian';
 
 // ---------------------------------------------------------------------------
 // Types

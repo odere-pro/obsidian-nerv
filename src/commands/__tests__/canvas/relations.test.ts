@@ -3,9 +3,9 @@
 // No Obsidian required.
 
 import { describe, expect, test } from 'bun:test';
-import { buildRelationsCanvas } from '../../canvas/relations.ts';
-import { EDGE_COLORS } from '../../../lib/canvas.ts';
-import type { Edge } from '../../cli-relations.ts';
+import { EDGE_COLORS } from '../../../lib/canvas';
+import { buildRelationsCanvas } from '../../canvas/relations';
+import type { Edge } from '../../cli-relations';
 
 // ---------------------------------------------------------------------------
 // Edge color tests

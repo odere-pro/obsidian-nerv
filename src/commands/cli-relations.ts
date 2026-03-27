@@ -1,5 +1,5 @@
 // STORY-034 — Migrate reflex and autonomic skills to TypeScript
-// cli-relations.ts — Reflex skill: enumerate typed connections and validate against ontology.
+// cli-relations — Reflex skill: enumerate typed connections and validate against ontology.
 //
 // Exports:
 //   - Edge, RelationResult (types)
@@ -11,10 +11,10 @@
 //   {"project":"...","edges":[{"source":"...","target":"...","rel":"...","context":"..."}],
 //    "summary":{...},"unknownTypes":[...]}
 
-import type { Command } from '../cli.ts';
-import { resolveVault, obEval } from '../lib/obsidian.ts';
-import { encodeForJs, parseJson } from '../lib/json.ts';
-import { extractSection } from './cli-lint.ts';
+import type { Command } from '../cli';
+import { encodeForJs, parseJson } from '../lib/json';
+import { obEval, resolveVault } from '../lib/obsidian';
+import { extractSection } from './cli-lint';
 
 // ---------------------------------------------------------------------------
 // Types

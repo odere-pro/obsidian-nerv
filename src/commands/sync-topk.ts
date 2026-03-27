@@ -1,5 +1,5 @@
 // STORY-034 — Migrate reflex and autonomic skills to TypeScript
-// sync-topk.ts — Autonomic skill: append overflow log entries to _topk.<project>.md.
+// sync-topk — Autonomic skill: append overflow log entries to _topk.<project>.md.
 //
 // Scans every project note for overflow conditions:
 //   connections      > 7
@@ -13,10 +13,10 @@
 //   - TopkViolation, detectTopkViolations(notes) — pure function, unit-testable
 //   - default Command — CLI entry point
 
-import type { Command } from '../cli.ts';
-import { resolveVault, obEval } from '../lib/obsidian.ts';
-import { encodeForJs, parseJson } from '../lib/json.ts';
-import { logError } from '../lib/logger.ts';
+import type { Command } from '../cli';
+import { encodeForJs, parseJson } from '../lib/json';
+import { logError } from '../lib/logger';
+import { obEval, resolveVault } from '../lib/obsidian';
 
 // ---------------------------------------------------------------------------
 // Types

@@ -1,5 +1,5 @@
 // STORY-035 — Migrate sensory skills to TypeScript
-// explain-topic.ts — Sensory skill: assemble a teaching bundle for a queried topic.
+// explain-topic — Sensory skill: assemble a teaching bundle for a queried topic.
 //
 // Composes context.scoreNote and get-entity.resolveEntity as direct module imports
 // (no subprocess calls). A single obEval fetches all vault data; TypeScript does
@@ -18,12 +18,12 @@
 //     "connected": [{"title":"...","summary":"...","kind":"...","rel":"..."}]
 //   }
 
-import type { Command } from '../cli.ts';
-import { resolveVault, obEval } from '../lib/obsidian.ts';
-import { parseJson } from '../lib/json.ts';
-import { scoreNote } from './context.ts';
-import { resolveEntity } from './get-entity.ts';
-import type { EntityNote, EntityOutput } from './get-entity.ts';
+import type { Command } from '../cli';
+import { parseJson } from '../lib/json';
+import { obEval, resolveVault } from '../lib/obsidian';
+import { scoreNote } from './context';
+import type { EntityNote, EntityOutput } from './get-entity';
+import { resolveEntity } from './get-entity';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -174,7 +174,7 @@ export async function explainTopic(vault: string, query: string): Promise<Explai
   const raw = await obEval(vault, buildFetchExpr()).catch(() => '[]');
   const notes = parseJson<EntityNote[]>(raw) ?? [];
 
-  // Step 1: Find highest-scoring note via scoreNote (same algorithm as context.ts)
+  // Step 1: Find highest-scoring note via scoreNote (same algorithm as context)
   let bestNote: EntityNote | null = null;
   let bestScore = 0;
   for (const note of notes) {

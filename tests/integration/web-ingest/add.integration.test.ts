@@ -14,7 +14,7 @@
 //   8. unreachable URL returns ok:false with error message
 
 import { describe, expect, test } from 'bun:test';
-import { ingestUrl } from '../../../src/commands/web-ingest/add.ts';
+import { ingestUrl } from '../../../src/commands/web-ingest/add';
 
 const VAULT = process.env.TEST_VAULT ?? 'study';
 const PROJECT = process.env.TEST_PROJECT ?? 'test-project';

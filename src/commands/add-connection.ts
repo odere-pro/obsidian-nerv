@@ -4,10 +4,10 @@
 // Writes a bidirectional typed connection between two notes, looking up the
 // inverse relationship type from the project's _ontology file.
 
-import type { Command } from '../cli.ts';
-import { resolveVault, obEval } from '../lib/obsidian.ts';
-import { encodeForJs, parseJson } from '../lib/json.ts';
-import { logError, logWarn } from '../lib/logger.ts';
+import type { Command } from '../cli';
+import { encodeForJs, parseJson } from '../lib/json';
+import { logError, logWarn } from '../lib/logger';
+import { obEval, resolveVault } from '../lib/obsidian';
 
 const REL_TYPE_RE = /^[a-z][a-z0-9-]*$/;
 

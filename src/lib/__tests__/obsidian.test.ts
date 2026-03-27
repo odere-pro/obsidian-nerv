@@ -1,7 +1,7 @@
-import { describe, expect, test, mock, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 // ---------------------------------------------------------------------------
-// Mock shell.ts before importing obsidian.ts so spawnCapture is intercepted.
+// Mock shell before importing obsidian so spawnCapture is intercepted.
 // ---------------------------------------------------------------------------
 const mockSpawnCapture = mock(
   async (
@@ -17,13 +17,13 @@ const mockSpawnCapture = mock(
   })
 );
 
-mock.module('../shell.ts', () => ({
+mock.module('../shell', () => ({
   spawnCapture: mockSpawnCapture,
   ShellTimeoutError: class ShellTimeoutError extends Error {},
 }));
 
 // Import AFTER mock.module() is in place
-const { resolveVault, obEval } = await import('../obsidian.ts');
+const { resolveVault, obEval } = await import('../obsidian');
 
 describe('resolveVault', () => {
   beforeEach(() => {

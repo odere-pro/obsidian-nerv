@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { spawnCapture, ShellTimeoutError } from '../shell.ts';
+import { ShellTimeoutError, spawnCapture } from '../shell';
 
 describe('spawnCapture', () => {
   test('captures stdout from echo', async () => {

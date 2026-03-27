@@ -1,14 +1,14 @@
 // STORY-037 — Migrate domain skills (study + dev) to TypeScript
-// coverage.ts — Study skill: report spine-domain coverage for a project.
+// coverage — Study skill: report spine-domain coverage for a project.
 //
 // Scans notes in a project, groups by spine frontmatter field,
 // computes coverage metrics (status distribution, coverage %).
 // Returns JSON output matching the Bash coverage.sh schema.
 
-import type { Command } from '../../cli.ts';
-import type { CommandResult } from '../../types/result.ts';
-import { resolveVault, obEval } from '../../lib/obsidian.ts';
-import { encodeForJs, parseJson } from '../../lib/json.ts';
+import type { Command } from '../../cli';
+import { encodeForJs, parseJson } from '../../lib/json';
+import { obEval, resolveVault } from '../../lib/obsidian';
+import type { CommandResult } from '../../types/result';
 
 export interface CoverageDomain {
   spine: string;

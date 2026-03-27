@@ -6,10 +6,10 @@
 // verifies JSON output schema, sections, backlinks, and outgoing links,
 // then cleans up.
 
-import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
-import { getEntity } from '../../../src/commands/get-entity.ts';
-import { obEval } from '../../../src/lib/obsidian.ts';
-import { encodeForJs } from '../../../src/lib/json.ts';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+import { getEntity } from '../../../src/commands/get-entity';
+import { encodeForJs } from '../../../src/lib/json';
+import { obEval } from '../../../src/lib/obsidian';
 
 const VAULT = process.env.TEST_VAULT ?? 'study';
 const RUNNING = process.env.OBSIDIAN_RUNNING === '1';

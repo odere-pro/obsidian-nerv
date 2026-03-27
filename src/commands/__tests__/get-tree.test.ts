@@ -3,7 +3,7 @@
 // No Obsidian or obEval required.
 
 import { describe, expect, test } from 'bun:test';
-import { buildTree, type FlatNote } from '../get-tree.ts';
+import { buildTree, type FlatNote } from '../get-tree';
 
 // ---------------------------------------------------------------------------
 // Helper

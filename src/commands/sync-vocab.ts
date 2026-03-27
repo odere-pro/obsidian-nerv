@@ -1,5 +1,5 @@
 // STORY-034 — Migrate reflex and autonomic skills to TypeScript
-// sync-vocab.ts — Autonomic skill: rebuild _vocab.<project>.md from note metadata.
+// sync-vocab — Autonomic skill: rebuild _vocab.<project>.md from note metadata.
 //
 // Exports:
 //   - VocabNote, VocabResult (types)
@@ -8,10 +8,10 @@
 //
 // Idempotent: full regeneration on every run. Updates `updated:` frontmatter date.
 
-import type { Command } from '../cli.ts';
-import { resolveVault, obEval } from '../lib/obsidian.ts';
-import { encodeForJs, parseJson } from '../lib/json.ts';
-import { logError } from '../lib/logger.ts';
+import type { Command } from '../cli';
+import { encodeForJs, parseJson } from '../lib/json';
+import { logError } from '../lib/logger';
+import { obEval, resolveVault } from '../lib/obsidian';
 
 // ---------------------------------------------------------------------------
 // Types

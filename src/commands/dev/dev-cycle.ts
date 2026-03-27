@@ -1,5 +1,5 @@
 // STORY-038 — Migrate dev-cycle Bash script to TypeScript
-// dev-cycle.ts — Dev skill: run the full plugin development feedback cycle.
+// dev-cycle — Dev skill: run the full plugin development feedback cycle.
 //
 // Executes the 4-step feedback cycle:
 //   1. obsidian plugin:reload  — hot-reload the plugin
@@ -9,9 +9,9 @@
 //
 // <plugin-id> is the directory name under .obsidian/plugins/, NOT the display name.
 
-import type { Command } from '../../cli.ts';
-import { resolveVault } from '../../lib/obsidian.ts';
 import { spawnSync } from 'child_process';
+import type { Command } from '../../cli';
+import { resolveVault } from '../../lib/obsidian';
 
 const PLUGIN_ID_RE = /^[a-zA-Z0-9_-]+$/;
 

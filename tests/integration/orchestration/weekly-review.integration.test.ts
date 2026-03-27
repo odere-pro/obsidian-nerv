@@ -2,17 +2,17 @@
 // Runs against a live Obsidian vault.
 // Requires: OBSIDIAN_RUNNING=1 environment variable.
 
-import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
-import { runWeeklyReview } from '../../../src/commands/weekly-review.ts';
-import { lintProject } from '../../../src/commands/cli-lint.ts';
-import { findOrphans } from '../../../src/commands/cli-orphans.ts';
-import { getRelations } from '../../../src/commands/cli-relations.ts';
-import { syncOntology } from '../../../src/commands/sync-ontology.ts';
-import { syncVocab } from '../../../src/commands/sync-vocab.ts';
-import { syncTopk } from '../../../src/commands/sync-topk.ts';
-import { spawnCapture } from '../../../src/lib/shell.ts';
-import { dailyAppend, obEval } from '../../../src/lib/obsidian.ts';
-import { encodeForJs } from '../../../src/lib/json.ts';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+import { lintProject } from '../../../src/commands/cli-lint';
+import { findOrphans } from '../../../src/commands/cli-orphans';
+import { getRelations } from '../../../src/commands/cli-relations';
+import { syncOntology } from '../../../src/commands/sync-ontology';
+import { syncTopk } from '../../../src/commands/sync-topk';
+import { syncVocab } from '../../../src/commands/sync-vocab';
+import { runWeeklyReview } from '../../../src/commands/weekly-review';
+import { encodeForJs } from '../../../src/lib/json';
+import { dailyAppend, obEval } from '../../../src/lib/obsidian';
+import { spawnCapture } from '../../../src/lib/shell';
 
 const VAULT = process.env.TEST_VAULT ?? 'study';
 const TEST_SLUG = '_weekly-review-test-ts';

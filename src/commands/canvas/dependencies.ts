@@ -1,5 +1,5 @@
 // STORY-039 — Migrate canvas generation to TypeScript
-// canvas/dependencies.ts — Generate a JSON Canvas DAG for depends-on edges.
+// canvas/dependencies — Generate a JSON Canvas DAG for depends-on edges.
 //
 // Filters to depends-on edges only from getRelations() (STORY-034).
 // Lays out nodes using topological ordering: sources on left, sinks on right.
@@ -16,22 +16,22 @@
 //   - generateDependenciesCanvas(vault, project) — programmatic API
 //   - default Command — CLI entry point
 
-import type { Command } from '../../cli.ts';
-import { resolveVault, obEval } from '../../lib/obsidian.ts';
-import { encodeForJs } from '../../lib/json.ts';
+import type { Command } from '../../cli';
 import {
-  type CanvasNode,
-  type CanvasEdge,
   type CanvasData,
+  type CanvasEdge,
+  type CanvasNode,
   type CanvasResult,
-  deterministicHexId,
   deterministicEdgeId,
-  NODE_W,
-  NODE_H,
+  deterministicHexId,
   NODE_GAP_X,
   NODE_GAP_Y,
-} from '../../lib/canvas.ts';
-import { getRelations } from '../cli-relations.ts';
+  NODE_H,
+  NODE_W,
+} from '../../lib/canvas';
+import { encodeForJs } from '../../lib/json';
+import { obEval, resolveVault } from '../../lib/obsidian';
+import { getRelations } from '../cli-relations';
 
 export type { CanvasResult };
 

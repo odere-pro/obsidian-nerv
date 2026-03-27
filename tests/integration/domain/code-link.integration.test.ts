@@ -3,14 +3,14 @@
 // Ports assertions from cli/core/tests/test-code-link.sh.
 // Requires OBSIDIAN_RUNNING=1 to execute; skips the full suite otherwise.
 //
-// Run: OBSIDIAN_RUNNING=1 bun test tests/integration/domain/code-link.integration.test.ts
+// Run: OBSIDIAN_RUNNING=1 bun test tests/integration/domain/code-link.integration.test
 
-import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
-import { obEval } from '../../../src/lib/obsidian.ts';
-import { encodeForJs } from '../../../src/lib/json.ts';
-import { createProject } from '../../../src/commands/create-project.ts';
-import { createEntity } from '../../../src/commands/create-entity.ts';
-import { codeLink } from '../../../src/commands/dev/code-link.ts';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+import { createEntity } from '../../../src/commands/create-entity';
+import { createProject } from '../../../src/commands/create-project';
+import { codeLink } from '../../../src/commands/dev/code-link';
+import { encodeForJs } from '../../../src/lib/json';
+import { obEval } from '../../../src/lib/obsidian';
 
 const RUNNING = process.env.OBSIDIAN_RUNNING === '1';
 const VAULT = process.env.TEST_VAULT ?? 'study';
@@ -23,7 +23,7 @@ const PROJ_DIR = `projects/${PROJ_SLUG}`;
 const NOTE_SLUG = 'test-note-ts';
 const NOTE_TITLE = 'Test Note TS';
 const NOTE_PATH = `${PROJ_DIR}/${PROJ_UPPER}.${NOTE_SLUG} - ${NOTE_TITLE}.md`;
-const CODE_PATH = 'src/commands/create-entity.ts';
+const CODE_PATH = 'src/commands/create-entity';
 
 async function readFile(path: string): Promise<string> {
   return obEval(
@@ -81,7 +81,7 @@ describe('code-link integration', () => {
   }, 30_000);
 
   test('rejects code path containing ]] (security validation)', async () => {
-    const result = await codeLink(VAULT, NOTE_PATH, 'src/bad]]path.ts');
+    const result = await codeLink(VAULT, NOTE_PATH, 'src/bad]]path');
     expect(result.ok).toBe(false);
     expect(result.error).toContain(']]');
   });

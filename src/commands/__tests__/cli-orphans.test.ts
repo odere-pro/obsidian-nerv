@@ -2,7 +2,7 @@
 // Tests ORPHAN, BROKEN, MISMATCH detection with mock vault data.
 
 import { describe, expect, test } from 'bun:test';
-import { detectOrphans, type OrphanNoteData } from '../cli-orphans.ts';
+import { detectOrphans, type OrphanNoteData } from '../cli-orphans';
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -2,7 +2,7 @@
 // Tests coverage metric calculation with the pure computeCoverage function.
 
 import { describe, expect, test } from 'bun:test';
-import { computeCoverage } from '../../study/coverage.ts';
+import { computeCoverage } from '../../study/coverage';
 
 describe('computeCoverage', () => {
   test('computes coverage percentage as stable/total*100', () => {

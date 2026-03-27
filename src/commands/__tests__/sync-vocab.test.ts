@@ -2,7 +2,7 @@
 // Tests spine extraction and table generation from mock notes.
 
 import { describe, expect, test } from 'bun:test';
-import { buildVocabContent, type VocabNote } from '../sync-vocab.ts';
+import { buildVocabContent, type VocabNote } from '../sync-vocab';
 
 // ---------------------------------------------------------------------------
 // Helpers

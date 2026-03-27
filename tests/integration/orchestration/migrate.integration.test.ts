@@ -7,14 +7,14 @@
 //   2. rename-rel rewrites connections (apply then verify)
 //   3. promote updates type and renames file
 
-import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
-import { validateSpec, type MigrateOp } from '../../../src/commands/migrate.ts';
-import { obEval } from '../../../src/lib/obsidian.ts';
-import { encodeForJs } from '../../../src/lib/json.ts';
-import { spawnCapture } from '../../../src/lib/shell.ts';
-import * as path from 'path';
-import * as os from 'os';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import * as fs from 'fs/promises';
+import * as os from 'os';
+import * as path from 'path';
+import { validateSpec, type MigrateOp } from '../../../src/commands/migrate';
+import { encodeForJs } from '../../../src/lib/json';
+import { obEval } from '../../../src/lib/obsidian';
+import { spawnCapture } from '../../../src/lib/shell';
 
 const VAULT = process.env.TEST_VAULT ?? 'study';
 const TEST_SLUG = '_migrate-test-ts';
@@ -100,7 +100,7 @@ describe('migrate integration', () => {
       const { exitCode, stdout } = await spawnCapture([
         'bun',
         'run',
-        'src/cli.ts',
+        'src/cli',
         'migrate',
         `vault=${VAULT}`,
         TEST_SLUG,
@@ -123,7 +123,7 @@ describe('migrate integration', () => {
       const { exitCode, stdout } = await spawnCapture([
         'bun',
         'run',
-        'src/cli.ts',
+        'src/cli',
         'migrate',
         `vault=${VAULT}`,
         TEST_SLUG,
@@ -146,7 +146,7 @@ describe('migrate integration', () => {
       const { exitCode, stdout } = await spawnCapture([
         'bun',
         'run',
-        'src/cli.ts',
+        'src/cli',
         'migrate',
         `vault=${VAULT}`,
         TEST_SLUG,

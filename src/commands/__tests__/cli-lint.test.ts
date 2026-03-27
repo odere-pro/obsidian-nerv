@@ -5,11 +5,11 @@
 import { describe, expect, test } from 'bun:test';
 import {
   VIOLATION_RULES,
-  parseConnections,
   extractSection,
-  type NoteData,
+  parseConnections,
   type ConnectionLine,
-} from '../cli-lint.ts';
+  type NoteData,
+} from '../cli-lint';
 
 // ---------------------------------------------------------------------------
 // Helpers

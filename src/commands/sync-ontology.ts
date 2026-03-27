@@ -1,5 +1,5 @@
 // STORY-034 — Migrate reflex and autonomic skills to TypeScript
-// sync-ontology.ts — Autonomic skill: produce ontology health report for a project.
+// sync-ontology — Autonomic skill: produce ontology health report for a project.
 //
 // Scans ## Connections sections, compares rel-types against _ontology.<slug>.md,
 // reports entity distribution, relationship usage, missing inverses, and unknown types.
@@ -12,11 +12,11 @@
 //
 // Idempotent: updates `updated:` date in ontology artifact file on every run.
 
-import type { Command } from '../cli.ts';
-import { resolveVault, obEval } from '../lib/obsidian.ts';
-import { encodeForJs, parseJson } from '../lib/json.ts';
-import { logError } from '../lib/logger.ts';
-import { getRelations } from './cli-relations.ts';
+import type { Command } from '../cli';
+import { encodeForJs, parseJson } from '../lib/json';
+import { logError } from '../lib/logger';
+import { obEval, resolveVault } from '../lib/obsidian';
+import { getRelations } from './cli-relations';
 
 // ---------------------------------------------------------------------------
 // Types

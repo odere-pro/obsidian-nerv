@@ -4,13 +4,13 @@
 // Dual-export: default Command for the dispatcher + named createEntity() for
 // programmatic callers (import-json, adr).
 
-import type { Command } from '../cli.ts';
-import type { EntityType } from '../types/entity.ts';
-import type { CommandResult } from '../types/result.ts';
-import { resolveVault, obEval, dailyAppend, rollbackLog } from '../lib/obsidian.ts';
-import { encodeForJs, parseJson } from '../lib/json.ts';
-import { logError } from '../lib/logger.ts';
-import { renderLeaf, renderBranch, renderRoot } from '../templates/index.ts';
+import type { Command } from '../cli';
+import { encodeForJs, parseJson } from '../lib/json';
+import { logError } from '../lib/logger';
+import { dailyAppend, obEval, resolveVault, rollbackLog } from '../lib/obsidian';
+import { renderBranch, renderLeaf, renderRoot } from '../templates/index';
+import type { EntityType } from '../types/entity';
+import type { CommandResult } from '../types/result';
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 const VALID_TYPES: EntityType[] = ['LEAF', 'BRANCH', 'ROOT'];

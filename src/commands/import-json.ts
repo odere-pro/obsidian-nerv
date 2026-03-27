@@ -4,12 +4,12 @@
 // Reads a JSON array via Bun.file — zero Python dependency.
 // Calls createEntity() directly (no subprocess) for each entry.
 
-import type { Command } from '../cli.ts';
-import type { EntityType } from '../types/entity.ts';
-import { resolveVault, obEval } from '../lib/obsidian.ts';
-import { encodeForJs } from '../lib/json.ts';
-import { logError } from '../lib/logger.ts';
-import { createEntity } from './create-entity.ts';
+import type { Command } from '../cli';
+import { encodeForJs } from '../lib/json';
+import { logError } from '../lib/logger';
+import { obEval, resolveVault } from '../lib/obsidian';
+import type { EntityType } from '../types/entity';
+import { createEntity } from './create-entity';
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 const STANDARD_FIELDS = new Set(['name', 'type', 'kind', 'spine', 'parent']);

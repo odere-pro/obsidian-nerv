@@ -3,7 +3,7 @@
 // No Obsidian or obEval required.
 
 import { describe, expect, test } from 'bun:test';
-import { detectGaps, type GapNote } from '../get-knowledge-gap.ts';
+import { detectGaps, type GapNote } from '../get-knowledge-gap';
 
 // ---------------------------------------------------------------------------
 // Helper

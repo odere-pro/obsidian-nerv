@@ -6,10 +6,10 @@
 // verifies edge extraction, JSON schema, unknown type detection,
 // summary sorting, context capture, and exclusion rules.
 
-import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
-import { getRelations } from '../../../src/commands/cli-relations.ts';
-import { obEval } from '../../../src/lib/obsidian.ts';
-import { encodeForJs } from '../../../src/lib/json.ts';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+import { getRelations } from '../../../src/commands/cli-relations';
+import { encodeForJs } from '../../../src/lib/json';
+import { obEval } from '../../../src/lib/obsidian';
 
 const VAULT = process.env.TEST_VAULT ?? 'study';
 const TEST_SLUG = 'testrel-ts';

@@ -3,17 +3,17 @@
 // TypeScript port of cli/core/create-project.sh.
 // Scaffolds 5 project files using typed templates from STORY-032.
 
-import type { Command } from '../cli.ts';
-import { resolveVault, obEval, rollbackLog } from '../lib/obsidian.ts';
-import { encodeForJs } from '../lib/json.ts';
-import { logError } from '../lib/logger.ts';
+import type { Command } from '../cli';
+import { encodeForJs } from '../lib/json';
+import { logError } from '../lib/logger';
+import { obEval, resolveVault, rollbackLog } from '../lib/obsidian';
 import {
-  renderRoot,
-  renderOntology,
-  renderVocab,
-  renderTopk,
   renderBase,
-} from '../templates/index.ts';
+  renderOntology,
+  renderRoot,
+  renderTopk,
+  renderVocab,
+} from '../templates/index';
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 

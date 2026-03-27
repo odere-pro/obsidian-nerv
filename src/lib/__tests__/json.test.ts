@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { encodeForJs, parseJson } from '../json.ts';
+import { encodeForJs, parseJson } from '../json';
 
 describe('encodeForJs', () => {
   test('wraps plain string in double quotes', () => {

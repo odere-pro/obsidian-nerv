@@ -1,5 +1,5 @@
 // STORY-036 — Migrate orchestration and migration skills to TypeScript
-// migrate.ts — Schema migration skill: apply bulk schema changes from a declarative spec.
+// migrate — Schema migration skill: apply bulk schema changes from a declarative spec.
 //
 // Spec format (JSON array of operations):
 //   [
@@ -19,10 +19,9 @@
 //
 // Post-apply: appends migration summary to daily note; writes rollback log entry.
 
-import type { Command } from '../cli.ts';
-import { resolveVault, rollbackLog } from '../lib/obsidian.ts';
-import { encodeForJs, parseJson } from '../lib/json.ts';
-import { obEval } from '../lib/obsidian.ts';
+import type { Command } from '../cli';
+import { encodeForJs, parseJson } from '../lib/json';
+import { obEval, resolveVault, rollbackLog } from '../lib/obsidian';
 
 // ---------------------------------------------------------------------------
 // Types

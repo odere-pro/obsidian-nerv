@@ -2,7 +2,7 @@
 // Tests edge extraction from mock connection sections and JSON schema.
 
 import { describe, expect, test } from 'bun:test';
-import { extractEdges, type RawRelNote } from '../cli-relations.ts';
+import { extractEdges, type RawRelNote } from '../cli-relations';
 
 // ---------------------------------------------------------------------------
 // Helpers

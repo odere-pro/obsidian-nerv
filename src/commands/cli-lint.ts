@@ -1,5 +1,5 @@
 // STORY-034 — Migrate reflex and autonomic skills to TypeScript
-// cli-lint.ts — Reflex skill: validate frontmatter and structure of vault notes.
+// cli-lint — Reflex skill: validate frontmatter and structure of vault notes.
 //
 // Exports:
 //   - NoteData, ConnectionLine, Violation, ViolationRule (types)
@@ -7,9 +7,9 @@
 //   - lintProject(vault, folder?) — programmatic API used by weekly-review
 //   - default Command — CLI entry point for the dispatcher
 
-import type { Command } from '../cli.ts';
-import { resolveVault, obEval } from '../lib/obsidian.ts';
-import { encodeForJs, parseJson } from '../lib/json.ts';
+import type { Command } from '../cli';
+import { encodeForJs, parseJson } from '../lib/json';
+import { obEval, resolveVault } from '../lib/obsidian';
 
 // ---------------------------------------------------------------------------
 // Types

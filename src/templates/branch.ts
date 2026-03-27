@@ -1,6 +1,6 @@
 // STORY-032 — Note template extraction: branch template
 
-import type { BaseEntityParams } from './leaf.ts';
+import type { BaseEntityParams } from './leaf';
 
 export interface BranchParams extends BaseEntityParams {
   parent: string; // wiki link e.g. [[PROJ.ROOT - Title]]

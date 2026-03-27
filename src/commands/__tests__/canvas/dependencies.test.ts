@@ -3,7 +3,7 @@
 // No Obsidian required.
 
 import { describe, expect, test } from 'bun:test';
-import { buildDependenciesCanvas, topologicalLevels } from '../../canvas/dependencies.ts';
+import { buildDependenciesCanvas, topologicalLevels } from '../../canvas/dependencies';
 
 // ---------------------------------------------------------------------------
 // Topological ordering tests

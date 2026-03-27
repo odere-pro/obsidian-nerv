@@ -5,7 +5,7 @@
 //   - fetchAndParse()     — subprocess call with 30-second timeout
 //   - generateUrlSlug()   — deterministic, URL-safe slug from a URL
 
-import { spawnCapture } from './shell.ts';
+import { spawnCapture } from './shell';
 
 // ---------------------------------------------------------------------------
 // Types

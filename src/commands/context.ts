@@ -1,5 +1,5 @@
 // STORY-035 — Migrate sensory skills to TypeScript
-// context.ts — Primary sensory skill: relevance-scored vault retrieval.
+// context — Primary sensory skill: relevance-scored vault retrieval.
 //
 // Exports:
 //   - ScoringNote (input type for scoreNote)
@@ -16,9 +16,9 @@
 //   tag match          +3  (first matching tag only)
 //   body term freq     +1 per occurrence, capped at +5
 
-import type { Command } from '../cli.ts';
-import { resolveVault, obEval } from '../lib/obsidian.ts';
-import { parseJson } from '../lib/json.ts';
+import type { Command } from '../cli';
+import { parseJson } from '../lib/json';
+import { obEval, resolveVault } from '../lib/obsidian';
 
 // ---------------------------------------------------------------------------
 // Types

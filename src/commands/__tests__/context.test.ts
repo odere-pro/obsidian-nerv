@@ -3,7 +3,7 @@
 // No Obsidian or obEval required.
 
 import { describe, expect, test } from 'bun:test';
-import { scoreNote, type ScoringNote } from '../context.ts';
+import { scoreNote, type ScoringNote } from '../context';
 
 // ---------------------------------------------------------------------------
 // Helper

@@ -2,7 +2,7 @@
 // Tests 4-step sequence and cron documentation. No Obsidian required.
 
 import { describe, expect, test } from 'bun:test';
-import { runMorning, CRON_ENTRY, type MorningDeps } from '../morning.ts';
+import { CRON_ENTRY, runMorning, type MorningDeps } from '../morning';
 
 // ---------------------------------------------------------------------------
 // Helpers

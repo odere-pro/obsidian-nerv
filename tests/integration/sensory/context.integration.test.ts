@@ -16,7 +16,7 @@
 //  11. Performance: returns in < 5 seconds for any vault size
 
 import { describe, expect, test } from 'bun:test';
-import { contextSearch } from '../../../src/commands/context.ts';
+import { contextSearch } from '../../../src/commands/context';
 
 const VAULT = process.env.TEST_VAULT ?? 'study';
 const RUNNING = process.env.OBSIDIAN_RUNNING === '1';

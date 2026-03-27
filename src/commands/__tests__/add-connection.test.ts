@@ -1,21 +1,21 @@
 // STORY-033 — Unit tests for add-connection command
 // Mocks obEval so no Obsidian instance is required.
 
-import { describe, expect, test, mock, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 // ---------------------------------------------------------------------------
-// Mock obsidian.ts before importing the command
+// Mock obsidian before importing the command
 // ---------------------------------------------------------------------------
 const mockObEval = mock(async (_vault: string, _expr: string): Promise<string> => '');
 
-mock.module('../../lib/obsidian.ts', () => ({
+mock.module('../../lib/obsidian', () => ({
   resolveVault: async (arg?: string): Promise<string> => arg ?? 'test-vault',
   obEval: mockObEval,
   dailyAppend: mock(async (): Promise<void> => undefined),
   rollbackLog: mock(async (): Promise<void> => undefined),
 }));
 
-const { addConnection } = await import('../add-connection.ts');
+const { addConnection } = await import('../add-connection');
 
 // Standard write result when the forward connection is successfully written
 const successWrite = JSON.stringify({

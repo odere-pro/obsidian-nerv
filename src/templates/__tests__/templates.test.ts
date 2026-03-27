@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test';
-import { renderLeaf } from '../leaf.ts';
-import { renderBranch } from '../branch.ts';
-import { renderRoot } from '../root.ts';
-import { renderOntology } from '../ontology.ts';
-import { renderVocab } from '../vocab.ts';
-import { renderTopk } from '../topk.ts';
-import { renderBase } from '../base.ts';
+import { renderBase } from '../base';
+import { renderBranch } from '../branch';
+import { renderLeaf } from '../leaf';
+import { renderOntology } from '../ontology';
+import { renderRoot } from '../root';
+import { renderTopk } from '../topk';
+import { renderVocab } from '../vocab';
 
 // ---------------------------------------------------------------------------
 // Shared fixtures

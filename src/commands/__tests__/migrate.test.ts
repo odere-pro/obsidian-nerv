@@ -3,7 +3,7 @@
 // idempotency marker, YAML injection check. No Obsidian required.
 
 import { describe, expect, test } from 'bun:test';
-import { validateSpec, type MigrateOp } from '../migrate.ts';
+import { validateSpec, type MigrateOp } from '../migrate';
 
 // ---------------------------------------------------------------------------
 // validateSpec — valid specs

@@ -1,7 +1,7 @@
 // STORY-039 — Migrate canvas generation to TypeScript
-// canvas/relations.ts — Generate a JSON Canvas relations graph from project connections.
+// canvas/relations — Generate a JSON Canvas relations graph from project connections.
 //
-// Reads relationship edges via getRelations() (STORY-034/cli-relations.ts).
+// Reads relationship edges via getRelations() (STORY-034/cli-relations).
 // Outputs projects/<slug>/<slug>.relations.canvas conforming to JSON Canvas 1.0 spec.
 //
 // Edge colors:
@@ -14,23 +14,23 @@
 //   - generateRelationsCanvas(vault, project) — programmatic API
 //   - default Command — CLI entry point
 
-import type { Command } from '../../cli.ts';
-import { resolveVault, obEval } from '../../lib/obsidian.ts';
-import { encodeForJs } from '../../lib/json.ts';
+import type { Command } from '../../cli';
 import {
-  type CanvasNode,
-  type CanvasEdge,
-  type CanvasData,
-  type CanvasResult,
-  deterministicHexId,
   deterministicEdgeId,
+  deterministicHexId,
   EDGE_COLORS,
-  NODE_W,
-  NODE_H,
   NODE_GAP_X,
   NODE_GAP_Y,
-} from '../../lib/canvas.ts';
-import { getRelations, type Edge } from '../cli-relations.ts';
+  NODE_H,
+  NODE_W,
+  type CanvasData,
+  type CanvasEdge,
+  type CanvasNode,
+  type CanvasResult,
+} from '../../lib/canvas';
+import { encodeForJs } from '../../lib/json';
+import { obEval, resolveVault } from '../../lib/obsidian';
+import { getRelations, type Edge } from '../cli-relations';
 
 export type { CanvasResult };
 

@@ -8,9 +8,9 @@
 //
 // CLI: nerv web-ingest/batch <vault> <project> <path-to-json> [--json]
 
-import type { Command } from '../../cli.ts';
-import { resolveVault } from '../../lib/obsidian.ts';
-import { ingestUrl } from './add.ts';
+import type { Command } from '../../cli';
+import { resolveVault } from '../../lib/obsidian';
+import { ingestUrl } from './add';
 
 // ---------------------------------------------------------------------------
 // Types

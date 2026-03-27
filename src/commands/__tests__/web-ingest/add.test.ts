@@ -1,7 +1,7 @@
 // STORY-040 — Unit tests for web-ingest/add command
 // Mocks defuddle, obsidian, and create-entity so no network or Obsidian required.
 
-import { describe, expect, test, mock, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 // ---------------------------------------------------------------------------
 // Mocks — must be set up before importing the module under test
@@ -10,7 +10,7 @@ import { describe, expect, test, mock, beforeEach } from 'bun:test';
 const mockObEval = mock(async (_vault: string, _expr: string): Promise<string> => 'NOT_FOUND');
 const mockDailyAppend = mock(async (): Promise<void> => undefined);
 
-mock.module('../../../lib/obsidian.ts', () => ({
+mock.module('../../../lib/obsidian', () => ({
   resolveVault: async (arg?: string): Promise<string> => arg ?? 'test-vault',
   obEval: mockObEval,
   dailyAppend: mockDailyAppend,
@@ -24,7 +24,7 @@ const mockFetchAndParse = mock(async (_url: string) => ({
   date: '2026-03-26',
 }));
 
-mock.module('../../../lib/defuddle.ts', () => ({
+mock.module('../../../lib/defuddle', () => ({
   fetchAndParse: mockFetchAndParse,
   generateUrlSlug: (url: string) => {
     // Deterministic stub: domain + fixed hash
@@ -46,13 +46,13 @@ const mockCreateEntity = mock(async (params: { title: string; slug: string; proj
   },
 }));
 
-mock.module('../../create-entity.ts', () => ({
+mock.module('../../create-entity', () => ({
   createEntity: mockCreateEntity,
   resolveNotePath: (project: string, slug: string, title: string) =>
     `projects/${project}/${project.toUpperCase()}.${slug} - ${title}.md`,
 }));
 
-const { ingestUrl } = await import('../../web-ingest/add.ts');
+const { ingestUrl } = await import('../../web-ingest/add');
 
 // ---------------------------------------------------------------------------
 // Helpers

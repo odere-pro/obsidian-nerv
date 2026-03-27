@@ -1,5 +1,5 @@
 // STORY-039 — Migrate canvas generation to TypeScript
-// canvas/tree.ts — Generate a JSON Canvas tree from project hierarchy.
+// canvas/tree — Generate a JSON Canvas tree from project hierarchy.
 //
 // Reads ROOT/BRANCH/LEAF note hierarchy via getTree() (STORY-035).
 // Outputs projects/<slug>/<slug>.tree.canvas conforming to JSON Canvas 1.0 spec.
@@ -9,23 +9,22 @@
 //   - generateTreeCanvas(vault, project) — programmatic API
 //   - default Command — CLI entry point
 
-import type { Command } from '../../cli.ts';
-import { resolveVault, obEval } from '../../lib/obsidian.ts';
-import { encodeForJs } from '../../lib/json.ts';
+import type { Command } from '../../cli';
 import {
-  type CanvasNode,
-  type CanvasEdge,
   type CanvasData,
+  type CanvasEdge,
+  type CanvasNode,
   type CanvasResult,
-  deterministicHexId,
   deterministicEdgeId,
-  NODE_W,
-  NODE_H,
+  deterministicHexId,
   NODE_GAP_X,
   NODE_GAP_Y,
-} from '../../lib/canvas.ts';
-import { buildTree, type TreeNode, type FlatNote } from '../get-tree.ts';
-import { parseJson } from '../../lib/json.ts';
+  NODE_H,
+  NODE_W,
+} from '../../lib/canvas';
+import { encodeForJs, parseJson } from '../../lib/json';
+import { obEval, resolveVault } from '../../lib/obsidian';
+import { buildTree, type FlatNote, type TreeNode } from '../get-tree';
 
 export type { CanvasResult };
 
@@ -109,7 +108,7 @@ export function buildTreeCanvas(treeNodes: TreeNode[]): CanvasData {
 }
 
 // ---------------------------------------------------------------------------
-// Obsidian data fetch (same expression as get-tree.ts)
+// Obsidian data fetch (same expression as get-tree)
 // ---------------------------------------------------------------------------
 
 function buildFetchExpr(slug: string): string {

@@ -1,24 +1,24 @@
 // STORY-033 — Unit tests for create-project command
 // Mocks obEval so no Obsidian instance is required.
 
-import { describe, expect, test, mock, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 // ---------------------------------------------------------------------------
-// Mock obsidian.ts before importing the command
+// Mock obsidian before importing the command
 // ---------------------------------------------------------------------------
 const mockObEval = mock(async (_vault: string, _expr: string): Promise<string> => 'ok');
 const mockRollbackLog = mock(
   async (_v: string, _op: string, _st: string): Promise<void> => undefined
 );
 
-mock.module('../../lib/obsidian.ts', () => ({
+mock.module('../../lib/obsidian', () => ({
   resolveVault: async (arg?: string): Promise<string> => arg ?? 'test-vault',
   obEval: mockObEval,
   rollbackLog: mockRollbackLog,
   dailyAppend: mock(async (): Promise<void> => undefined),
 }));
 
-const { createProject } = await import('../create-project.ts');
+const { createProject } = await import('../create-project');
 
 describe('create-project', () => {
   beforeEach(() => {

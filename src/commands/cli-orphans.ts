@@ -1,14 +1,14 @@
 // STORY-034 — Migrate reflex and autonomic skills to TypeScript
-// cli-orphans.ts — Reflex skill: verify bidirectional parent↔children integrity.
+// cli-orphans — Reflex skill: verify bidirectional parent↔children integrity.
 //
 // Exports:
 //   - OrphanType, OrphanIssue (types)
 //   - detectOrphans(notes) — pure function, unit-testable without Obsidian
 //   - default Command — CLI entry point
 
-import type { Command } from '../cli.ts';
-import { resolveVault, obEval } from '../lib/obsidian.ts';
-import { encodeForJs, parseJson } from '../lib/json.ts';
+import type { Command } from '../cli';
+import { encodeForJs, parseJson } from '../lib/json';
+import { obEval, resolveVault } from '../lib/obsidian';
 
 // ---------------------------------------------------------------------------
 // Types

@@ -1,5 +1,5 @@
 // STORY-035 — Migrate sensory skills to TypeScript
-// get-entity.ts — Sensory skill: deep single-note retrieval with 5-level match resolution.
+// get-entity — Sensory skill: deep single-note retrieval with 5-level match resolution.
 //
 // Exports:
 //   - EntityNote, BacklinkEntry, OutgoingEntry (types)
@@ -15,9 +15,9 @@
 //   4. title    — frontmatter.title contains query as substring (case-insensitive)
 //   5. fuzzy    — basename or normalized basename contains query as substring
 
-import type { Command } from '../cli.ts';
-import { resolveVault, obEval } from '../lib/obsidian.ts';
-import { parseJson } from '../lib/json.ts';
+import type { Command } from '../cli';
+import { parseJson } from '../lib/json';
+import { obEval, resolveVault } from '../lib/obsidian';
 
 // ---------------------------------------------------------------------------
 // Types

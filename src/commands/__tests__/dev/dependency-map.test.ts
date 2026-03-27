@@ -1,10 +1,10 @@
 // STORY-037 — Unit tests for dev/dependency-map command
 // Mocks getRelations so no Obsidian instance is required.
 
-import { describe, expect, test, mock, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 // ---------------------------------------------------------------------------
-// Mock cli-relations.ts before importing dependency-map
+// Mock cli-relations before importing dependency-map
 // ---------------------------------------------------------------------------
 const mockGetRelations = mock(async () => ({
   project: 'proj',
@@ -13,17 +13,17 @@ const mockGetRelations = mock(async () => ({
   unknownTypes: [],
 }));
 
-// Path resolves from this test file up to src/commands/cli-relations.ts
-mock.module('../../cli-relations.ts', () => ({
+// Path resolves from this test file up to src/commands/cli-relations
+mock.module('../../cli-relations', () => ({
   getRelations: mockGetRelations,
 }));
 
-mock.module('../../../lib/obsidian.ts', () => ({
+mock.module('../../../lib/obsidian', () => ({
   resolveVault: async (arg?: string): Promise<string> => arg ?? 'test-vault',
   obEval: mock(async () => ''),
 }));
 
-const { getDependencyMap, edgesToDot } = await import('../../dev/dependency-map.ts');
+const { getDependencyMap, edgesToDot } = await import('../../dev/dependency-map');
 
 // ---------------------------------------------------------------------------
 // Edge filtering tests

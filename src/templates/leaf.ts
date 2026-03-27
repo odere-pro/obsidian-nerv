@@ -1,6 +1,6 @@
 // STORY-032 — Note template extraction: leaf template
 
-import type { EntityStatus } from '../types/entity.ts';
+import type { EntityStatus } from '../types/entity';
 
 export interface BaseEntityParams {
   title: string;

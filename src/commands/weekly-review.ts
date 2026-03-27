@@ -1,5 +1,5 @@
 // STORY-036 — Migrate orchestration and migration skills to TypeScript
-// weekly-review.ts — Orchestration skill: run full vault health review.
+// weekly-review — Orchestration skill: run full vault health review.
 //
 // Composes 6 reflex/autonomic skills as direct module imports, plus
 // `obsidian unresolved` via spawnCapture (step 7).
@@ -13,15 +13,15 @@
 //
 // Exits 0 on all success; exits 1 with failing command name on stderr.
 
-import type { Command } from '../cli.ts';
-import { resolveVault, dailyAppend } from '../lib/obsidian.ts';
-import { spawnCapture } from '../lib/shell.ts';
-import { lintProject } from './cli-lint.ts';
-import { findOrphans } from './cli-orphans.ts';
-import { getRelations } from './cli-relations.ts';
-import { syncOntology } from './sync-ontology.ts';
-import { syncVocab } from './sync-vocab.ts';
-import { syncTopk } from './sync-topk.ts';
+import type { Command } from '../cli';
+import { dailyAppend, resolveVault } from '../lib/obsidian';
+import { spawnCapture } from '../lib/shell';
+import { lintProject } from './cli-lint';
+import { findOrphans } from './cli-orphans';
+import { getRelations } from './cli-relations';
+import { syncOntology } from './sync-ontology';
+import { syncTopk } from './sync-topk';
+import { syncVocab } from './sync-vocab';
 
 // ---------------------------------------------------------------------------
 // Types

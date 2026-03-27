@@ -1,5 +1,5 @@
 // STORY-035 — Migrate sensory skills to TypeScript
-// get-tree.ts — Sensory skill: hierarchical project tree from parent/children relationships.
+// get-tree — Sensory skill: hierarchical project tree from parent/children relationships.
 //
 // Exports:
 //   - TreeNode, MissingNode, CycleNode, AnyTreeNode, TreeResult (types)
@@ -7,9 +7,9 @@
 //   - getTree(vault, slug, maxDepth) — programmatic API
 //   - default Command — CLI entry point
 
-import type { Command } from '../cli.ts';
-import { resolveVault, obEval } from '../lib/obsidian.ts';
-import { encodeForJs, parseJson } from '../lib/json.ts';
+import type { Command } from '../cli';
+import { encodeForJs, parseJson } from '../lib/json';
+import { obEval, resolveVault } from '../lib/obsidian';
 
 // ---------------------------------------------------------------------------
 // Types

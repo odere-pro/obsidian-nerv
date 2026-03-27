@@ -1,7 +1,7 @@
 // STORY-040 — Unit tests for web-ingest/batch command
 // Mocks ingestUrl so no network or Obsidian required.
 
-import { describe, expect, test, mock, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -19,11 +19,11 @@ const mockIngestUrl = mock(async (_url: string, _vault: string, _project: string
   },
 }));
 
-mock.module('../../web-ingest/add.ts', () => ({
+mock.module('../../web-ingest/add', () => ({
   ingestUrl: mockIngestUrl,
 }));
 
-const { runBatch } = await import('../../web-ingest/batch.ts');
+const { runBatch } = await import('../../web-ingest/batch');
 
 // ---------------------------------------------------------------------------
 // Tests

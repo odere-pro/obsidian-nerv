@@ -4,7 +4,7 @@
 // No Obsidian or obEval required.
 
 import { describe, expect, test } from 'bun:test';
-import { resolveEntity, type EntityNote } from '../get-entity.ts';
+import { resolveEntity, type EntityNote } from '../get-entity';
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -1,14 +1,14 @@
 // STORY-037 — Unit tests for dev/adr command
 // Mocks createEntity and obEval so no Obsidian instance is required.
 
-import { describe, expect, test, mock, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 // ---------------------------------------------------------------------------
-// Mock obsidian.ts and create-entity.ts before importing adr
+// Mock obsidian and create-entity before importing adr
 // ---------------------------------------------------------------------------
 const mockObEval = mock(async (_vault: string, _expr: string): Promise<string> => 'ok');
 
-mock.module('../../../lib/obsidian.ts', () => ({
+mock.module('../../../lib/obsidian', () => ({
   resolveVault: async (arg?: string): Promise<string> => arg ?? 'test-vault',
   obEval: mockObEval,
   dailyAppend: mock(async () => undefined),
@@ -24,14 +24,14 @@ const mockCreateEntity = mock(async (params: { title: string }) => ({
   },
 }));
 
-// Path resolves from this test file up to src/commands/create-entity.ts
-mock.module('../../create-entity.ts', () => ({
+// Path resolves from this test file up to src/commands/create-entity
+mock.module('../../create-entity', () => ({
   createEntity: mockCreateEntity,
   resolveNotePath: (project: string, slug: string, title: string) =>
     `projects/${project}/${project.toUpperCase()}.${slug} - ${title}.md`,
 }));
 
-const { generateAdrSlug, createAdr } = await import('../../dev/adr.ts');
+const { generateAdrSlug, createAdr } = await import('../../dev/adr');
 
 // ---------------------------------------------------------------------------
 // Slug generation tests

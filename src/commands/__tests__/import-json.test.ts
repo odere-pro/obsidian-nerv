@@ -1,23 +1,23 @@
 // STORY-033 — Unit tests for import-json command
 // Mocks obEval and Bun.file so no Obsidian instance is required.
 
-import { describe, expect, test, mock, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 // ---------------------------------------------------------------------------
-// Mock obsidian.ts before importing the command
+// Mock obsidian before importing the command
 // ---------------------------------------------------------------------------
 const mockObEval = mock(async (_vault: string, _expr: string): Promise<string> => 'absent');
 const mockDailyAppend = mock(async (): Promise<void> => undefined);
 const mockRollbackLog = mock(async (): Promise<void> => undefined);
 
-mock.module('../../lib/obsidian.ts', () => ({
+mock.module('../../lib/obsidian', () => ({
   resolveVault: async (arg?: string): Promise<string> => arg ?? 'test-vault',
   obEval: mockObEval,
   dailyAppend: mockDailyAppend,
   rollbackLog: mockRollbackLog,
 }));
 
-const { importJson } = await import('../import-json.ts');
+const { importJson } = await import('../import-json');
 
 // ---------------------------------------------------------------------------
 // Standard obEval mock for create-entity flow:

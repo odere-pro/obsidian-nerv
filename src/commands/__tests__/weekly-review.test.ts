@@ -3,7 +3,7 @@
 // All 7 sub-command modules are mocked via injected deps (no Obsidian required).
 
 import { describe, expect, test } from 'bun:test';
-import { runWeeklyReview, type WeeklyReviewDeps } from '../weekly-review.ts';
+import { runWeeklyReview, type WeeklyReviewDeps } from '../weekly-review';
 
 // ---------------------------------------------------------------------------
 // Helpers

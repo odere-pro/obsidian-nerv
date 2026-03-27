@@ -1,14 +1,14 @@
 // STORY-037 — Migrate domain skills (study + dev) to TypeScript
-// code-link.ts — Dev skill: append a code-path reference to ## Connections.
+// code-link — Dev skill: append a code-path reference to ## Connections.
 //
 // Appends "- implements :: `<codepath>`" to the note's ## Connections section.
 // Idempotent: exits 0 if exact code path already present.
 // Security: rejects code paths containing ]] or newlines.
 
-import type { Command } from '../../cli.ts';
-import type { CommandResult } from '../../types/result.ts';
-import { resolveVault, obEval } from '../../lib/obsidian.ts';
-import { encodeForJs, parseJson } from '../../lib/json.ts';
+import type { Command } from '../../cli';
+import { encodeForJs, parseJson } from '../../lib/json';
+import { obEval, resolveVault } from '../../lib/obsidian';
+import type { CommandResult } from '../../types/result';
 
 export interface CodeLinkData {
   appended: boolean;

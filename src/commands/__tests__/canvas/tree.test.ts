@@ -3,9 +3,9 @@
 // No Obsidian required.
 
 import { describe, expect, test } from 'bun:test';
-import { buildTreeCanvas } from '../../canvas/tree.ts';
-import type { TreeNode } from '../../get-tree.ts';
-import { NODE_GAP_X, NODE_GAP_Y } from '../../../lib/canvas.ts';
+import { NODE_GAP_X, NODE_GAP_Y } from '../../../lib/canvas';
+import { buildTreeCanvas } from '../../canvas/tree';
+import type { TreeNode } from '../../get-tree';
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -5,13 +5,13 @@
 //   - File content conforms to JSON Canvas 1.0 spec
 //   - Canvas has nodes and edges arrays
 //
-// Run: OBSIDIAN_RUNNING=1 bun test tests/integration/canvas/tree.integration.test.ts
+// Run: OBSIDIAN_RUNNING=1 bun test tests/integration/canvas/tree.integration.test
 
-import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
-import { obEval } from '../../../src/lib/obsidian.ts';
-import { encodeForJs } from '../../../src/lib/json.ts';
-import { createProject } from '../../../src/commands/create-project.ts';
-import { generateTreeCanvas } from '../../../src/commands/canvas/tree.ts';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+import { generateTreeCanvas } from '../../../src/commands/canvas/tree';
+import { createProject } from '../../../src/commands/create-project';
+import { encodeForJs } from '../../../src/lib/json';
+import { obEval } from '../../../src/lib/obsidian';
 
 const RUNNING = process.env.OBSIDIAN_RUNNING === '1';
 const VAULT = process.env.TEST_VAULT ?? 'study';

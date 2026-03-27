@@ -3,12 +3,12 @@
 // Ports assertions from cli/core/tests/test-create-project.sh.
 // Requires OBSIDIAN_RUNNING=1 to execute; skips the full suite otherwise.
 //
-// Run: OBSIDIAN_RUNNING=1 bun test tests/integration/motor/create-project.integration.test.ts
+// Run: OBSIDIAN_RUNNING=1 bun test tests/integration/motor/create-project.integration.test
 
-import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
-import { obEval } from '../../../src/lib/obsidian.ts';
-import { encodeForJs } from '../../../src/lib/json.ts';
-import { createProject } from '../../../src/commands/create-project.ts';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+import { createProject } from '../../../src/commands/create-project';
+import { encodeForJs } from '../../../src/lib/json';
+import { obEval } from '../../../src/lib/obsidian';
 
 const RUNNING = process.env.OBSIDIAN_RUNNING === '1';
 const VAULT = process.env.TEST_VAULT ?? 'study';

@@ -1,15 +1,15 @@
 // STORY-037 — Migrate domain skills (study + dev) to TypeScript
-// adr.ts — Dev skill: create an Architecture Decision Record as a LEAF note.
+// adr — Dev skill: create an Architecture Decision Record as a LEAF note.
 //
 // Creates a LEAF note with kind: decision, decision-date: YYYY-MM-DD,
 // decision-status: proposed; body contains ### Context, ### Decision, ### Consequences.
 // Delegates entity creation to createEntity() from STORY-033.
 
-import type { Command } from '../../cli.ts';
-import type { CommandResult } from '../../types/result.ts';
-import { resolveVault, obEval } from '../../lib/obsidian.ts';
-import { encodeForJs } from '../../lib/json.ts';
-import { createEntity } from '../create-entity.ts';
+import type { Command } from '../../cli';
+import { encodeForJs } from '../../lib/json';
+import { obEval, resolveVault } from '../../lib/obsidian';
+import type { CommandResult } from '../../types/result';
+import { createEntity } from '../create-entity';
 
 const ADR_SLUG_RE = /^[a-z0-9-]+$/;
 

@@ -10,8 +10,8 @@
 // directly with the same mock note shapes.
 
 import { describe, expect, test } from 'bun:test';
-import { scoreNote } from '../context.ts';
-import { resolveEntity, type EntityNote } from '../get-entity.ts';
+import { scoreNote } from '../context';
+import { resolveEntity, type EntityNote } from '../get-entity';
 
 // ---------------------------------------------------------------------------
 // Helper
