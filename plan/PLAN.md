@@ -683,3 +683,136 @@ Update `src/cli.ts` COMMANDS array: replace `init-vault` with `add-vault`; add `
 3. Help output contains `NERV_DEFAULT_VAULT  Default vault name`.
 4. `nerv init-vault` prints `"nerv: unknown command 'init-vault'"`.
 5. `bun run typecheck` exits 0.
+
+---
+
+## EPIC-012 — Obsidian CLI Weak Dependency Layer
+
+Introduce a **Ports & Adapters** boundary between command logic and the Obsidian CLI. All Obsidian-specific JS expressions (`app.vault.create`, `app.metadataCache.getFileCache`, etc.) currently embedded across ~16 command files are extracted into a single adapter class. Commands depend only on a `VaultOps` TypeScript interface — never on `obEval` directly. A `MockVaultOps` stateful test double replaces per-test Obsidian mock chains. Contract tests verify both the mock and the real adapter satisfy the same behavioural contract. The result: changing the Obsidian CLI API requires updating one file (`ObsidianCliAdapter`), not sixteen.
+
+---
+
+### Story 050 — Define VaultOps and DevOps port interfaces
+
+**Description**
+Create `src/ports/vault-ops.ts` and `src/ports/dev-ops.ts` with two TypeScript interfaces establishing the boundary between commands and any vault backend. `VaultOps` covers all 12 vault I/O operations currently scattered as Obsidian JS expressions. `DevOps` covers the 4 Obsidian-specific plugin-development operations. No implementations in this story — contract only.
+
+**Acceptance criteria**
+
+1. `VaultOps` declares 12 methods: `fileExists`, `readFile`, `createFile`, `updateFrontmatter`, `listFiles`, `appendToDaily`, `openDaily`, `listRecentFiles`, `listUnresolved`, `trashFile`, `appendToFile`, `replaceFileContent`.
+2. `updateFrontmatter` accepts `mutations: Record<string, unknown>` — not an Obsidian callback.
+3. `DevOps` declares 4 methods: `reloadPlugin`, `captureErrors`, `captureConsole`, `captureScreenshot`.
+4. Neither file imports from `src/lib/` — the port must not know about any implementation.
+5. `bun run typecheck` exits 0.
+
+---
+
+### Story 051 — Implement ObsidianCliAdapter and VaultOps provider
+
+**Description**
+Create `src/adapters/obsidian-cli.ts` implementing `VaultOps` — each method encapsulates the Obsidian JS expression currently inlined in a command file. Create `src/ports/provider.ts` as the `getVaultOps()` / `setVaultOps()` factory used by commands and tests.
+
+**Acceptance criteria**
+
+1. `ObsidianCliAdapter` implements all 12 `VaultOps` methods using `obEval`, `spawnCapture`, `encodeForJs`, and `dailyAppend` from `src/lib/`.
+2. Every string embedded in an eval expression passes through `encodeForJs()`.
+3. `getVaultOps()` returns the singleton adapter; `setVaultOps(ops)` replaces it for tests.
+4. 12 unit tests in `src/adapters/__tests__/obsidian-cli.unit.test.ts` pass with `spawnCapture` mocked.
+5. `bun run typecheck` exits 0.
+
+---
+
+### Story 052 — Implement ObsidianDevAdapter and fix dev-cycle subprocess
+
+**Description**
+Create `src/adapters/obsidian-dev.ts` implementing `DevOps` using `spawnCapture`. Fix `dev/dev-cycle.ts` which uses `child_process.spawnSync` (no timeout, no unified error handling) — replace with `DevOps` port calls via `getDevOps()`. Wire `ObsidianDevAdapter` into `src/ports/provider.ts`.
+
+**Acceptance criteria**
+
+1. `ObsidianDevAdapter` implements 4 `DevOps` methods using `spawnCapture`.
+2. `dev/dev-cycle.ts` has zero `child_process` imports; all 4 subprocess calls route through `devOps`.
+3. `grep -rn "child_process" src/` returns zero matches.
+4. Unit tests in `src/adapters/__tests__/obsidian-dev.unit.test.ts` pass.
+5. `bun run typecheck` exits 0.
+
+---
+
+### Story 053 — Refactor low-risk commands to VaultOps port
+
+**Description**
+Replace direct `obEval` imports in `cli-lint.ts`, `cli-orphans.ts`, `cli-relations.ts`, `sync-ontology.ts`, `sync-vocab.ts`, and `sync-topk.ts` with calls through `getVaultOps()`. These read-only commands use only `listFiles` and `readFile`/`updateFrontmatter`.
+
+**Acceptance criteria**
+
+1. Zero `from.*lib/obsidian` imports (excluding `resolveVault`) in all 6 files.
+2. All filtering of vault notes happens in TypeScript, not in Obsidian JS expressions.
+3. All 6 command test files updated; `bun test` exits 0.
+
+---
+
+### Story 054 — Refactor medium-risk commands to VaultOps port
+
+**Description**
+Replace direct `obEval`/`dailyAppend` calls in `create-entity.ts`, `create-project.ts`, `add-connection.ts`, and `import-json.ts` with port calls. These commands perform multi-step mutations — idempotency checks, create, update parent, daily log, and rollback on partial failure must be preserved exactly.
+
+**Acceptance criteria**
+
+1. Zero `from.*lib/obsidian` imports (excluding `resolveVault` and `rollbackLog`) in all 4 files.
+2. `rollbackLog` remains a direct import — it is not part of `VaultOps`.
+3. Rollback scenario tests confirm `rollbackLog` still fires when a mid-sequence port call throws.
+4. All 4 command test files updated; `bun test` exits 0.
+
+---
+
+### Story 055 — Refactor complex orchestration commands to VaultOps port
+
+**Description**
+Replace direct `obEval`, `dailyAppend`, and `spawnCapture` calls in `morning.ts`, `explain-topic.ts`, `web-ingest/add.ts`, `web-ingest/batch.ts`, and `web-ingest/monitor.ts`. `morning.ts` also calls `spawnCapture` directly for `obsidian daily`, `obsidian files`, and `obsidian unresolved` — all three route through `ops.openDaily`, `ops.listRecentFiles`, and `ops.listUnresolved`.
+
+**Acceptance criteria**
+
+1. Zero direct `spawnCapture` imports in all 5 files.
+2. Zero `from.*lib/obsidian` imports (excluding `resolveVault`) in all 5 files.
+3. All 5 command test files updated; `bun test` exits 0.
+
+---
+
+### Story 056 — Refactor dev commands to DevOps and VaultOps ports
+
+**Description**
+Replace `obEval` calls in `dev/adr.ts` and `dev/code-link.ts` with `VaultOps` port calls (`readFile`, `updateFrontmatter`, `replaceFileContent`, `listFiles`). Confirms the dev command group is fully ported after STORY-052 handled `dev-cycle.ts`.
+
+**Acceptance criteria**
+
+1. Zero `from.*lib/obsidian` imports (excluding `resolveVault`) in both files.
+2. After STORY-053–056 all land: `grep -rn "from.*lib/obsidian" src/commands/` matches `resolveVault` only.
+3. Both dev command test files updated; `bun test` exits 0.
+
+---
+
+### Story 057 — Create MockVaultOps test double and contract test suite
+
+**Description**
+Author `MockVaultOps` — a `Map`-backed in-memory `VaultOps` implementation for command unit tests — and `runVaultOpsContractTests(label, factory)` — a reusable contract test runner that verifies any implementation satisfies the behavioural contract. Run contract tests against both `MockVaultOps` (validates the mock) and `ObsidianCliAdapter` (gated on `OBSIDIAN_RUNNING=1`).
+
+**Acceptance criteria**
+
+1. `MockVaultOps` implements all 12 `VaultOps` methods with in-memory `Map` state; exports `seedFile` helper for test setup.
+2. `runVaultOpsContractTests` registers 8 contract tests: create→exists→read roundtrip, update frontmatter, append, replace, trash, list, daily accumulation.
+3. `bun test src/ports/__tests__/mock-vault-ops.contract.test.ts` exits 0.
+4. `OBSIDIAN_RUNNING=1 bun test src/adapters/__tests__/obsidian-cli.contract.test.ts` exits 0 with Obsidian running.
+
+---
+
+### Story 058 — Migrate all command unit tests to MockVaultOps
+
+**Description**
+Replace `mock.module('../../lib/obsidian', ...)` patterns across all 37 command unit test files with `MockVaultOps` + `setVaultOps()`. Tests pre-populate vault state, run the command, assert resulting vault state — instead of asserting which Obsidian JS string was passed to `mockObEval`. This makes tests resilient to adapter rewrites.
+
+**Acceptance criteria**
+
+1. Zero `mock.module.*lib/obsidian` calls in any command test file.
+2. Each refactored test file: `beforeEach` creates `MockVaultOps`, seeds state, calls `setVaultOps`; `afterEach` restores real adapter.
+3. Rollback scenario tests preserved using `spyOn(rollbackLog)`.
+4. `bun test` exits 0 (all 37 unit tests pass); test runtime does not increase.
+5. `bun run typecheck` exits 0.
