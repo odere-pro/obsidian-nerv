@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
-// STORY-031 — Bun CLI foundation: entry point and subcommand dispatcher
-// STORY-038 — Use JSON import for version so compiled binary embeds it correctly
+// Bun CLI foundation: entry point and subcommand dispatcher
+// Use JSON import for version so compiled binary embeds it correctly
 
 import pkg from '../package.json';
 

@@ -1,7 +1,6 @@
-// STORY-039 — Migrate canvas generation to TypeScript
 // canvas/dependencies — Generate a JSON Canvas DAG for depends-on edges.
 //
-// Filters to depends-on edges only from getRelations() (STORY-034).
+// Filters to depends-on edges only from getRelations().
 // Lays out nodes using topological ordering: sources on left, sinks on right.
 // Outputs projects/<slug>/<slug>.dependencies.canvas conforming to JSON Canvas 1.0 spec.
 //

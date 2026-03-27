@@ -1,4 +1,3 @@
-// STORY-031 — Bun CLI foundation: Obsidian integration
 //
 // TypeScript port of cli/core/lib.sh — resolveVault, ob_eval, daily_append,
 // and rollback_log functions.

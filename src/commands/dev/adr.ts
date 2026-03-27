@@ -1,9 +1,8 @@
-// STORY-037 — Migrate domain skills (study + dev) to TypeScript
 // adr — Dev skill: create an Architecture Decision Record as a LEAF note.
 //
 // Creates a LEAF note with kind: decision, decision-date: YYYY-MM-DD,
 // decision-status: proposed; body contains ### Context, ### Decision, ### Consequences.
-// Delegates entity creation to createEntity() from STORY-033.
+// Delegates entity creation to createEntity().
 
 import type { Command } from '../../cli';
 import { encodeForJs } from '../../lib/json';

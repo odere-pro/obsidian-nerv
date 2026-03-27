@@ -1,5 +1,3 @@
-// STORY-032 — Note template extraction: ontology template
-
 export interface OntologyParams {
   project: string;
   updated: string; // YYYY-MM-DD

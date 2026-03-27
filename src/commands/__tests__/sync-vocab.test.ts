@@ -1,4 +1,3 @@
-// STORY-034 — sync-vocab unit tests
 // Tests spine extraction and table generation from mock notes.
 
 import { describe, expect, test } from 'bun:test';

@@ -1,4 +1,3 @@
-// STORY-037 — Unit tests for dev/adr command
 // Mocks createEntity and obEval so no Obsidian instance is required.
 
 import { beforeEach, describe, expect, mock, test } from 'bun:test';

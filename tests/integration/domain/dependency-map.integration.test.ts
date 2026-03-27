@@ -1,4 +1,3 @@
-// STORY-037 — Integration tests for dev/dependency-map command
 //
 // Ports assertions from cli/core/tests/test-dependency-map.sh.
 // Requires OBSIDIAN_RUNNING=1 to execute; skips the full suite otherwise.

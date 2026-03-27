@@ -1,4 +1,3 @@
-// STORY-039 — Unit tests for canvas/relations command
 // Tests buildRelationsCanvas as a pure function with mock edge data.
 // No Obsidian required.
 

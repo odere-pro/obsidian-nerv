@@ -390,7 +390,7 @@ These rules apply across all patterns regardless of which subagent is active.
   confident the answer is in training data. The vault-first rule is
   unconditional.
 - Never mark a skill story complete based on documentation alone — live tool
-  call logs must confirm the correct skill invocation (STORY-021 acceptance
+  call logs must confirm the correct skill invocation (acceptance
   criteria).
 
 ### Error report format
@@ -648,7 +648,7 @@ nerv dev/dependency-map dev-projectA <proj> [--json]
 
 ---
 
-## Verification Checklist (STORY-021)
+## Verification Checklist
 
 These cases must be tested in a live Claude Code session with `--verbose`
 to confirm tool-call logs show the correct skill invocation. This document

@@ -1,4 +1,3 @@
-// STORY-037 — Migrate domain skills (study + dev) to TypeScript
 // quiz — Study skill: extract a shuffled note bundle for quiz generation.
 //
 // Returns a vault-grounded quiz bundle: instruction, spine, and shuffled notes

@@ -1,4 +1,3 @@
-// STORY-035 — get-tree unit tests
 // Tests buildTree as a pure function with mock FlatNote data.
 // No Obsidian or obEval required.
 

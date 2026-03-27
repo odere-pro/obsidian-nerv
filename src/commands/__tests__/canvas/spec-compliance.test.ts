@@ -1,4 +1,3 @@
-// STORY-039 — JSON Canvas 1.0 spec compliance tests
 // Validates that all canvas generators produce spec-compliant output.
 // Spec: https://jsoncanvas.org/spec/1.0/
 //

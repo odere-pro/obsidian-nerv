@@ -1,4 +1,3 @@
-// STORY-031 — Bun CLI foundation: JSON utilities
 //
 // Replaces the `python3 -c "import json,sys; print(json.dumps(sys.argv[1]))"` pattern
 // used throughout the Bash scripts for safely embedding shell variables in JS expressions.

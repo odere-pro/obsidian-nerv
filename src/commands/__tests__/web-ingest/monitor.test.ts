@@ -1,4 +1,3 @@
-// STORY-040 — Unit tests for web-ingest/monitor command
 // Tests RSS/Atom parsing, state management helpers, and article filtering.
 
 import { beforeEach, describe, expect, mock, test } from 'bun:test';

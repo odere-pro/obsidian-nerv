@@ -1,5 +1,3 @@
-// STORY-032 — Note template extraction: branch template
-
 import type { BaseEntityParams } from './leaf';
 
 export interface BranchParams extends BaseEntityParams {

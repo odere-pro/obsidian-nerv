@@ -1,4 +1,3 @@
-// STORY-035 — get-entity integration tests
 // Ports assertions from cli/core/tests/test-get-entity.sh.
 // Requires: OBSIDIAN_RUNNING=1 environment variable.
 //

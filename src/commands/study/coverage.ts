@@ -1,4 +1,3 @@
-// STORY-037 — Migrate domain skills (study + dev) to TypeScript
 // coverage — Study skill: report spine-domain coverage for a project.
 //
 // Scans notes in a project, groups by spine frontmatter field,

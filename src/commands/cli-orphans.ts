@@ -1,4 +1,3 @@
-// STORY-034 — Migrate reflex and autonomic skills to TypeScript
 // cli-orphans — Reflex skill: verify bidirectional parent↔children integrity.
 //
 // Exports:

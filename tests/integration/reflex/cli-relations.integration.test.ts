@@ -1,4 +1,3 @@
-// STORY-034 — cli-relations integration tests
 // Ports assertions from cli/core/tests/test-cli-relations.sh.
 // Requires: OBSIDIAN_RUNNING=1 environment variable.
 //

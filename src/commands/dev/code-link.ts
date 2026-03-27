@@ -1,4 +1,3 @@
-// STORY-037 — Migrate domain skills (study + dev) to TypeScript
 // code-link — Dev skill: append a code-path reference to ## Connections.
 //
 // Appends "- implements :: `<codepath>`" to the note's ## Connections section.

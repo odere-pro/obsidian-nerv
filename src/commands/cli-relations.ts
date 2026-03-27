@@ -1,10 +1,9 @@
-// STORY-034 — Migrate reflex and autonomic skills to TypeScript
 // cli-relations — Reflex skill: enumerate typed connections and validate against ontology.
 //
 // Exports:
 //   - Edge, RelationResult (types)
 //   - extractEdges(notes, validTypes) — pure function, unit-testable without Obsidian
-//   - getRelations(vault, project) — programmatic API used by dependency-map (STORY-037)
+//   - getRelations(vault, project) — programmatic API used by dependency-map
 //   - default Command — CLI entry point
 //
 // JSON schema (--json) is stable and matches existing Bash output for Auditor compatibility:
@@ -136,7 +135,7 @@ function buildFetchExpr(folder: string): string {
 // Programmatic API
 // ---------------------------------------------------------------------------
 
-/** Get typed relations for a project. Used by dependency-map (STORY-037). */
+/** Get typed relations for a project. Used by dependency-map. */
 export async function getRelations(vault: string, project: string): Promise<RelationResult> {
   const folder = project.includes('/') ? project : `projects/${project}`;
   const raw = await obEval(vault, buildFetchExpr(folder)).catch(

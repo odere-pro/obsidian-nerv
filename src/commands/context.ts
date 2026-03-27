@@ -1,4 +1,3 @@
-// STORY-035 — Migrate sensory skills to TypeScript
 // context — Primary sensory skill: relevance-scored vault retrieval.
 //
 // Exports:

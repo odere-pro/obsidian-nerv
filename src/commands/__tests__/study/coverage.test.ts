@@ -1,4 +1,3 @@
-// STORY-037 — Unit tests for study/coverage command
 // Tests coverage metric calculation with the pure computeCoverage function.
 
 import { describe, expect, test } from 'bun:test';

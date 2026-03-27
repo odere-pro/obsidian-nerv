@@ -1,4 +1,3 @@
-// STORY-034 — Migrate reflex and autonomic skills to TypeScript
 // cli-lint — Reflex skill: validate frontmatter and structure of vault notes.
 //
 // Exports:

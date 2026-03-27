@@ -1,4 +1,3 @@
-// STORY-036 — migrate integration tests
 // Runs --dry-run and --apply against a test project in a live Obsidian vault.
 // Requires: OBSIDIAN_RUNNING=1 environment variable.
 //

@@ -1,4 +1,3 @@
-// STORY-040 — Integration tests for web-ingest/add
 //
 // Requires: OBSIDIAN_RUNNING=1 and network access.
 // Uses https://example.com as a stable, lightweight test URL.

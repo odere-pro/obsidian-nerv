@@ -1,4 +1,3 @@
-// STORY-039 — Integration tests for canvas/tree command
 //
 // Generates a tree canvas against a live Obsidian vault and verifies:
 //   - Canvas file written to correct path

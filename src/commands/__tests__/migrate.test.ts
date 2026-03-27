@@ -1,4 +1,3 @@
-// STORY-036 — migrate unit tests
 // Tests validateSpec (pure function): --dry-run, pre-flight validation,
 // idempotency marker, YAML injection check. No Obsidian required.
 

@@ -1,4 +1,3 @@
-// STORY-035 — Migrate sensory skills to TypeScript
 // explain-topic — Sensory skill: assemble a teaching bundle for a queried topic.
 //
 // Composes context.scoreNote and get-entity.resolveEntity as direct module imports

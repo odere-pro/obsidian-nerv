@@ -1,4 +1,3 @@
-// STORY-033 — Integration tests for create-project command
 //
 // Ports assertions from cli/core/tests/test-create-project.sh.
 // Requires OBSIDIAN_RUNNING=1 to execute; skips the full suite otherwise.

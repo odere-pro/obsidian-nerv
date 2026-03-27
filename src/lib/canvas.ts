@@ -1,4 +1,3 @@
-// STORY-039 — Migrate canvas generation to TypeScript
 // canvas — Shared utilities for JSON Canvas 1.0 spec-compliant file generation.
 //
 // Exports:

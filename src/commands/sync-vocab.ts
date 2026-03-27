@@ -1,4 +1,3 @@
-// STORY-034 — Migrate reflex and autonomic skills to TypeScript
 // sync-vocab — Autonomic skill: rebuild _vocab.<project>.md from note metadata.
 //
 // Exports:

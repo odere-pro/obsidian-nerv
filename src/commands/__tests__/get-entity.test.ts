@@ -1,4 +1,3 @@
-// STORY-035 — get-entity unit tests
 // Tests resolveEntity as a pure function with mock EntityNote data.
 // Covers all 5 match levels plus the null-return case.
 // No Obsidian or obEval required.

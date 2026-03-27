@@ -1,4 +1,3 @@
-// STORY-035 — explain-topic unit tests
 // Tests the pure composition logic of explain-topic:
 //   - Sibling resolution when notes share a parent
 //   - Null parent for ROOT notes

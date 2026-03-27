@@ -1,4 +1,3 @@
-// STORY-035 — Migrate sensory skills to TypeScript
 // get-tree — Sensory skill: hierarchical project tree from parent/children relationships.
 //
 // Exports:

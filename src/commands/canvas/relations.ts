@@ -1,7 +1,6 @@
-// STORY-039 — Migrate canvas generation to TypeScript
 // canvas/relations — Generate a JSON Canvas relations graph from project connections.
 //
-// Reads relationship edges via getRelations() (STORY-034/cli-relations).
+// Reads relationship edges via getRelations().
 // Outputs projects/<slug>/<slug>.relations.canvas conforming to JSON Canvas 1.0 spec.
 //
 // Edge colors:

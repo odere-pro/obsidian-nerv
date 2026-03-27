@@ -1,4 +1,3 @@
-// STORY-039 — Unit tests for canvas/dependencies command
 // Tests buildDependenciesCanvas and topologicalLevels as pure functions.
 // No Obsidian required.
 

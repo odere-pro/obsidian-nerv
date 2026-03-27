@@ -1,4 +1,3 @@
-// STORY-034 — cli-lint unit tests
 // Tests each of the 11 violation rules as pure functions with mock NoteData.
 // No Obsidian or obEval required.
 

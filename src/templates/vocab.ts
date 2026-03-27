@@ -1,5 +1,3 @@
-// STORY-032 — Note template extraction: vocab template
-
 export interface VocabParams {
   project: string;
   updated: string; // YYYY-MM-DD

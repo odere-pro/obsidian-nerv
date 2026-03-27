@@ -1,4 +1,3 @@
-// STORY-036 — weekly-review integration tests
 // Runs against a live Obsidian vault.
 // Requires: OBSIDIAN_RUNNING=1 environment variable.
 

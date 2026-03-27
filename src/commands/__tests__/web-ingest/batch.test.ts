@@ -1,4 +1,3 @@
-// STORY-040 — Unit tests for web-ingest/batch command
 // Mocks ingestUrl so no network or Obsidian required.
 
 import { beforeEach, describe, expect, mock, test } from 'bun:test';

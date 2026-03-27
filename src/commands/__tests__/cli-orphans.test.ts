@@ -1,4 +1,3 @@
-// STORY-034 — cli-orphans unit tests
 // Tests ORPHAN, BROKEN, MISMATCH detection with mock vault data.
 
 import { describe, expect, test } from 'bun:test';

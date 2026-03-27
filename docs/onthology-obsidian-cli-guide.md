@@ -1,19 +1,19 @@
 # Ontology CLI Companion Guide
 
 Complete reference for the `~/.ontology-cli/` skill library.
-Covers every skill from STORY-005 through STORY-024 with command signature,
+Covers every skill with command signature,
 parameters, example invocation, example output, and idempotency behaviour.
 
 ---
 
 ## Prerequisites
 
-| Requirement      | Version / Detail                                    |
-| ---------------- | --------------------------------------------------- |
-| macOS            | 12 Monterey or later (Bash 3.2+)                    |
-| Obsidian desktop | ≥ 1.12.4 (Bases feature required)                   |
-| Obsidian CLI     | registered as `obsidian` on `$PATH` — see STORY-002 |
-| Python 3         | system `/usr/bin/python3` (no packages needed)      |
+| Requirement      | Version / Detail                               |
+| ---------------- | ---------------------------------------------- |
+| macOS            | 12 Monterey or later (Bash 3.2+)               |
+| Obsidian desktop | ≥ 1.12.4 (Bases feature required)              |
+| Obsidian CLI     | registered as `obsidian` on `$PATH`            |
+| Python 3         | system `/usr/bin/python3` (no packages needed) |
 
 ### PATH setup
 
@@ -42,7 +42,7 @@ export PATH="${HOME}/.ontology-cli/core:${HOME}/.ontology-cli/agent:${PATH}"
 
 ## Core Skills
 
-### `create-project.sh` — STORY-005
+### `create-project.sh`
 
 Scaffolds a complete project: ROOT note, `_ontology`, `_vocab`, `_topk`, and `.base` file.
 
@@ -81,7 +81,7 @@ create-project.sh study aws "Amazon Web Services"
 
 ---
 
-### `create-entity.sh` — STORY-006
+### `create-entity.sh`
 
 Creates a single typed note (LEAF, BRANCH, or ROOT) from the correct template,
 wires it into the parent's `children:` array, and logs creation to the daily note.
@@ -115,7 +115,7 @@ On partial failure (note created, parent update fails) writes to `_inbox/_rollba
 
 ---
 
-### `add-connection.sh` — STORY-007
+### `add-connection.sh`
 
 Adds a typed connection to a source note's `## Connections` section and writes
 the inverse on the target note automatically.
@@ -149,7 +149,7 @@ add-connection.sh study \
 
 ---
 
-### `import-json.sh` — STORY-008
+### `import-json.sh`
 
 Bulk-creates notes from a JSON array, skipping notes that already exist.
 
@@ -180,7 +180,7 @@ import-json.sh study aws notes.json LEAF
 
 ---
 
-### `cli-lint.sh` — STORY-009
+### `cli-lint.sh`
 
 Validates frontmatter completeness, structural rules, flag/tag hygiene,
 connection typing, breadcrumb presence, and limit thresholds.
@@ -224,7 +224,7 @@ cli-lint.sh study projects/aws --json
 
 ---
 
-### `cli-orphans.sh` — STORY-010
+### `cli-orphans.sh`
 
 Detects orphaned, broken, and mismatched parent–child relationships.
 
@@ -250,7 +250,7 @@ cli-orphans.sh study --project aws
 
 ---
 
-### `cli-relations.sh` — STORY-011
+### `cli-relations.sh`
 
 Enumerates all typed connections in a project as a source→rel→target edge list
 and validates each type against `_ontology.<slug>.md`.
@@ -284,7 +284,7 @@ cli-relations.sh vault=study aws --json | python3 -m json.tool
 
 ---
 
-### `migrate.sh` — STORY-012
+### `migrate.sh`
 
 Applies bulk schema changes from a declarative JSON spec. Supports rename-rel,
 rename-spine, add-field, and promote operations.
@@ -318,7 +318,7 @@ migrate.sh vault=<name> ...
 
 ---
 
-### `sync-topk.sh` — STORY-013
+### `sync-topk.sh`
 
 Appends overflow log rows to `_topk.<slug>.md` for any note exceeding
 connection, callout-flag, or BRANCH-children limits.
@@ -355,7 +355,7 @@ Warns (but does not error) when the log reaches 200 rows.
 
 ---
 
-### `sync-ontology.sh` — STORY-014
+### `sync-ontology.sh`
 
 Synchronises the project's `_ontology.<slug>.md` relationship type table with
 the actual relations found across all notes.
@@ -375,7 +375,7 @@ sync-ontology.sh vault=study aws
 
 ---
 
-### `sync-vocab.sh` — STORY-014
+### `sync-vocab.sh`
 
 Synchronises `_vocab.<slug>.md` with terms collected from note titles and aliases.
 
@@ -385,7 +385,7 @@ sync-vocab.sh [vault=<name>] <slug> [--dry-run]
 
 ---
 
-### `context.sh` — STORY-016
+### `context.sh`
 
 Primary sensory skill: relevance-scored vault retrieval.
 Returns top N notes scored by a weighted multi-factor model.
@@ -448,7 +448,7 @@ context.sh study "S3 lifecycle" 3
 
 ---
 
-### `get-entity.sh` — STORY-017
+### `get-entity.sh`
 
 Deep single-note retrieval by exact or partial basename/alias match.
 
@@ -466,7 +466,7 @@ get-entity.sh study "S3 Lifecycle Rules"
 
 ---
 
-### `get-tree.sh` — STORY-018
+### `get-tree.sh`
 
 Returns the complete hierarchical note tree for a project as nested JSON.
 Traverses ROOT → BRANCH → LEAF via `children:` frontmatter arrays.
@@ -516,7 +516,7 @@ get-tree.sh study aws --depth 2
 
 ---
 
-### `get-knowledge-gap.sh` — STORY-019
+### `get-knowledge-gap.sh`
 
 Identifies structural deficiencies across a project: stubs, isolated nodes,
 drafts, missing fields, low link counts, and unresolved links.
@@ -528,7 +528,7 @@ get-knowledge-gap.sh vault=<name> <project_slug>
 
 ---
 
-### `explain-topic.sh` — STORY-019
+### `explain-topic.sh`
 
 Assembles a teaching bundle for a queried topic: primary note, parent,
 siblings, and connected notes' summaries.
@@ -542,7 +542,7 @@ explain-topic.sh vault=<name> <project_slug> "<topic>"
 
 ## Dev Skills (`~/.ontology-cli/dev/`)
 
-### `adr.sh` — STORY-023
+### `adr.sh`
 
 Creates an Architecture Decision Record as a LEAF note with `kind: decision`,
 `decision-date`, `decision-status: proposed`, and structured Content sections.
@@ -594,7 +594,7 @@ Delegates fully to `create-entity.sh` — ADRs comply with all entity creation r
 
 ---
 
-### `dependency-map.sh` — STORY-023
+### `dependency-map.sh`
 
 Filters the full relationship graph to `depends-on` edges only.
 
@@ -635,7 +635,7 @@ dependency-map.sh dev-projectA svc --format dot | dot -Tsvg > deps.svg
 
 ---
 
-### `code-link.sh` — STORY-023
+### `code-link.sh`
 
 Appends a code-path reference to a note's `## Connections` section.
 
@@ -668,8 +668,8 @@ code-link.sh dev-projectA \
 
 ## Study Skills (`~/.ontology-cli/study/`)
 
-Study skills (STORY-022) are implemented in `~/.ontology-cli/study/`:
-`quiz.sh`, `coverage.sh`, `progress.sh`. See STORY-022 for details.
+Study skills are implemented in `~/.ontology-cli/study/`:
+`quiz.sh`, `coverage.sh`, `progress.sh`.
 
 ---
 
@@ -699,9 +699,10 @@ operation name, and partial state.
 
 ## Cross-References
 
-| Document                | Location                            | Contents                                             |
-| ----------------------- | ----------------------------------- | ---------------------------------------------------- |
-| v11 framework reference | `docs/obsidian_documentation.md`    | Obsidian features, CLI registration, vault structure |
-| This guide              | `docs/cli-guide/cli-guide-index.md` | All CLI skill signatures, parameters, examples       |
-| Agent routing patterns  | `cli/agent/patterns.md`             | Subagent decision trees, skill registry, limitations |
-| Story plans             | `docs/plan/STORY-*.md`              | Per-story acceptance criteria, design notes          |
+| Document               | Location                            | Contents                                             |
+| ---------------------- | ----------------------------------- | ---------------------------------------------------- |
+| Obsidian reference     | `docs/obsidian-docs/`               | Obsidian features, CLI registration, vault structure |
+| Obsidian skills        | `docs/obsidian-skills/`             | Agent skill definitions (Bases, Canvas, CLI, etc.)   |
+| CLI guide              | `docs/cli-guide/cli-guide-index.md` | All CLI skill signatures, parameters, examples       |
+| Agent routing patterns | `cli/agent/patterns.md`             | Subagent decision trees, skill registry, limitations |
+| Story plans            | `docs/plan/`                        | Per-story acceptance criteria, design notes          |

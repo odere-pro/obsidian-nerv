@@ -1,4 +1,3 @@
-// STORY-040 — Web ingestion: web-ingest/batch command
 //
 // Reads a JSON file containing an array of URLs and ingests each one.
 // Skips URLs that error; continues with remaining URLs.

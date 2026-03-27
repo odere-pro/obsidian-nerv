@@ -1,4 +1,3 @@
-// STORY-033 — Motor skills migration: import-json command
 //
 // TypeScript port of cli/core/import-json.sh.
 // Reads a JSON array via Bun.file — zero Python dependency.

@@ -1,4 +1,3 @@
-// STORY-040 — Web ingestion: defuddle shared utility
 //
 // Wraps `defuddle parse <url> --json` and provides:
 //   - DefuddleOutput type representing the stable JSON contract

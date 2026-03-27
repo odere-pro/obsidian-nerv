@@ -1,5 +1,3 @@
-// STORY-031 — Bun CLI foundation: result types
-
 export interface CommandResult<T> {
   ok: boolean;
   data: T;

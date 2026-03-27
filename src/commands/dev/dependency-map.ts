@@ -1,7 +1,6 @@
-// STORY-037 — Migrate domain skills (study + dev) to TypeScript
 // dependency-map — Dev skill: filter relationship graph to depends-on edges.
 //
-// Calls getRelations() from STORY-034, filters to depends-on edges only.
+// Calls getRelations(), filters to depends-on edges only.
 // Outputs JSON (default) or GraphViz DOT format.
 
 import type { Command } from '../../cli';

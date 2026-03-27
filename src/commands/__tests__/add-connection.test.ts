@@ -1,4 +1,3 @@
-// STORY-033 — Unit tests for add-connection command
 // Mocks obEval so no Obsidian instance is required.
 
 import { beforeEach, describe, expect, mock, test } from 'bun:test';

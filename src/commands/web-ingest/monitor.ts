@@ -1,4 +1,3 @@
-// STORY-040 — Web ingestion: web-ingest/monitor command
 //
 // Polls an RSS/Atom feed URL for new articles and ingests each one.
 // State (last-checked timestamp + seen article URLs) is persisted in

@@ -1,4 +1,3 @@
-// STORY-036 — Migrate orchestration and migration skills to TypeScript
 // morning — Orchestration skill: daily startup sequence.
 //
 // Executes 4 steps in sequence using spawnCapture for all Obsidian CLI calls:

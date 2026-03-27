@@ -1,4 +1,3 @@
-// STORY-034 — cli-relations unit tests
 // Tests edge extraction from mock connection sections and JSON schema.
 
 import { describe, expect, test } from 'bun:test';

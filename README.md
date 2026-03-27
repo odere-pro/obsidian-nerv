@@ -4,50 +4,31 @@ An agentic knowledge nervous system: a multi-vault Obsidian v11 framework wired 
 
 ## Status
 
-### Phase 1–5 — Foundation and Bash Skill Layer
+All phases complete. The system is fully migrated to a compiled TypeScript binary (`bin/nerv`).
 
-| Story     | Title                                             | Status      |
-| --------- | ------------------------------------------------- | ----------- |
-| STORY-001 | Bootstrap vault environment                       | ✅ Complete |
-| STORY-002 | Register CLI and verify manual setup              | ✅ Complete |
-| STORY-003 | Implement core library (`lib.sh`)                 | ✅ Complete |
-| STORY-004 | Build incremental test harness                    | ✅ Complete |
-| STORY-005 | `create-project.sh` motor skill                   | ✅ Complete |
-| STORY-006 | `create-entity.sh` motor skill                    | ✅ Complete |
-| STORY-007 | `add-connection.sh` motor skill                   | ✅ Complete |
-| STORY-008 | `import-json.sh` motor skill                      | ✅ Complete |
-| STORY-009 | `cli-lint.sh` reflex skill                        | ✅ Complete |
-| STORY-010 | `cli-orphans.sh` reflex skill                     | ✅ Complete |
-| STORY-011 | `cli-relations.sh` reflex skill                   | ✅ Complete |
-| STORY-012 | `migrate.sh` schema migration skill               | ✅ Complete |
-| STORY-013 | `sync-topk.sh` autonomic skill                    | ✅ Complete |
-| STORY-014 | `sync-ontology.sh`, `sync-vocab.sh`               | ✅ Complete |
-| STORY-015 | `weekly-review.sh`, `morning.sh`                  | ✅ Complete |
-| STORY-016 | `context.sh` primary sensory skill                | ✅ Complete |
-| STORY-017 | `get-entity.sh` sensory skill                     | ✅ Complete |
-| STORY-018 | `get-tree.sh` sensory skill                       | ✅ Complete |
-| STORY-019 | `get-knowledge-gap.sh`, `explain-topic.sh`        | ✅ Complete |
-| STORY-020 | Agent skill registry (`skills.md`)                | ✅ Complete |
-| STORY-021 | Auditor subagent (`CLAUDE.md`)                    | ✅ Complete |
-| STORY-022 | Study vault skills (quiz, coverage, progress)     | ✅ Complete |
-| STORY-023 | Dev vault skills (adr, dependency-map, code-link) | ✅ Complete |
-| STORY-024 | E2E test suite                                    | ✅ Complete |
+### Foundation and Bash Skill Layer ✅
 
-### Phase 6 — EPIC-009: CLI Skill Integration
+- Vault bootstrap, CLI registration, core library, test harness
+- Motor skills: `create-project`, `create-entity`, `add-connection`, `import-json`
+- Reflex skills: `cli-lint`, `cli-orphans`, `cli-relations`
+- Autonomic skills: `sync-topk`, `sync-ontology`, `sync-vocab`
+- Orchestration: `weekly-review`, `morning`, schema migration
+- Sensory skills: `context`, `get-entity`, `get-tree`, `get-knowledge-gap`, `explain-topic`
+- Agent layer: skill registry, auditor subagent, study/dev vault skills, E2E tests
 
-| Story     | Title                                                      | Status      |
-| --------- | ---------------------------------------------------------- | ----------- |
-| STORY-027 | Document direct CLI commands in `PATTERNS.md`              | ✅ Complete |
-| STORY-028 | Register CLI command inventory in `skills.md`              | ✅ Complete |
-| STORY-029 | Integrate native CLI diagnostics into orchestration skills | ✅ Complete |
-| STORY-030 | Plugin development cycle in `dev-projectA/CLAUDE.md`       | ✅ Complete |
+### CLI Skill Integration ✅
 
-### Phase 7 — EPIC-010: Production Grade: Bun Migration
+- Direct CLI commands documented in `PATTERNS.md`
+- Command inventory registered in `skills.md`
+- Native CLI diagnostics integrated into orchestration skills
+- Plugin development cycle in `dev-projectA/CLAUDE.md`
 
-| Story     | Title                                                | Status      |
-| --------- | ---------------------------------------------------- | ----------- |
-| STORY-031 | Bun CLI foundation — `src/cli.ts`, types, core lib   | ✅ Complete |
-| STORY-032 | Extract note templates as typed TypeScript functions | ✅ Complete |
+### Production Grade: Bun Migration ✅
+
+- All skills migrated to TypeScript under `src/commands/`
+- Compiled to `bin/nerv` binary; Bash scripts removed
+- Canvas commands: `canvas:tree`, `canvas:relations`, `canvas:dependencies`
+- Web-ingest commands: `web-ingest:add`, `web-ingest:batch`, `web-ingest:monitor`
 
 ---
 
@@ -57,25 +38,20 @@ An agentic knowledge nervous system: a multi-vault Obsidian v11 framework wired 
 VAULT (persistent knowledge store)
   └── Obsidian v11 typed ontology — notes, connections, frontmatter
 
-CLI SKILL LAYER (bash nervous system I/O)
-  ├── Motor skills    — create-project, create-entity, add-connection, import-json
-  ├── Sensory skills  — context.sh, get-entity, get-tree, explain-topic
-  ├── Reflex skills   — cli-lint, cli-orphans, cli-relations
-  └── Autonomic skills— sync-vocab, sync-topk, sync-ontology, weekly-review
-
-TYPESCRIPT LAYER (production Bun CLI — EPIC-010)
-  ├── src/cli.ts      — nerv binary entry point and subcommand dispatcher
-  ├── src/types/      — EntityType, NoteEntity, ProjectConfig, Connection, CommandResult
-  ├── src/lib/        — obsidian.ts, shell.ts, logger.ts, json.ts (port of lib.sh)
-  └── src/templates/  — typed render functions for all note templates
+NERV CLI (unified Bun binary)
+  ├── src/cli.ts        — entry point and subcommand dispatcher
+  ├── src/commands/     — motor, reflex, sensory, orchestration, domain, canvas, web-ingest
+  ├── src/types/        — EntityType, NoteEntity, ProjectConfig, Connection, CommandResult
+  ├── src/lib/          — obsidian.ts, shell.ts, logger.ts, json.ts
+  └── src/templates/    — typed render functions for all note templates
 
 SKILL REGISTRY + AGENT LAYER
-  ├── cli/agent/skills.md         — full command inventory with intent triggers
-  ├── cli/agent/patterns.md       — subagent decision trees
-  ├── cli/core/PATTERNS.md        — eval primitives + direct CLI command reference
+  ├── cli/agent/skills.md              — full command inventory with intent triggers
+  ├── cli/agent/patterns.md            — subagent decision trees
+  ├── docs/PATTERNS.md                 — eval primitives + direct CLI command reference
   └── cli/agent/dev-projectA/CLAUDE.md — dev vault agent config and plugin dev cycle
 
-DIRECT CLI COMMANDS (EPIC-009)
+OBSIDIAN CLI (native IPC commands)
   ├── File I/O  — read, create, append, property:set
   ├── Search    — search, backlinks, tags, files, unresolved
   ├── Daily     — daily:read, daily:append, tasks
@@ -86,7 +62,7 @@ DIRECT CLI COMMANDS (EPIC-009)
 
 ## TypeScript / Bun CLI (`nerv`)
 
-Phase 7 (EPIC-010) establishes a production-grade TypeScript layer that mirrors the Bash skill layer. The compiled `nerv` binary replaces ad-hoc `bun run` invocations with a single self-contained executable.
+The compiled `nerv` binary is a self-contained executable that replaces ad-hoc `bun run` invocations.
 
 ### Build
 
@@ -118,6 +94,20 @@ bun run test:integration  # requires .env.integration with OBSIDIAN_RUNNING=1
 | `src/lib/logger.ts`       | `logError()` (exits 1), `logWarn()`                               |
 | `src/lib/json.ts`         | `encodeForJs()`, `parseJson<T>()`                                 |
 
+### Command modules (`src/commands/`)
+
+| Group         | Commands                                                                                                                      |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Motor         | `create-project`, `create-entity`, `add-connection`, `import-json`                                                            |
+| Reflex        | `cli-lint` (exports `lintProject()`), `cli-orphans`, `cli-relations` (exports `getRelations()`)                               |
+| Autonomic     | `sync-vocab`, `sync-topk`, `sync-ontology`                                                                                    |
+| Sensory       | `context` (exports `scoreNote()`), `get-entity` (exports `resolveEntity()`), `get-tree`, `get-knowledge-gap`, `explain-topic` |
+| Orchestration | `weekly-review`, `morning`, `migrate` (supports `--dry-run`)                                                                  |
+| Dev           | `dev/adr`, `dev/dependency-map`, `dev/code-link`                                                                              |
+| Study         | `study/quiz`, `study/coverage`, `study/progress`                                                                              |
+| Canvas        | `canvas/tree`, `canvas/relations`, `canvas/dependencies` — JSON Canvas 1.0 output                                             |
+| Web Ingest    | `web-ingest/add` (wraps `defuddle`), `web-ingest/batch`, `web-ingest/monitor` (RSS)                                           |
+
 ### Note templates (`src/templates/`)
 
 Typed TypeScript render functions extracted from the Bash heredoc templates. All functions accept a typed parameter interface and return a complete Markdown string ready for `app.vault.create`.
@@ -134,11 +124,11 @@ Typed TypeScript render functions extracted from the Bash heredoc templates. All
 
 > All render functions are re-exported from `src/templates/index.ts`.
 
-> **Security note**: `obEval()` accepts pre-built JS expressions only. Always use
-> `encodeForJs()` from `src/lib/json.ts` when embedding any user-supplied string
-> to prevent JS injection into the Obsidian runtime.
+> **Security note**: Always call `encodeForJs()` before embedding user-supplied strings in `obEval()` expressions to prevent JS injection into the Obsidian runtime.
 
 ---
+
+## bootstrap-vault.sh
 
 Provisions a complete Obsidian vault in a single idempotent command.
 
@@ -170,8 +160,8 @@ Provisions a complete Obsidian vault in a single idempotent command.
 | Vault folders       | `_inbox/`, `_templates/`, `_scripts/`, `_scripts/cli/`, `_bases/`, `journals/daily/`, `projects/`                                                          |
 | Templates           | 9 `.md` templates + `tpl-project.base` written to `_templates/`                                                                                            |
 | Audit bases         | `audit-missing-properties.base`, `audit-drafts.base`, `audit-orphans.base` written to `_bases/`                                                            |
-| Host CLI dirs       | `~/.ontology-cli/core/`, `~/.ontology-cli/agent/`, `~/.ontology-cli/study/`, `~/.ontology-cli/dev/`                                                        |
-| PATH                | Export appended to `~/.zprofile` (skipped if already present)                                                                                              |
+| Host CLI dirs       | `~/.ontology-cli/bin/`, `~/.ontology-cli/agent/`                                                                                                           |
+| PATH                | `~/.ontology-cli/bin` appended to `~/.zprofile` (skipped if already present)                                                                               |
 | Git                 | Initialized at vault root with `.gitignore` and an initial commit                                                                                          |
 
 ### Idempotency
@@ -224,7 +214,7 @@ Open the vault folder in Obsidian (**File → Open folder as vault**), then comp
 
 ---
 
-## Manual setup (STORY-002)
+## Manual setup
 
 After running `bootstrap-vault.sh`, complete these steps in Obsidian. Steps marked ✅ have been verified programmatically via the CLI.
 
@@ -240,35 +230,3 @@ After running `bootstrap-vault.sh`, complete these steps in Obsidian. Steps mark
 | 8    | Create 3 bookmark groups: `Ontology/`, `Audit Queries/`, `Active Work/`             | ⬜ Manual                     |
 | 9    | Open all `.base` files and confirm no parse errors                                  | ⬜ Manual                     |
 | 10   | Press `Alt+W` and confirm workspace switcher shows all 3 workspaces                 | ⬜ Manual                     |
-
----
-
-## CLI core library (`lib.sh`)
-
-`~/.ontology-cli/core/lib.sh` provides shared functions sourced by every CLI skill.
-
-```bash
-source ~/.ontology-cli/core/lib.sh
-```
-
-### Functions
-
-| Function        | Signature                                          | Description                                                   |
-| --------------- | -------------------------------------------------- | ------------------------------------------------------------- |
-| `ob_eval`       | `ob_eval <vault> <expr>`                           | Run JavaScript in a running Obsidian vault                    |
-| `resolve_vault` | `resolve_vault <arg>`                              | Extract vault name from `vault=<name>` or return active vault |
-| `daily_append`  | `daily_append <vault> <content>`                   | Append content to today's daily note                          |
-| `log_error`     | `log_error <message>`                              | Write to stderr and exit 1                                    |
-| `emit_json`     | `emit_json <data>`                                 | Write JSON to stdout                                          |
-| `rollback_log`  | `rollback_log <vault> <operation> <partial_state>` | Append partial-failure entry to `_inbox/_rollback-log.md`     |
-
-```bash
-# Examples
-ob_eval obsidian_docs "app.vault.getName()"
-resolve_vault "vault=dev-projectA"
-daily_append obsidian_docs "- Created [[MyNote]]"
-rollback_log obsidian_docs "create-entity" "Note created but parent not updated"
-emit_json '{"status":"ok","path":"projects/aws/AWS.ROOT.md"}'
-```
-
-> Requires Obsidian to be running for `ob_eval`, `daily_append`, and `rollback_log`.

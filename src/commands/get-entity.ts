@@ -1,4 +1,3 @@
-// STORY-035 — Migrate sensory skills to TypeScript
 // get-entity — Sensory skill: deep single-note retrieval with 5-level match resolution.
 //
 // Exports:

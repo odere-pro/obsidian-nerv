@@ -1,4 +1,3 @@
-// STORY-037 — Unit tests for dev/code-link command
 // Tests CODEPATH validation, idempotency logic, and obEval integration.
 
 import { beforeEach, describe, expect, mock, test } from 'bun:test';

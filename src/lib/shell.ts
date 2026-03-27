@@ -1,5 +1,3 @@
-// STORY-031 — Bun CLI foundation: shell utilities
-
 const TIMEOUT_MS = 30_000;
 
 /** Thrown when a spawned process exceeds the 30-second hard timeout. */

@@ -1,4 +1,3 @@
-// STORY-036 — morning unit tests
 // Tests 4-step sequence and cron documentation. No Obsidian required.
 
 import { describe, expect, test } from 'bun:test';

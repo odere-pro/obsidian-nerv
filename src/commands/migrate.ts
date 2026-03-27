@@ -1,4 +1,3 @@
-// STORY-036 — Migrate orchestration and migration skills to TypeScript
 // migrate — Schema migration skill: apply bulk schema changes from a declarative spec.
 //
 // Spec format (JSON array of operations):

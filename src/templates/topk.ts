@@ -1,5 +1,3 @@
-// STORY-032 — Note template extraction: topk template
-
 export interface TopkParams {
   project: string;
   updated: string; // YYYY-MM-DD

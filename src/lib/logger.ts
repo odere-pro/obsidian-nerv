@@ -1,5 +1,3 @@
-// STORY-031 — Bun CLI foundation: logger
-
 /**
  * Write an error message to stderr and terminate the process with exit code 1.
  * Declared as `never` because execution does not continue after this call.

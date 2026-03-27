@@ -1,4 +1,3 @@
-// STORY-034 — Migrate reflex and autonomic skills to TypeScript
 // sync-ontology — Autonomic skill: produce ontology health report for a project.
 //
 // Scans ## Connections sections, compares rel-types against _ontology.<slug>.md,

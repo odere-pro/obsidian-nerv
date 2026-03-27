@@ -1,4 +1,3 @@
-// STORY-034 — Migrate reflex and autonomic skills to TypeScript
 // sync-topk — Autonomic skill: append overflow log entries to _topk.<project>.md.
 //
 // Scans every project note for overflow conditions:

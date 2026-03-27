@@ -1,4 +1,3 @@
-// STORY-036 — weekly-review unit tests
 // Tests orchestration sequence, output buffering, --json schema, failure propagation.
 // All 7 sub-command modules are mocked via injected deps (no Obsidian required).
 

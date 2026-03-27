@@ -1,4 +1,3 @@
-// STORY-038 — Migrate dev-cycle Bash script to TypeScript
 // dev-cycle — Dev skill: run the full plugin development feedback cycle.
 //
 // Executes the 4-step feedback cycle:

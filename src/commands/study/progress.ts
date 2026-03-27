@@ -1,4 +1,3 @@
-// STORY-037 — Migrate domain skills (study + dev) to TypeScript
 // progress — Study skill: study progress dashboard for a project.
 //
 // Returns note counts by status, completion %, word/edge metrics,

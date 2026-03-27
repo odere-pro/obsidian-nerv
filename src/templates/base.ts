@@ -1,5 +1,3 @@
-// STORY-032 — Note template extraction: base template (Obsidian Bases YAML)
-
 export interface BaseParams {
   slug: string;
 }

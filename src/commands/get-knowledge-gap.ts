@@ -1,4 +1,3 @@
-// STORY-035 — Migrate sensory skills to TypeScript
 // get-knowledge-gap — Sensory skill: identify structural deficiencies in a project.
 //
 // Exports:

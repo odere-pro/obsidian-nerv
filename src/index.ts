@@ -1,4 +1,3 @@
-// STORY-031 — Bun CLI foundation: library re-export barrel
 // Import from this file when using the library programmatically.
 // For the CLI binary, use src/cli as the entry point.
 

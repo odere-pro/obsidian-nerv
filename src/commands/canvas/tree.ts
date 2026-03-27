@@ -1,7 +1,6 @@
-// STORY-039 — Migrate canvas generation to TypeScript
 // canvas/tree — Generate a JSON Canvas tree from project hierarchy.
 //
-// Reads ROOT/BRANCH/LEAF note hierarchy via getTree() (STORY-035).
+// Reads ROOT/BRANCH/LEAF note hierarchy via getTree().
 // Outputs projects/<slug>/<slug>.tree.canvas conforming to JSON Canvas 1.0 spec.
 //
 // Exports:

@@ -1,7 +1,6 @@
-// STORY-033 — Motor skills migration: create-project command
 //
 // TypeScript port of cli/core/create-project.sh.
-// Scaffolds 5 project files using typed templates from STORY-032.
+// Scaffolds 5 project files using typed templates.
 
 import type { Command } from '../cli';
 import { encodeForJs } from '../lib/json';

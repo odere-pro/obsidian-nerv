@@ -1,4 +1,3 @@
-// STORY-033 — Motor skills migration: create-entity command
 //
 // TypeScript port of cli/core/create-entity.sh.
 // Dual-export: default Command for the dispatcher + named createEntity() for

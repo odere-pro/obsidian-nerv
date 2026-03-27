@@ -1,4 +1,3 @@
-// STORY-035 — get-knowledge-gap unit tests
 // Tests detectGaps as a pure function with mock GapNote data.
 // No Obsidian or obEval required.
 

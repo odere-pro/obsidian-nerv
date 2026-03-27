@@ -1,4 +1,3 @@
-// STORY-033 — Unit tests for import-json command
 // Mocks obEval and Bun.file so no Obsidian instance is required.
 
 import { beforeEach, describe, expect, mock, test } from 'bun:test';

@@ -1,4 +1,3 @@
-// STORY-039 — Unit tests for canvas/tree command
 // Tests buildTreeCanvas as a pure function with mock TreeNode data.
 // No Obsidian required.
 

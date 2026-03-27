@@ -1,4 +1,3 @@
-// STORY-036 — Migrate orchestration and migration skills to TypeScript
 // weekly-review — Orchestration skill: run full vault health review.
 //
 // Composes 6 reflex/autonomic skills as direct module imports, plus

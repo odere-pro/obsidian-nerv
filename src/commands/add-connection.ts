@@ -1,4 +1,3 @@
-// STORY-033 — Motor skills migration: add-connection command
 //
 // TypeScript port of cli/core/add-connection.sh.
 // Writes a bidirectional typed connection between two notes, looking up the

@@ -1,4 +1,3 @@
-// STORY-040 — Web ingestion: web-ingest/add command
 //
 // Fetches a URL via `defuddle parse`, creates a LEAF note with kind: web-source,
 // patches frontmatter with url/source_title/source_date, and writes extracted

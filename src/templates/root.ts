@@ -1,5 +1,3 @@
-// STORY-032 — Note template extraction: root template
-
 import type { EntityStatus } from '../types/entity';
 
 export interface RootParams {

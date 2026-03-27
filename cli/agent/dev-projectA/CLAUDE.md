@@ -158,7 +158,7 @@ nerv dev/dev-cycle dev-projectA <plugin-id> --screenshot  # steps 2–4 with scr
 
 ### Dev Command Reference
 
-All 7 dev commands are direct CLI invocations — no `eval` needed (single-step operations per STORY-027 decision boundary).
+All 7 dev commands are direct CLI invocations — no `eval` needed (single-step operations per the PATTERNS.md decision boundary).
 
 #### `obsidian plugin:reload`
 

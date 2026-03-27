@@ -1,5 +1,3 @@
-// STORY-032 — Note template extraction: barrel re-export
-
 export { renderBase, type BaseParams } from './base';
 export { renderBranch, type BranchParams } from './branch';
 export { renderLeaf, type BaseEntityParams, type LeafParams } from './leaf';

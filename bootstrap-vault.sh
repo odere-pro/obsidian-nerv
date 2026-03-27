@@ -264,7 +264,7 @@ write_if_absent "${VAULT_PATH}/.obsidian/graph.json" '{
 }'
 
 # ---------------------------------------------------------------------------
-# 9. .obsidian/workspace.json (placeholder — operator finalizes in STORY-002)
+# 9. .obsidian/workspace.json (placeholder — operator finalizes during manual setup)
 # ---------------------------------------------------------------------------
 write_if_absent "${VAULT_PATH}/.obsidian/workspace.json" '{
   "main": {
@@ -292,7 +292,7 @@ write_if_absent "${VAULT_PATH}/.obsidian/workspace.json" '{
 }'
 
 # ---------------------------------------------------------------------------
-# 10. .obsidian/workspaces.json (placeholder — operator finalizes in STORY-002)
+# 10. .obsidian/workspaces.json (placeholder — operator finalizes during manual setup)
 # ---------------------------------------------------------------------------
 write_if_absent "${VAULT_PATH}/.obsidian/workspaces.json" '{
   "workspaces": {},
@@ -300,7 +300,7 @@ write_if_absent "${VAULT_PATH}/.obsidian/workspaces.json" '{
 }'
 
 # ---------------------------------------------------------------------------
-# 11. .obsidian/bookmarks.json (placeholder — operator finalizes in STORY-002)
+# 11. .obsidian/bookmarks.json (placeholder — operator finalizes during manual setup)
 # ---------------------------------------------------------------------------
 write_if_absent "${VAULT_PATH}/.obsidian/bookmarks.json" '{
   "items": []
@@ -735,7 +735,7 @@ mkdir -p \
   "${HOME}/.ontology-cli/agent"
 
 # ---------------------------------------------------------------------------
-# 15. Agent config — deploy skills.md and vault CLAUDE.md (STORY-020)
+# 15. Agent config — deploy skills.md and vault CLAUDE.md
 # ---------------------------------------------------------------------------
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 AGENT_SRC="${REPO_DIR}/cli/agent"
@@ -809,4 +809,4 @@ fi
 # ---------------------------------------------------------------------------
 echo ""
 echo "==> Vault '${VAULT_NAME}' ready at '${VAULT_PATH}'"
-echo "    Next: open vault in Obsidian and complete STORY-002 manual setup."
+echo "    Next: open vault in Obsidian and complete manual setup."

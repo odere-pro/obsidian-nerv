@@ -1,4 +1,3 @@
-// STORY-035 — context unit tests
 // Tests scoreNote as a pure function with mock ScoringNote data.
 // No Obsidian or obEval required.
 
