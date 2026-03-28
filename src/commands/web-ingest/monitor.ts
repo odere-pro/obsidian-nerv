@@ -1,13 +1,14 @@
 //
 // Polls an RSS/Atom feed URL for new articles and ingests each one.
 // State (last-checked timestamp + seen article URLs) is persisted in
-// `_inbox/_web-ingest-state.json` inside the vault via the Obsidian CLI.
+// `_inbox/_web-ingest-state.json` inside the vault via VaultOps.
 //
 // CLI: nerv web-ingest/monitor [--vault <name>] <project> <feed-url> [--interval 3600] [--once] [--max-articles 10]
 
 import type { Command } from '../../cli';
-import { encodeForJs } from '../../lib/json';
-import { obEval, resolveVault } from '../../lib/obsidian';
+import { resolveVault } from '../../lib/obsidian';
+import { getVaultOps } from '../../ports/provider';
+import type { VaultOps } from '../../ports/vault-ops';
 import { ingestUrl } from './add';
 import { extractVaultFlag } from '../../lib/vault-registry';
 
@@ -93,46 +94,31 @@ function extractAttr(xml: string, tag: string, attr: string): string | undefined
 
 const STATE_PATH = '_inbox/_web-ingest-state.json';
 
-export async function loadState(vault: string): Promise<MonitorState> {
-  const jsPath = encodeForJs(STATE_PATH);
-  const raw = await obEval(
-    vault,
-    `(async () => {
-  var f = app.vault.getAbstractFileByPath(${jsPath});
-  if (!f) return 'NOT_FOUND';
-  return await app.vault.read(f);
-})()`
-  ).catch(() => 'NOT_FOUND');
-
-  if (raw === 'NOT_FOUND' || !raw) {
+export async function loadState(vault: string, ops?: VaultOps): Promise<MonitorState> {
+  const vaultOps = ops ?? getVaultOps();
+  const exists = await vaultOps.fileExists(vault, STATE_PATH).catch(() => false);
+  if (!exists) {
     return { lastChecked: new Date(0).toISOString(), seenUrls: [] };
   }
 
   try {
-    return JSON.parse(raw) as MonitorState;
+    const file = await vaultOps.readFile(vault, STATE_PATH);
+    return JSON.parse(file.content) as MonitorState;
   } catch {
     return { lastChecked: new Date(0).toISOString(), seenUrls: [] };
   }
 }
 
-export async function saveState(vault: string, state: MonitorState): Promise<void> {
-  const jsPath = encodeForJs(STATE_PATH);
-  const jsContent = encodeForJs(JSON.stringify(state, null, 2));
+export async function saveState(vault: string, state: MonitorState, ops?: VaultOps): Promise<void> {
+  const vaultOps = ops ?? getVaultOps();
+  const content = JSON.stringify(state, null, 2);
+  const exists = await vaultOps.fileExists(vault, STATE_PATH).catch(() => false);
 
-  await obEval(
-    vault,
-    `(async () => {
-  var path = ${jsPath};
-  var content = ${jsContent};
-  var f = app.vault.getAbstractFileByPath(path);
-  if (f) {
-    await app.vault.modify(f, content);
+  if (exists) {
+    await vaultOps.replaceFileContent(vault, STATE_PATH, content);
   } else {
-    await app.vault.create(path, content);
+    await vaultOps.createFile(vault, STATE_PATH, content);
   }
-  return 'ok';
-})()`
-  );
 }
 
 // ---------------------------------------------------------------------------

@@ -1,16 +1,47 @@
 // Tests RSS/Atom parsing, state management helpers, and article filtering.
 
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import type { VaultOps } from '../../../ports/vault-ops';
+
+// ---------------------------------------------------------------------------
+// Mock VaultOps
+// ---------------------------------------------------------------------------
+
+let mockOps: VaultOps;
+
+function resetMockOps(): void {
+  mockOps = {
+    fileExists: mock(async () => false),
+    readFile: mock(async (_v: string, p: string) => ({ path: p, content: '', frontmatter: {} })),
+    createFile: mock(async () => undefined),
+    updateFrontmatter: mock(async () => undefined),
+    listFiles: mock(async () => []),
+    appendToDaily: mock(async () => undefined),
+    openDaily: mock(async () => undefined),
+    listRecentFiles: mock(async () => []),
+    listUnresolved: mock(async () => []),
+    trashFile: mock(async () => undefined),
+    appendToFile: mock(async () => undefined),
+    replaceFileContent: mock(async () => undefined),
+  };
+}
+
+resetMockOps();
 
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockObEval = mock(async (): Promise<string> => 'NOT_FOUND');
+mock.module('../../../ports/provider', () => ({
+  getVaultOps: () => mockOps,
+  setVaultOps: () => undefined,
+  getDevOps: () => ({}),
+  setDevOps: () => undefined,
+}));
 
 mock.module('../../../lib/obsidian', () => ({
   resolveVault: async (arg?: string): Promise<string> => arg ?? 'test-vault',
-  obEval: mockObEval,
+  obEval: mock(async () => ''),
   dailyAppend: mock(async () => undefined),
   rollbackLog: mock(async () => undefined),
 }));
@@ -115,19 +146,24 @@ describe('parseFeed — Atom', () => {
 
 describe('loadState', () => {
   beforeEach(() => {
-    mockObEval.mockReset();
+    resetMockOps();
   });
 
   test('returns default state when file not found', async () => {
-    mockObEval.mockResolvedValueOnce('NOT_FOUND');
-    const state = await loadState('vault');
+    (mockOps.fileExists as ReturnType<typeof mock>).mockResolvedValueOnce(false);
+    const state = await loadState('vault', mockOps);
     expect(state.seenUrls).toEqual([]);
     expect(typeof state.lastChecked).toBe('string');
   });
 
   test('returns default state on malformed JSON', async () => {
-    mockObEval.mockResolvedValueOnce('{ broken json');
-    const state = await loadState('vault');
+    (mockOps.fileExists as ReturnType<typeof mock>).mockResolvedValueOnce(true);
+    (mockOps.readFile as ReturnType<typeof mock>).mockResolvedValueOnce({
+      path: '_inbox/_web-ingest-state.json',
+      content: '{ broken json',
+      frontmatter: {},
+    });
+    const state = await loadState('vault', mockOps);
     expect(state.seenUrls).toEqual([]);
   });
 
@@ -136,8 +172,13 @@ describe('loadState', () => {
       lastChecked: '2026-03-20T00:00:00.000Z',
       seenUrls: ['https://a.com', 'https://b.com'],
     });
-    mockObEval.mockResolvedValueOnce(stored);
-    const state = await loadState('vault');
+    (mockOps.fileExists as ReturnType<typeof mock>).mockResolvedValueOnce(true);
+    (mockOps.readFile as ReturnType<typeof mock>).mockResolvedValueOnce({
+      path: '_inbox/_web-ingest-state.json',
+      content: stored,
+      frontmatter: {},
+    });
+    const state = await loadState('vault', mockOps);
     expect(state.seenUrls).toHaveLength(2);
     expect(state.lastChecked).toBe('2026-03-20T00:00:00.000Z');
   });
@@ -145,28 +186,35 @@ describe('loadState', () => {
 
 describe('saveState', () => {
   beforeEach(() => {
-    mockObEval.mockReset();
+    resetMockOps();
   });
 
-  test('calls obEval to write state file', async () => {
-    mockObEval.mockResolvedValueOnce('ok');
-    await saveState('vault', {
-      lastChecked: '2026-03-26T00:00:00.000Z',
-      seenUrls: ['https://x.com'],
-    });
-    expect(mockObEval.mock.calls.length).toBeGreaterThan(0);
-    const expr = mockObEval.mock.calls[0][1] as string;
-    expect(expr).toContain('https://x.com');
+  test('creates file when state file does not exist', async () => {
+    (mockOps.fileExists as ReturnType<typeof mock>).mockResolvedValueOnce(false);
+    await saveState(
+      'vault',
+      { lastChecked: '2026-03-26T00:00:00.000Z', seenUrls: ['https://x.com'] },
+      mockOps
+    );
+    expect((mockOps.createFile as ReturnType<typeof mock>).mock.calls.length).toBe(1);
+    const content = (mockOps.createFile as ReturnType<typeof mock>).mock.calls[0][2] as string;
+    expect(content).toContain('https://x.com');
   });
 
-  test('persists seenUrls in state content', async () => {
-    mockObEval.mockResolvedValueOnce('ok');
-    await saveState('vault', {
-      lastChecked: '2026-03-26T00:00:00.000Z',
-      seenUrls: ['https://seen1.com', 'https://seen2.com'],
-    });
-    const expr = mockObEval.mock.calls[0][1] as string;
-    expect(expr).toContain('seen1.com');
-    expect(expr).toContain('seen2.com');
+  test('replaces file when state file exists', async () => {
+    (mockOps.fileExists as ReturnType<typeof mock>).mockResolvedValueOnce(true);
+    await saveState(
+      'vault',
+      {
+        lastChecked: '2026-03-26T00:00:00.000Z',
+        seenUrls: ['https://seen1.com', 'https://seen2.com'],
+      },
+      mockOps
+    );
+    expect((mockOps.replaceFileContent as ReturnType<typeof mock>).mock.calls.length).toBe(1);
+    const content = (mockOps.replaceFileContent as ReturnType<typeof mock>).mock
+      .calls[0][2] as string;
+    expect(content).toContain('seen1.com');
+    expect(content).toContain('seen2.com');
   });
 });

@@ -8,8 +8,9 @@
 
 import type { Command } from '../../cli';
 import { fetchAndParse, generateUrlSlug } from '../../lib/defuddle';
-import { encodeForJs } from '../../lib/json';
-import { dailyAppend, obEval, resolveVault } from '../../lib/obsidian';
+import { resolveVault } from '../../lib/obsidian';
+import { getVaultOps } from '../../ports/provider';
+import type { VaultOps } from '../../ports/vault-ops';
 import type { CommandResult } from '../../types/result';
 import { createEntity } from '../create-entity';
 import { extractVaultFlag } from '../../lib/vault-registry';
@@ -54,30 +55,16 @@ function countWords(text: string): number {
 async function findExistingNote(
   vault: string,
   project: string,
-  url: string
+  url: string,
+  ops: VaultOps
 ): Promise<string | null> {
-  const jsUrl = encodeForJs(url);
-  const jsProjDir = encodeForJs(`projects/${project}`);
-
-  const result = await obEval(
-    vault,
-    `(async () => {
-  var dir = ${jsProjDir};
-  var targetUrl = ${jsUrl};
-  var files = app.vault.getMarkdownFiles().filter(function(f) {
-    return f.path.startsWith(dir + '/');
-  });
-  for (var i = 0; i < files.length; i++) {
-    var meta = app.metadataCache.getFileCache(files[i]);
-    if (meta && meta.frontmatter && meta.frontmatter.url === targetUrl) {
-      return files[i].path;
-    }
+  const entries = await ops.listFiles(vault);
+  const prefix = `projects/${project}/`;
+  for (const entry of entries) {
+    if (!entry.path.startsWith(prefix)) continue;
+    if (entry.frontmatter['url'] === url) return entry.path;
   }
-  return 'NOT_FOUND';
-})()`
-  ).catch(() => 'NOT_FOUND');
-
-  return result === 'NOT_FOUND' || !result ? null : result;
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -89,26 +76,14 @@ async function patchNoteFrontmatter(
   notePath: string,
   url: string,
   sourceTitle: string,
-  sourceDate: string
+  sourceDate: string,
+  ops: VaultOps
 ): Promise<void> {
-  const jsPath = encodeForJs(notePath);
-  const jsUrl = encodeForJs(url);
-  const jsSourceTitle = encodeForJs(sourceTitle);
-  const jsSourceDate = encodeForJs(sourceDate);
-
-  await obEval(
-    vault,
-    `(async () => {
-  var f = app.vault.getAbstractFileByPath(${jsPath});
-  if (!f) return 'not-found';
-  await app.fileManager.processFrontMatter(f, function(fm) {
-    fm['url'] = ${jsUrl};
-    fm['source_title'] = ${jsSourceTitle};
-    fm['source_date'] = ${jsSourceDate};
+  await ops.updateFrontmatter(vault, notePath, {
+    url,
+    source_title: sourceTitle,
+    source_date: sourceDate,
   });
-  return 'ok';
-})()`
-  );
 }
 
 async function patchNoteContent(
@@ -116,75 +91,69 @@ async function patchNoteContent(
   notePath: string,
   extractedContent: string,
   url: string,
-  sourceDate: string
+  sourceDate: string,
+  ops: VaultOps
 ): Promise<void> {
-  const jsPath = encodeForJs(notePath);
-  const jsExtracted = encodeForJs(extractedContent);
-  const jsUrl = encodeForJs(url);
-  const jsDate = encodeForJs(sourceDate);
+  const file = await ops.readFile(vault, notePath);
+  const body = file.content;
 
-  await obEval(
-    vault,
-    `(async () => {
-  var f = app.vault.getAbstractFileByPath(${jsPath});
-  if (!f) return 'not-found';
-  await app.vault.process(f, function(body) {
-    var contentMarker = '## Content';
-    var idx = body.indexOf(contentMarker);
-    if (idx === -1) return body;
-    var after = body.substring(idx + contentMarker.length);
-    var nextSection = after.match(/\n## /);
-    var insertAt = nextSection
-      ? idx + contentMarker.length + nextSection.index
-      : body.length;
-    var injected = '\n\n' + ${jsExtracted} +
-      '\n\n## Metadata\n\n' +
-      '- **Source**: ' + ${jsUrl} + '\n' +
-      '- **Date**: ' + ${jsDate} + '\n';
-    return body.substring(0, idx + contentMarker.length) +
-           injected +
-           body.substring(insertAt);
-  });
-  return 'ok';
-})()`
-  );
+  const contentMarker = '## Content';
+  const idx = body.indexOf(contentMarker);
+  if (idx === -1) return;
+
+  const after = body.substring(idx + contentMarker.length);
+  const nextSection = after.match(/\n## /);
+  const insertAt = nextSection ? idx + contentMarker.length + nextSection.index! : body.length;
+
+  const injected =
+    '\n\n' +
+    extractedContent +
+    '\n\n## Metadata\n\n' +
+    '- **Source**: ' +
+    url +
+    '\n' +
+    '- **Date**: ' +
+    sourceDate +
+    '\n';
+
+  const newBody =
+    body.substring(0, idx + contentMarker.length) + injected + body.substring(insertAt);
+
+  await ops.replaceFileContent(vault, notePath, newBody);
 }
 
 async function appendParentConnection(
   vault: string,
   project: string,
   parentSlug: string,
-  url: string
+  url: string,
+  ops: VaultOps
 ): Promise<void> {
   const projUpper = project.toUpperCase();
-  const jsProjDir = encodeForJs(`projects/${project}`);
-  const jsPrefix = encodeForJs(`${projUpper}.${parentSlug} - `);
-  const jsUrl = encodeForJs(url);
+  const prefix = `${projUpper}.${parentSlug} - `;
+  const projDir = `projects/${project}/`;
 
-  await obEval(
-    vault,
-    `(async () => {
-  var projDir = ${jsProjDir};
-  var prefix = ${jsPrefix};
-  var f = app.vault.getFiles().find(function(f) {
-    return f.path.startsWith(projDir + '/') && f.name.startsWith(prefix);
-  });
-  if (!f) return 'not-found';
-  await app.vault.process(f, function(body) {
-    var marker = '## Connections';
-    var idx = body.indexOf(marker);
-    if (idx === -1) return body;
-    var after = body.substring(idx + marker.length);
-    var nextSection = after.match(/\n## /);
-    var insertAt = nextSection
-      ? idx + marker.length + nextSection.index
-      : body.length;
-    var entry = '\n- sources :: ' + ${jsUrl};
-    return body.substring(0, insertAt) + entry + body.substring(insertAt);
-  });
-  return 'ok';
-})()`
-  ).catch(() => undefined);
+  const entries = await ops.listFiles(vault);
+  const parentEntry = entries.find(
+    e => e.path.startsWith(projDir) && e.path.split('/').pop()?.startsWith(prefix)
+  );
+  if (!parentEntry) return;
+
+  const file = await ops.readFile(vault, parentEntry.path);
+  const body = file.content;
+
+  const marker = '## Connections';
+  const idx = body.indexOf(marker);
+  if (idx === -1) return;
+
+  const after = body.substring(idx + marker.length);
+  const nextSection = after.match(/\n## /);
+  const insertAt = nextSection ? idx + marker.length + nextSection.index! : body.length;
+
+  const entry = '\n- sources :: ' + url;
+  const newBody = body.substring(0, insertAt) + entry + body.substring(insertAt);
+
+  await ops.replaceFileContent(vault, parentEntry.path, newBody);
 }
 
 // ---------------------------------------------------------------------------
@@ -195,8 +164,11 @@ export async function ingestUrl(
   url: string,
   vault: string,
   project: string,
-  parent?: string
+  parent?: string,
+  ops?: VaultOps
 ): Promise<CommandResult<IngestResult>> {
+  const vaultOps = ops ?? getVaultOps();
+
   // 1. Validate URL scheme
   if (!URL_RE.test(url)) {
     return {
@@ -207,7 +179,7 @@ export async function ingestUrl(
   }
 
   // 2. Idempotency check
-  const existing = await findExistingNote(vault, project, url).catch(() => null);
+  const existing = await findExistingNote(vault, project, url, vaultOps).catch(() => null);
   if (existing) {
     return {
       ok: true,
@@ -267,26 +239,26 @@ export async function ingestUrl(
 
   // 6. Patch frontmatter with web-specific fields
   try {
-    await patchNoteFrontmatter(vault, notePath, url, title, sourceDate);
+    await patchNoteFrontmatter(vault, notePath, url, title, sourceDate, vaultOps);
   } catch {
     // Non-fatal — note exists, just frontmatter fields missing
   }
 
   // 7. Patch ## Content with extracted markdown + ## Metadata section
   try {
-    await patchNoteContent(vault, notePath, content, url, sourceDate);
+    await patchNoteContent(vault, notePath, content, url, sourceDate, vaultOps);
   } catch {
     // Non-fatal
   }
 
   // 8. Append sources connection to parent if explicitly specified
   if (parent) {
-    await appendParentConnection(vault, project, parent, url).catch(() => undefined);
+    await appendParentConnection(vault, project, parent, url, vaultOps).catch(() => undefined);
   }
 
   // 9. Log to daily note (best-effort)
   try {
-    await dailyAppend(vault, `- Ingested web source: [${title}](${url}) → ${notePath}`);
+    await vaultOps.appendToDaily(vault, `- Ingested web source: [${title}](${url}) → ${notePath}`);
   } catch {
     /* best-effort */
   }

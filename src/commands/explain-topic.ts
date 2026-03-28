@@ -1,12 +1,12 @@
 // explain-topic — Sensory skill: assemble a teaching bundle for a queried topic.
 //
 // Composes context.scoreNote and get-entity.resolveEntity as direct module imports
-// (no subprocess calls). A single obEval fetches all vault data; TypeScript does
+// (no subprocess calls). VaultOps fetches all vault data; TypeScript does
 // scoring, matching, sibling resolution, and connected-note assembly.
 //
 // Exports:
 //   - ExplainResult (output type)
-//   - explainTopic(vault, query) — programmatic API
+//   - explainTopic(vault, query, ops?) — programmatic API
 //   - default Command — CLI entry point
 //
 // Output schema:
@@ -18,8 +18,9 @@
 //   }
 
 import type { Command } from '../cli';
-import { parseJson } from '../lib/json';
-import { obEval, resolveVault } from '../lib/obsidian';
+import { resolveVault } from '../lib/obsidian';
+import { getVaultOps } from '../ports/provider';
+import type { VaultOps } from '../ports/vault-ops';
 import { scoreNote } from './context';
 import type { EntityNote, EntityOutput } from './get-entity';
 import { resolveEntity } from './get-entity';
@@ -105,74 +106,93 @@ function resolveWikiLink(raw: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Obsidian data fetch (shared with get-entity)
+// Wikilink extraction helpers — derive backlinks/outgoing from content
 // ---------------------------------------------------------------------------
 
-function buildFetchExpr(): string {
-  return `(async () => {
-  var allFiles = app.vault.getMarkdownFiles();
-  var notes = [];
-  for (var i = 0; i < allFiles.length; i++) {
-    var f = allFiles[i];
-    var cache = app.metadataCache.getFileCache(f);
-    var fm = (cache && cache.frontmatter) ? cache.frontmatter : {};
-    var rawBody = await app.vault.cachedRead(f);
-    var fmOut = {};
-    var keys = Object.keys(fm);
-    for (var k = 0; k < keys.length; k++) {
-      if (keys[k] !== 'position') fmOut[keys[k]] = fm[keys[k]];
-    }
-    var backlinks = [];
-    var blResult = app.metadataCache.getBacklinksForFile(f);
-    if (blResult && blResult.data) {
-      var blPaths = Object.keys(blResult.data);
-      for (var b = 0; b < blPaths.length; b++) {
-        var blPath = blPaths[b];
-        var blFile = app.vault.getAbstractFileByPath(blPath);
-        var blTitle = blPath, blType = '', blKind = '', blSpine = '';
-        if (blFile) {
-          var blCache = app.metadataCache.getFileCache(blFile);
-          var blFm = (blCache && blCache.frontmatter) ? blCache.frontmatter : {};
-          blTitle = String(blFm.title || blFile.basename);
-          blType  = String(blFm.type  || '');
-          blKind  = String(blFm.kind  || '');
-          blSpine = String(blFm.spine || '');
-        }
-        backlinks.push({ path: blPath, title: blTitle, type: blType, kind: blKind, spine: blSpine });
+function extractOutgoingLinks(
+  rawBody: string
+): Array<{ path: string; title: string; display: string }> {
+  const re = /\[\[([^\]#|]+)(?:\|([^\]]*))?\]\]/g;
+  const links: Array<{ path: string; title: string; display: string }> = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(rawBody)) !== null) {
+    const target = m[1].trim();
+    const display = m[2]?.trim() ?? target;
+    links.push({ path: '', title: target, display });
+  }
+  return links;
+}
+
+function buildBacklinks(
+  notes: EntityNote[],
+  targetBasename: string
+): Array<{ path: string; title: string; type: string; kind: string; spine: string }> {
+  const backlinks: Array<{
+    path: string;
+    title: string;
+    type: string;
+    kind: string;
+    spine: string;
+  }> = [];
+  for (const n of notes) {
+    if (n.basename === targetBasename) continue;
+    for (const link of n.outgoing) {
+      if (link.title === targetBasename || link.display === targetBasename) {
+        backlinks.push({
+          path: n.path,
+          title: String(n.frontmatter['title'] ?? n.basename),
+          type: String(n.frontmatter['type'] ?? ''),
+          kind: String(n.frontmatter['kind'] ?? ''),
+          spine: String(n.frontmatter['spine'] ?? ''),
+        });
+        break;
       }
     }
-    var outgoing = [];
-    var linkItems = (cache && cache.links) ? cache.links : [];
-    for (var l = 0; l < linkItems.length; l++) {
-      var li = linkItems[l];
-      var linkText = li.link || '';
-      var display  = li.displayText || linkText;
-      var destFile = app.metadataCache.getFirstLinkpathDest(linkText, f.path);
-      var destPath = destFile ? destFile.path : '';
-      var destTitle = linkText;
-      if (destFile) {
-        var dc = app.metadataCache.getFileCache(destFile);
-        var dfm = (dc && dc.frontmatter) ? dc.frontmatter : {};
-        destTitle = String(dfm.title || destFile.basename);
-      }
-      outgoing.push({ path: destPath, title: destTitle, display: display });
-    }
+  }
+  return backlinks;
+}
+
+// ---------------------------------------------------------------------------
+// Vault data fetch via VaultOps
+// ---------------------------------------------------------------------------
+
+async function fetchAllNotes(vault: string, ops: VaultOps): Promise<EntityNote[]> {
+  const entries = await ops.listFiles(vault);
+  const notes: EntityNote[] = [];
+
+  for (const entry of entries) {
+    const file = await ops.readFile(vault, entry.path);
+    const basename = entry.path.replace(/.*\//, '').replace(/\.md$/, '');
+    const outgoing = extractOutgoingLinks(file.content);
     notes.push({
-      path: f.path, basename: f.basename, frontmatter: fmOut, rawBody: rawBody,
-      backlinks: backlinks, outgoing: outgoing
+      path: entry.path,
+      basename,
+      frontmatter: file.frontmatter,
+      rawBody: file.content,
+      backlinks: [], // populated in a second pass
+      outgoing,
     });
   }
-  return JSON.stringify(notes);
-})()`;
+
+  // Second pass: build backlinks from outgoing links
+  for (const note of notes) {
+    note.backlinks = buildBacklinks(notes, note.basename);
+  }
+
+  return notes;
 }
 
 // ---------------------------------------------------------------------------
 // Programmatic API
 // ---------------------------------------------------------------------------
 
-export async function explainTopic(vault: string, query: string): Promise<ExplainResult | null> {
-  const raw = await obEval(vault, buildFetchExpr()).catch(() => '[]');
-  const notes = parseJson<EntityNote[]>(raw) ?? [];
+export async function explainTopic(
+  vault: string,
+  query: string,
+  ops?: VaultOps
+): Promise<ExplainResult | null> {
+  const vaultOps = ops ?? getVaultOps();
+  const notes = await fetchAllNotes(vault, vaultOps).catch(() => [] as EntityNote[]);
 
   // Step 1: Find highest-scoring note via scoreNote (same algorithm as context)
   let bestNote: EntityNote | null = null;

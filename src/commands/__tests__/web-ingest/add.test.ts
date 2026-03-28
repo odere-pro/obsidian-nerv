@@ -1,18 +1,46 @@
-// Mocks defuddle, obsidian, and create-entity so no network or Obsidian required.
+// Mocks defuddle, VaultOps provider, and create-entity so no network or Obsidian required.
 
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import type { VaultOps } from '../../../ports/vault-ops';
+
+// ---------------------------------------------------------------------------
+// Mock VaultOps
+// ---------------------------------------------------------------------------
+
+let mockOps: VaultOps;
+
+function resetMockOps(): void {
+  mockOps = {
+    fileExists: mock(async () => false),
+    readFile: mock(async (_v: string, p: string) => ({ path: p, content: '', frontmatter: {} })),
+    createFile: mock(async () => undefined),
+    updateFrontmatter: mock(async () => undefined),
+    listFiles: mock(async () => []),
+    appendToDaily: mock(async () => undefined),
+    openDaily: mock(async () => undefined),
+    listRecentFiles: mock(async () => []),
+    listUnresolved: mock(async () => []),
+    trashFile: mock(async () => undefined),
+    appendToFile: mock(async () => undefined),
+    replaceFileContent: mock(async () => undefined),
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Mocks — must be set up before importing the module under test
 // ---------------------------------------------------------------------------
 
-const mockObEval = mock(async (_vault: string, _expr: string): Promise<string> => 'NOT_FOUND');
-const mockDailyAppend = mock(async (): Promise<void> => undefined);
+mock.module('../../../ports/provider', () => ({
+  getVaultOps: () => mockOps,
+  setVaultOps: () => undefined,
+  getDevOps: () => ({}),
+  setDevOps: () => undefined,
+}));
 
 mock.module('../../../lib/obsidian', () => ({
   resolveVault: async (arg?: string): Promise<string> => arg ?? 'test-vault',
-  obEval: mockObEval,
-  dailyAppend: mockDailyAppend,
+  obEval: mock(async () => ''),
+  dailyAppend: mock(async () => undefined),
   rollbackLog: mock(async () => undefined),
 }));
 
@@ -58,13 +86,11 @@ const { ingestUrl } = await import('../../web-ingest/add');
 // ---------------------------------------------------------------------------
 
 function setupIdempotencyMocks(existing: string | null): void {
-  mockObEval.mockImplementation(async (_v: string, expr: string) => {
-    // Idempotency check returns the path or NOT_FOUND
-    if (expr.includes('targetUrl')) {
-      return existing ?? 'NOT_FOUND';
+  (mockOps.listFiles as ReturnType<typeof mock>).mockImplementation(async () => {
+    if (existing) {
+      return [{ path: existing, frontmatter: { url: 'https://example.com/page' } }];
     }
-    // Frontmatter / content patches succeed
-    return 'ok';
+    return [];
   });
 }
 
@@ -74,7 +100,7 @@ function setupIdempotencyMocks(existing: string | null): void {
 
 describe('ingestUrl — URL validation', () => {
   beforeEach(() => {
-    mockObEval.mockReset();
+    resetMockOps();
     mockFetchAndParse.mockReset();
     mockCreateEntity.mockReset();
   });
@@ -134,13 +160,19 @@ describe('ingestUrl — URL validation', () => {
 
 describe('ingestUrl — idempotency', () => {
   beforeEach(() => {
-    mockObEval.mockReset();
+    resetMockOps();
     mockFetchAndParse.mockReset();
     mockCreateEntity.mockReset();
   });
 
   test('returns ingested:false when URL already exists', async () => {
-    setupIdempotencyMocks('projects/proj/PROJ.example-com-aaaabbbb - Existing.md');
+    // Mock listFiles to return a note with matching url frontmatter
+    (mockOps.listFiles as ReturnType<typeof mock>).mockResolvedValueOnce([
+      {
+        path: 'projects/proj/PROJ.example-com-aaaabbbb - Existing.md',
+        frontmatter: { url: 'https://example.com/page' },
+      },
+    ]);
     const result = await ingestUrl('https://example.com/page', 'vault', 'proj');
     expect(result.ok).toBe(true);
     expect(result.data.ingested).toBe(false);
@@ -148,13 +180,23 @@ describe('ingestUrl — idempotency', () => {
   });
 
   test('does not call defuddle on idempotent re-run', async () => {
-    setupIdempotencyMocks('projects/proj/PROJ.existing.md');
+    (mockOps.listFiles as ReturnType<typeof mock>).mockResolvedValueOnce([
+      {
+        path: 'projects/proj/PROJ.existing.md',
+        frontmatter: { url: 'https://example.com/existing' },
+      },
+    ]);
     await ingestUrl('https://example.com/existing', 'vault', 'proj');
     expect(mockFetchAndParse.mock.calls.length).toBe(0);
   });
 
   test('does not call createEntity on idempotent re-run', async () => {
-    setupIdempotencyMocks('projects/proj/PROJ.existing.md');
+    (mockOps.listFiles as ReturnType<typeof mock>).mockResolvedValueOnce([
+      {
+        path: 'projects/proj/PROJ.existing.md',
+        frontmatter: { url: 'https://example.com/existing' },
+      },
+    ]);
     await ingestUrl('https://example.com/existing', 'vault', 'proj');
     expect(mockCreateEntity.mock.calls.length).toBe(0);
   });
@@ -166,7 +208,7 @@ describe('ingestUrl — idempotency', () => {
 
 describe('ingestUrl — network errors', () => {
   beforeEach(() => {
-    mockObEval.mockReset();
+    resetMockOps();
     mockFetchAndParse.mockReset();
     mockCreateEntity.mockReset();
   });
@@ -194,7 +236,7 @@ describe('ingestUrl — network errors', () => {
 
 describe('ingestUrl — JSON output schema', () => {
   beforeEach(() => {
-    mockObEval.mockReset();
+    resetMockOps();
     mockFetchAndParse.mockReset();
     mockCreateEntity.mockReset();
   });
