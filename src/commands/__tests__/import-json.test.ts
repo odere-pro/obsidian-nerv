@@ -1,46 +1,76 @@
-// Mocks obEval and Bun.file so no Obsidian instance is required.
+// Mocks VaultOps so no Obsidian instance is required.
 
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import type { VaultOps } from '../../ports/vault-ops';
 
 // ---------------------------------------------------------------------------
-// Mock obsidian before importing the command
+// Mock obsidian (for rollbackLog / resolveVault) and provider (for VaultOps)
 // ---------------------------------------------------------------------------
-const mockObEval = mock(async (_vault: string, _expr: string): Promise<string> => 'absent');
-const mockDailyAppend = mock(async (): Promise<void> => undefined);
 const mockRollbackLog = mock(async (): Promise<void> => undefined);
 
 mock.module('../../lib/obsidian', () => ({
   resolveVault: async (arg?: string): Promise<string> => arg ?? 'test-vault',
-  obEval: mockObEval,
-  dailyAppend: mockDailyAppend,
   rollbackLog: mockRollbackLog,
+}));
+
+const mockFileExists = mock(async (_v: string, _p: string): Promise<boolean> => false);
+const mockListFiles = mock(
+  async (_v: string) => [] as { path: string; frontmatter: Record<string, unknown> }[]
+);
+const mockCreateFile = mock(async (_v: string, _p: string, _c: string): Promise<void> => undefined);
+const mockUpdateFrontmatter = mock(
+  async (_v: string, _p: string, _m: Record<string, unknown>): Promise<void> => undefined
+);
+const mockAppendToDaily = mock(async (_v: string, _c: string): Promise<void> => undefined);
+
+const mockOps: VaultOps = {
+  fileExists: mockFileExists,
+  listFiles: mockListFiles,
+  createFile: mockCreateFile,
+  updateFrontmatter: mockUpdateFrontmatter,
+  appendToDaily: mockAppendToDaily,
+  readFile: mock(async () => ({ path: '', content: '', frontmatter: {} })),
+  openDaily: mock(async () => undefined),
+  listRecentFiles: mock(async () => []),
+  listUnresolved: mock(async () => []),
+  trashFile: mock(async () => undefined),
+  appendToFile: mock(async () => undefined),
+  replaceFileContent: mock(async () => undefined),
+};
+
+mock.module('../../ports/provider', () => ({
+  getVaultOps: (): VaultOps => mockOps,
 }));
 
 const { importJson } = await import('../import-json');
 
 // ---------------------------------------------------------------------------
-// Standard obEval mock for create-entity flow:
-//   1. idempotency check → 'absent'
-//   2. parent lookup → JSON with basename + spine
-//   3. file create → 'ok'
-//   4. parent children update → 'ok'
+// Standard VaultOps mocks for create-entity flow:
+//   1. fileExists → false (absent)
+//   2. listFiles → parent entry with basename + spine
+//   3. createFile → ok
+//   4. updateFrontmatter → ok
 // ---------------------------------------------------------------------------
 function setupCreateMocks(): void {
-  mockObEval.mockImplementation(async (_v: string, expr: string) => {
-    if (expr.includes("'exists'") || expr.includes("'absent'")) return 'absent';
-    if (expr.includes('getFiles') && expr.includes('startsWith(prefix)')) {
-      return JSON.stringify({ basename: 'PROJ.ROOT - Project', spine: 'proj' });
-    }
-    if (expr.includes('vault.create')) return 'ok';
-    if (expr.includes('processFrontMatter')) return 'ok';
-    return 'ok';
-  });
+  mockFileExists.mockImplementation(async () => false);
+  mockListFiles.mockImplementation(async () => [
+    {
+      path: 'projects/proj/PROJ.ROOT - Project.md',
+      frontmatter: { spine: 'proj', children: [] },
+    },
+  ]);
+  mockCreateFile.mockImplementation(async () => undefined);
+  mockUpdateFrontmatter.mockImplementation(async () => undefined);
+  mockAppendToDaily.mockImplementation(async () => undefined);
 }
 
 describe('importJson', () => {
   beforeEach(() => {
-    mockObEval.mockReset();
-    mockDailyAppend.mockReset();
+    mockFileExists.mockReset();
+    mockListFiles.mockReset();
+    mockCreateFile.mockReset();
+    mockUpdateFrontmatter.mockReset();
+    mockAppendToDaily.mockReset();
     mockRollbackLog.mockReset();
   });
 
@@ -62,11 +92,8 @@ describe('importJson', () => {
   });
 
   test('skips notes that already exist (idempotency)', async () => {
-    mockObEval.mockImplementation(async (_v: string, expr: string) => {
-      // All idempotency checks return 'exists'
-      if (expr.includes("'exists'") || expr.includes("'absent'")) return 'exists';
-      return 'ok';
-    });
+    mockFileExists.mockImplementation(async () => true);
+    mockListFiles.mockImplementation(async () => []);
     const { created, skipped } = await importJson({
       vault: 'v',
       projectSlug: 'proj',
@@ -93,7 +120,7 @@ describe('importJson', () => {
   // ---------------------------------------------------------------------------
   // Extra field passthrough
   // ---------------------------------------------------------------------------
-  test('calls processFrontMatter for extra non-standard fields', async () => {
+  test('calls updateFrontmatter for extra non-standard fields', async () => {
     setupCreateMocks();
     await importJson({
       vault: 'v',
@@ -108,17 +135,18 @@ describe('importJson', () => {
         },
       ],
     });
-    const extraCall = mockObEval.mock.calls.find(
-      c =>
-        (c[1] as string).includes('processFrontMatter') &&
-        (c[1] as string).includes('Object.assign')
-    );
+    // updateFrontmatter is called for parent children AND for extras
+    const extraCall = mockUpdateFrontmatter.mock.calls.find(c => {
+      const mutations = c[2] as Record<string, unknown>;
+      return 'priority' in mutations;
+    });
     expect(extraCall).toBeDefined();
-    expect(extraCall![1]).toContain('priority');
-    expect(extraCall![1]).toContain('team');
+    const mutations = extraCall![2] as Record<string, unknown>;
+    expect(mutations.priority).toBe('high');
+    expect(mutations.team).toBe('platform');
   });
 
-  test('does not call processFrontMatter when there are no extra fields', async () => {
+  test('does not call updateFrontmatter for extras when there are no extra fields', async () => {
     setupCreateMocks();
     await importJson({
       vault: 'v',
@@ -127,7 +155,11 @@ describe('importJson', () => {
         { name: 'PlainNote', type: 'LEAF', kind: 'concept', spine: 'proj', parent: 'ROOT' },
       ],
     });
-    const extraCall = mockObEval.mock.calls.find(c => (c[1] as string).includes('Object.assign'));
+    // Only updateFrontmatter call should be for parent children, not for extras
+    const extraCall = mockUpdateFrontmatter.mock.calls.find(c => {
+      const mutations = c[2] as Record<string, unknown>;
+      return 'priority' in mutations || 'team' in mutations;
+    });
     expect(extraCall).toBeUndefined();
   });
 });

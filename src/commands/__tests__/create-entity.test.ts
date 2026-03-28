@@ -1,40 +1,67 @@
-// Mocks obEval so no Obsidian instance is required.
+// Mocks VaultOps so no Obsidian instance is required.
 
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import type { VaultOps } from '../../ports/vault-ops';
 
 // ---------------------------------------------------------------------------
-// Mock obsidian before importing the command
+// Mock obsidian (for rollbackLog / resolveVault) and provider (for VaultOps)
 // ---------------------------------------------------------------------------
-const mockObEval = mock(async (_vault: string, _expr: string): Promise<string> => 'ok');
-const mockDailyAppend = mock(async (): Promise<void> => undefined);
 const mockRollbackLog = mock(async (): Promise<void> => undefined);
 
 mock.module('../../lib/obsidian', () => ({
   resolveVault: async (arg?: string): Promise<string> => arg ?? 'test-vault',
-  obEval: mockObEval,
-  dailyAppend: mockDailyAppend,
   rollbackLog: mockRollbackLog,
+}));
+
+const mockFileExists = mock(async (_v: string, _p: string): Promise<boolean> => false);
+const mockListFiles = mock(
+  async (_v: string) => [] as { path: string; frontmatter: Record<string, unknown> }[]
+);
+const mockCreateFile = mock(async (_v: string, _p: string, _c: string): Promise<void> => undefined);
+const mockUpdateFrontmatter = mock(
+  async (_v: string, _p: string, _m: Record<string, unknown>): Promise<void> => undefined
+);
+const mockAppendToDaily = mock(async (_v: string, _c: string): Promise<void> => undefined);
+
+const mockOps: VaultOps = {
+  fileExists: mockFileExists,
+  listFiles: mockListFiles,
+  createFile: mockCreateFile,
+  updateFrontmatter: mockUpdateFrontmatter,
+  appendToDaily: mockAppendToDaily,
+  readFile: mock(async () => ({ path: '', content: '', frontmatter: {} })),
+  openDaily: mock(async () => undefined),
+  listRecentFiles: mock(async () => []),
+  listUnresolved: mock(async () => []),
+  trashFile: mock(async () => undefined),
+  appendToFile: mock(async () => undefined),
+  replaceFileContent: mock(async () => undefined),
+};
+
+mock.module('../../ports/provider', () => ({
+  getVaultOps: (): VaultOps => mockOps,
 }));
 
 const { createEntity, resolveNotePath } = await import('../create-entity');
 
 // ---------------------------------------------------------------------------
 // Helpers to set up standard mock response sequence:
-//   1. idempotency check → 'absent'
-//   2. parent lookup → JSON with basename + spine
-//   3. file create → 'ok'
-//   4. parent children update → 'ok'
+//   1. fileExists → false (absent)
+//   2. listFiles → parent entry with basename + spine
+//   3. createFile → ok
+//   4. updateFrontmatter → ok
 // ---------------------------------------------------------------------------
 function setupSuccessMocks(parentBasename: string, parentSpine: string): void {
-  mockObEval.mockImplementation(async (_vault: string, expr: string) => {
-    if (expr.includes("'exists'") || expr.includes("'absent'")) return 'absent';
-    if (expr.includes('getFiles') && expr.includes('startsWith(prefix)')) {
-      return JSON.stringify({ basename: parentBasename, spine: parentSpine });
-    }
-    if (expr.includes('vault.create')) return 'ok';
-    if (expr.includes('processFrontMatter')) return 'ok';
-    return 'ok';
-  });
+  mockFileExists.mockImplementation(async () => false);
+  mockListFiles.mockImplementation(async () => [
+    {
+      path: `projects/proj/${parentBasename}.md`,
+      frontmatter: { spine: parentSpine, children: [] },
+    },
+  ]);
+  mockCreateFile.mockImplementation(async () => undefined);
+  mockUpdateFrontmatter.mockImplementation(async () => undefined);
+  mockAppendToDaily.mockImplementation(async () => undefined);
 }
 
 describe('resolveNotePath', () => {
@@ -56,8 +83,11 @@ describe('resolveNotePath', () => {
 
 describe('createEntity', () => {
   beforeEach(() => {
-    mockObEval.mockReset();
-    mockDailyAppend.mockReset();
+    mockFileExists.mockReset();
+    mockListFiles.mockReset();
+    mockCreateFile.mockReset();
+    mockUpdateFrontmatter.mockReset();
+    mockAppendToDaily.mockReset();
     mockRollbackLog.mockReset();
   });
 
@@ -115,7 +145,7 @@ describe('createEntity', () => {
   // Parent wiring
   // ---------------------------------------------------------------------------
   describe('parent wiring', () => {
-    test('passes entity wikilink to processFrontMatter for parent update', async () => {
+    test('passes entity wikilink to updateFrontmatter for parent children update', async () => {
       setupSuccessMocks('PROJ.ROOT - Project Root', 'proj');
       await createEntity({
         vault: 'v',
@@ -126,18 +156,15 @@ describe('createEntity', () => {
         parentSlug: 'ROOT',
         kind: 'concept',
       });
-      const calls = mockObEval.mock.calls.map(c => c[1] as string);
-      const updateCall = calls.find(c => c.includes('processFrontMatter'));
-      expect(updateCall).toBeDefined();
-      expect(updateCall).toContain('PROJ.leaf - Leaf');
+      expect(mockUpdateFrontmatter).toHaveBeenCalled();
+      const call = mockUpdateFrontmatter.mock.calls[0];
+      const mutations = call[2] as { children: string[] };
+      expect(mutations.children).toContain('[[PROJ.leaf - Leaf]]');
     });
 
     test('returns error when parent note is not found', async () => {
-      mockObEval.mockImplementation(async (_v: string, expr: string) => {
-        if (expr.includes("'absent'")) return 'absent';
-        if (expr.includes('getFiles') && expr.includes('startsWith(prefix)')) return 'NOT_FOUND';
-        return 'ok';
-      });
+      mockFileExists.mockImplementation(async () => false);
+      mockListFiles.mockImplementation(async () => []);
       const result = await createEntity({
         vault: 'v',
         project: 'proj',
@@ -168,9 +195,9 @@ describe('createEntity', () => {
         kind: 'concept',
         spine: 'custom-spine',
       });
-      const calls = mockObEval.mock.calls.map(c => c[1] as string);
-      const createCall = calls.find(c => c.includes('vault.create'));
-      expect(createCall).toContain('custom-spine');
+      expect(mockCreateFile).toHaveBeenCalled();
+      const content = mockCreateFile.mock.calls[0][2] as string;
+      expect(content).toContain('custom-spine');
     });
 
     test('inherits spine from parent when spine arg is omitted', async () => {
@@ -184,13 +211,19 @@ describe('createEntity', () => {
         parentSlug: 'ROOT',
         kind: 'concept',
       });
-      const calls = mockObEval.mock.calls.map(c => c[1] as string);
-      const createCall = calls.find(c => c.includes('vault.create'));
-      expect(createCall).toContain('parent-spine');
+      expect(mockCreateFile).toHaveBeenCalled();
+      const content = mockCreateFile.mock.calls[0][2] as string;
+      expect(content).toContain('parent-spine');
     });
 
     test('falls back to project slug when neither spine arg nor parent spine', async () => {
-      setupSuccessMocks('PROJ.ROOT - Title', '');
+      setupSuccessMocks('MYPROJ.ROOT - Title', '');
+      mockListFiles.mockImplementation(async () => [
+        {
+          path: 'projects/myproj/MYPROJ.ROOT - Title.md',
+          frontmatter: { spine: '', children: [] },
+        },
+      ]);
       await createEntity({
         vault: 'v',
         project: 'myproj',
@@ -200,9 +233,9 @@ describe('createEntity', () => {
         parentSlug: 'ROOT',
         kind: 'concept',
       });
-      const calls = mockObEval.mock.calls.map(c => c[1] as string);
-      const createCall = calls.find(c => c.includes('vault.create'));
-      expect(createCall).toContain('myproj');
+      expect(mockCreateFile).toHaveBeenCalled();
+      const content = mockCreateFile.mock.calls[0][2] as string;
+      expect(content).toContain('myproj');
     });
   });
 
@@ -227,10 +260,7 @@ describe('createEntity', () => {
     });
 
     test('returns created:false (not error) on idempotent re-run', async () => {
-      mockObEval.mockImplementation(async (_v: string, expr: string) => {
-        if (expr.includes("'exists'") || expr.includes("'absent'")) return 'exists';
-        return 'ok';
-      });
+      mockFileExists.mockImplementation(async () => true);
       const result = await createEntity({
         vault: 'v',
         project: 'proj',
@@ -245,11 +275,8 @@ describe('createEntity', () => {
     });
 
     test('error result has ok:false and error string for missing parent', async () => {
-      mockObEval.mockImplementation(async (_v: string, expr: string) => {
-        if (expr.includes("'absent'")) return 'absent';
-        if (expr.includes('startsWith(prefix)')) return 'NOT_FOUND';
-        return 'ok';
-      });
+      mockFileExists.mockImplementation(async () => false);
+      mockListFiles.mockImplementation(async () => []);
       const result = await createEntity({
         vault: 'v',
         project: 'proj',

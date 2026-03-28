@@ -1,27 +1,48 @@
-// Mocks obEval so no Obsidian instance is required.
+// Mocks VaultOps so no Obsidian instance is required.
 
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import type { VaultOps } from '../../ports/vault-ops';
 
 // ---------------------------------------------------------------------------
-// Mock obsidian before importing the command
+// Mock obsidian (for rollbackLog / resolveVault) and provider (for VaultOps)
 // ---------------------------------------------------------------------------
-const mockObEval = mock(async (_vault: string, _expr: string): Promise<string> => 'ok');
 const mockRollbackLog = mock(
   async (_v: string, _op: string, _st: string): Promise<void> => undefined
 );
 
 mock.module('../../lib/obsidian', () => ({
   resolveVault: async (arg?: string): Promise<string> => arg ?? 'test-vault',
-  obEval: mockObEval,
   rollbackLog: mockRollbackLog,
-  dailyAppend: mock(async (): Promise<void> => undefined),
+}));
+
+const mockFileExists = mock(async (_v: string, _p: string): Promise<boolean> => false);
+const mockCreateFile = mock(async (_v: string, _p: string, _c: string): Promise<void> => undefined);
+
+const mockOps: VaultOps = {
+  fileExists: mockFileExists,
+  createFile: mockCreateFile,
+  readFile: mock(async () => ({ path: '', content: '', frontmatter: {} })),
+  updateFrontmatter: mock(async () => undefined),
+  listFiles: mock(async () => []),
+  appendToDaily: mock(async () => undefined),
+  openDaily: mock(async () => undefined),
+  listRecentFiles: mock(async () => []),
+  listUnresolved: mock(async () => []),
+  trashFile: mock(async () => undefined),
+  appendToFile: mock(async () => undefined),
+  replaceFileContent: mock(async () => undefined),
+};
+
+mock.module('../../ports/provider', () => ({
+  getVaultOps: (): VaultOps => mockOps,
 }));
 
 const { createProject } = await import('../create-project');
 
 describe('create-project', () => {
   beforeEach(() => {
-    mockObEval.mockReset();
+    mockFileExists.mockReset();
+    mockCreateFile.mockReset();
   });
 
   // ---------------------------------------------------------------------------
@@ -29,17 +50,17 @@ describe('create-project', () => {
   // ---------------------------------------------------------------------------
   describe('slug validation', () => {
     test('accepts a valid lowercase-alphanumeric slug', async () => {
-      // First call: idempotency check → absent. Subsequent calls: folder + 5 files.
-      mockObEval.mockImplementation(async () => 'absent');
-      // Should not throw
+      mockFileExists.mockImplementation(async () => false);
+      mockCreateFile.mockImplementation(async () => undefined);
       await createProject({ vault: 'v', slug: 'my-project', title: 'My Project' });
-      expect(mockObEval).toHaveBeenCalled();
+      expect(mockCreateFile).toHaveBeenCalled();
     });
 
     test('accepts a slug with numbers', async () => {
-      mockObEval.mockImplementation(async () => 'absent');
+      mockFileExists.mockImplementation(async () => false);
+      mockCreateFile.mockImplementation(async () => undefined);
       await createProject({ vault: 'v', slug: 'proj123', title: 'Proj' });
-      expect(mockObEval).toHaveBeenCalled();
+      expect(mockCreateFile).toHaveBeenCalled();
     });
 
     test('rejects a slug with uppercase letters', async () => {
@@ -60,10 +81,10 @@ describe('create-project', () => {
   // ---------------------------------------------------------------------------
   describe('idempotency', () => {
     test('exits 0 without modification when ROOT already exists', async () => {
-      mockObEval.mockImplementation(async () => 'exists');
+      mockFileExists.mockImplementation(async () => true);
       const out: string[] = [];
       const orig = process.stdout.write.bind(process.stdout);
-      process.stdout.write = (s: string) => {
+      process.stdout.write = (s: string): boolean => {
         out.push(s);
         return true;
       };
@@ -72,8 +93,9 @@ describe('create-project', () => {
       } finally {
         process.stdout.write = orig;
       }
-      // Only one obEval call (idempotency check) — no file creation
-      expect(mockObEval).toHaveBeenCalledTimes(1);
+      // Only one fileExists call (idempotency check) — no file creation
+      expect(mockFileExists).toHaveBeenCalledTimes(1);
+      expect(mockCreateFile).not.toHaveBeenCalled();
       expect(out.join('')).toContain('already exists');
     });
   });
@@ -83,32 +105,33 @@ describe('create-project', () => {
   // ---------------------------------------------------------------------------
   describe('file path generation', () => {
     test('creates ROOT note at projects/<slug>/<SLUG>.ROOT - <Title>.md', async () => {
-      mockObEval.mockImplementation(async () => 'absent');
+      mockFileExists.mockImplementation(async () => false);
+      mockCreateFile.mockImplementation(async () => undefined);
       await createProject({ vault: 'v', slug: 'testslug', title: 'Test Title' });
 
-      const calls = mockObEval.mock.calls.map(c => c[1] as string);
-      const createCalls = calls.filter(c => c.includes('vault.create'));
-      expect(createCalls.some(c => c.includes('TESTSLUG.ROOT - Test Title.md'))).toBe(true);
+      const paths = mockCreateFile.mock.calls.map(c => c[1] as string);
+      expect(paths.some(p => p.includes('TESTSLUG.ROOT - Test Title.md'))).toBe(true);
     });
 
     test('creates _ontology, _vocab, _topk and .base files', async () => {
-      mockObEval.mockImplementation(async () => 'absent');
+      mockFileExists.mockImplementation(async () => false);
+      mockCreateFile.mockImplementation(async () => undefined);
       await createProject({ vault: 'v', slug: 'proj', title: 'Proj Title' });
 
-      const calls = mockObEval.mock.calls.map(c => c[1] as string);
-      const createCalls = calls.filter(c => c.includes('vault.create'));
-      expect(createCalls.some(c => c.includes('_ontology.proj.md'))).toBe(true);
-      expect(createCalls.some(c => c.includes('_vocab.proj.md'))).toBe(true);
-      expect(createCalls.some(c => c.includes('_topk.proj.md'))).toBe(true);
-      expect(createCalls.some(c => c.includes('proj.base'))).toBe(true);
+      const paths = mockCreateFile.mock.calls.map(c => c[1] as string);
+      expect(paths.some(p => p.includes('_ontology.proj.md'))).toBe(true);
+      expect(paths.some(p => p.includes('_vocab.proj.md'))).toBe(true);
+      expect(paths.some(p => p.includes('_topk.proj.md'))).toBe(true);
+      expect(paths.some(p => p.includes('proj.base'))).toBe(true);
     });
 
     test('derives SLUG_UPPER correctly for multi-segment slug', async () => {
-      mockObEval.mockImplementation(async () => 'absent');
+      mockFileExists.mockImplementation(async () => false);
+      mockCreateFile.mockImplementation(async () => undefined);
       await createProject({ vault: 'v', slug: 'my-proj', title: 'T' });
 
-      const calls = mockObEval.mock.calls.map(c => c[1] as string);
-      expect(calls.some(c => c.includes('MY-PROJ.ROOT'))).toBe(true);
+      const paths = mockCreateFile.mock.calls.map(c => c[1] as string);
+      expect(paths.some(p => p.includes('MY-PROJ.ROOT'))).toBe(true);
     });
   });
 
@@ -116,9 +139,9 @@ describe('create-project', () => {
   // --vault flag form
   // ---------------------------------------------------------------------------
   test('accepts --vault flag form (resolved by resolveVault)', async () => {
-    mockObEval.mockImplementation(async () => 'absent');
-    // resolveVault is mocked to return arg as-is so 'study' → 'study'
+    mockFileExists.mockImplementation(async () => false);
+    mockCreateFile.mockImplementation(async () => undefined);
     await createProject({ vault: 'study', slug: 'p', title: 'T' });
-    expect(mockObEval).toHaveBeenCalled();
+    expect(mockCreateFile).toHaveBeenCalled();
   });
 });

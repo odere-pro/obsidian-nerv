@@ -3,9 +3,9 @@
 // Scaffolds 5 project files using typed templates.
 
 import type { Command } from '../cli';
-import { encodeForJs } from '../lib/json';
 import { logError } from '../lib/logger';
-import { obEval, resolveVault, rollbackLog } from '../lib/obsidian';
+import { resolveVault, rollbackLog } from '../lib/obsidian';
+import { getVaultOps } from '../ports/provider';
 import {
   renderBase,
   renderOntology,
@@ -35,6 +35,7 @@ export async function createProject(params: CreateProjectParams): Promise<void> 
     );
   }
 
+  const ops = getVaultOps();
   const today = new Date().toISOString().slice(0, 10);
   const slugUpper = slug.toUpperCase();
   const projDir = `projects/${slug}`;
@@ -45,85 +46,72 @@ export async function createProject(params: CreateProjectParams): Promise<void> 
   const basePath = `${projDir}/${slug}.base`;
 
   // Idempotency check
-  const existing = await obEval(
-    vault,
-    `app.vault.getAbstractFileByPath(${encodeForJs(rootPath)}) ? 'exists' : 'absent'`
-  ).catch(() => 'absent');
+  const existing = await ops.fileExists(vault, rootPath).catch(() => false);
 
-  if (existing === 'exists') {
+  if (existing) {
     process.stdout.write(
       `INFO: project "${slug}" already exists in vault ${vault} — no changes made\n`
     );
     return;
   }
 
-  // Ensure the project folder exists
-  const jsProjDir = encodeForJs(projDir);
-  await obEval(
-    vault,
-    `(async () => {
-  const exists = app.vault.getAbstractFileByPath(${jsProjDir});
-  if (!exists) await app.vault.createFolder(${jsProjDir});
-})()`
-  );
-
-  async function createFile(path: string, content: string): Promise<void> {
-    await obEval(
-      vault,
-      `(async () => { await app.vault.create(${encodeForJs(path)}, ${encodeForJs(content)}); })()`
-    );
-  }
-
   // Create ROOT — all subsequent failures record rollback state
-  await createFile(
-    rootPath,
-    renderRoot({
-      title,
-      kind: 'concept',
-      spine: slug,
-      status: 'draft',
-      created: today,
-      modified: today,
-    })
-  ).catch(async (e: unknown) => {
-    await rollbackLog(vault, 'create-project', `folder created: ${projDir}; ROOT creation failed`);
-    throw e;
-  });
+  await ops
+    .createFile(
+      vault,
+      rootPath,
+      renderRoot({
+        title,
+        kind: 'concept',
+        spine: slug,
+        status: 'draft',
+        created: today,
+        modified: today,
+      })
+    )
+    .catch(async (e: unknown) => {
+      await rollbackLog(
+        vault,
+        'create-project',
+        `folder created: ${projDir}; ROOT creation failed`
+      );
+      throw e;
+    });
 
-  await createFile(ontoPath, renderOntology({ project: slug, updated: today })).catch(
-    async (e: unknown) => {
+  await ops
+    .createFile(vault, ontoPath, renderOntology({ project: slug, updated: today }))
+    .catch(async (e: unknown) => {
       await rollbackLog(
         vault,
         'create-project',
         `created ROOT; _ontology creation failed for ${slug}`
       );
       throw e;
-    }
-  );
+    });
 
-  await createFile(vocabPath, renderVocab({ project: slug, updated: today })).catch(
-    async (e: unknown) => {
+  await ops
+    .createFile(vault, vocabPath, renderVocab({ project: slug, updated: today }))
+    .catch(async (e: unknown) => {
       await rollbackLog(
         vault,
         'create-project',
         `created ROOT _ontology; _vocab creation failed for ${slug}`
       );
       throw e;
-    }
-  );
+    });
 
-  await createFile(topkPath, renderTopk({ project: slug, updated: today })).catch(
-    async (e: unknown) => {
+  await ops
+    .createFile(vault, topkPath, renderTopk({ project: slug, updated: today }))
+    .catch(async (e: unknown) => {
       await rollbackLog(
         vault,
         'create-project',
         `created ROOT _ontology _vocab; _topk creation failed for ${slug}`
       );
       throw e;
-    }
-  );
+    });
 
-  await createFile(basePath, renderBase({ slug })).catch(async (e: unknown) => {
+  await ops.createFile(vault, basePath, renderBase({ slug })).catch(async (e: unknown) => {
     await rollbackLog(
       vault,
       'create-project',

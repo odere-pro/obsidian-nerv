@@ -4,9 +4,9 @@
 // programmatic callers (import-json, adr).
 
 import type { Command } from '../cli';
-import { encodeForJs, parseJson } from '../lib/json';
 import { logError } from '../lib/logger';
-import { dailyAppend, obEval, resolveVault, rollbackLog } from '../lib/obsidian';
+import { resolveVault, rollbackLog } from '../lib/obsidian';
+import { getVaultOps } from '../ports/provider';
 import { renderBranch, renderLeaf, renderRoot } from '../templates/index';
 import type { EntityType } from '../types/entity';
 import type { CommandResult } from '../types/result';
@@ -74,6 +74,7 @@ export async function createEntity(
     };
   }
 
+  const ops = getVaultOps();
   const today = new Date().toISOString().slice(0, 10);
   const projUpper = project.toUpperCase();
   const projDir = `projects/${project}`;
@@ -81,47 +82,27 @@ export async function createEntity(
   const entityPath = `${projDir}/${entityBasename}.md`;
 
   // Idempotency check
-  const existing = await obEval(
-    vault,
-    `app.vault.getAbstractFileByPath(${encodeForJs(entityPath)}) ? 'exists' : 'absent'`
-  ).catch(() => 'absent');
+  const exists = await ops.fileExists(vault, entityPath).catch(() => false);
 
-  if (existing === 'exists') {
+  if (exists) {
     return { ok: true, data: { created: false, path: entityPath, title } };
   }
 
-  // Locate parent note and read its spine
-  const jsParentPrefix = encodeForJs(`${projUpper}.${parentSlug} - `);
-  const jsProjDir = encodeForJs(projDir);
-
-  const parentInfoRaw = await obEval(
-    vault,
-    `(async () => {
-  const projDir = ${jsProjDir};
-  const prefix = ${jsParentPrefix};
-  const f = app.vault.getFiles().find(function(f) {
-    return f.path.startsWith(projDir + '/') && f.name.startsWith(prefix);
+  // Locate parent note and read its spine via listFiles
+  const parentPrefix = `${projUpper}.${parentSlug} - `;
+  const allFiles = await ops.listFiles(vault).catch(() => []);
+  const parentEntry = allFiles.find(f => {
+    const fileName = f.path.split('/').pop() ?? '';
+    return f.path.startsWith(projDir + '/') && fileName.startsWith(parentPrefix);
   });
-  if (!f) return 'NOT_FOUND';
-  const meta = app.metadataCache.getFileCache(f);
-  const spine = (meta && meta.frontmatter && meta.frontmatter.spine)
-    ? meta.frontmatter.spine : '';
-  return JSON.stringify({basename: f.basename, spine: spine});
-})()`
-  ).catch(() => 'NOT_FOUND');
 
-  if (parentInfoRaw === 'NOT_FOUND' || !parentInfoRaw) {
+  if (!parentEntry) {
     const msg = `parent note '${projUpper}.${parentSlug} - *' not found in ${projDir}`;
     return { ok: false, data: { created: false, path: '', title }, error: msg };
   }
 
-  const parentInfo = parseJson<{ basename: string; spine: string }>(parentInfoRaw);
-  if (!parentInfo) {
-    const msg = `could not parse parent info for '${parentSlug}'`;
-    return { ok: false, data: { created: false, path: '', title }, error: msg };
-  }
-
-  const { basename: parentBasename, spine: parentSpine } = parentInfo;
+  const parentBasename = parentEntry.path.split('/').pop()!.replace(/\.md$/, '');
+  const parentSpine = (parentEntry.frontmatter.spine as string) ?? '';
 
   // Spine inheritance
   if (!spine && parentSpine) spine = parentSpine;
@@ -152,12 +133,9 @@ export async function createEntity(
   }
 
   // Create the note file
-  const createResult = await obEval(
-    vault,
-    `(async () => { await app.vault.create(${encodeForJs(entityPath)}, ${encodeForJs(content)}); return 'ok'; })()`
-  ).catch(() => 'error');
-
-  if (createResult !== 'ok') {
+  try {
+    await ops.createFile(vault, entityPath, content);
+  } catch {
     try {
       await rollbackLog(vault, 'create-entity', `file creation failed: ${entityPath}`);
     } catch {
@@ -170,26 +148,15 @@ export async function createEntity(
     };
   }
 
-  // Update parent's children array via processFrontMatter
-  const jsParentBasename = encodeForJs(parentBasename);
-  const jsEntityLink = encodeForJs(entityLink);
-
-  const updateResult = await obEval(
-    vault,
-    `(async () => {
-  const parentFile = app.vault.getFiles().find(function(f) {
-    return f.basename === ${jsParentBasename};
-  });
-  if (!parentFile) return 'NOT_FOUND';
-  await app.fileManager.processFrontMatter(parentFile, function(fm) {
-    if (!Array.isArray(fm.children)) fm.children = [];
-    if (!fm.children.includes(${jsEntityLink})) fm.children.push(${jsEntityLink});
-  });
-  return 'ok';
-})()`
-  ).catch(() => 'error');
-
-  if (updateResult !== 'ok') {
+  // Update parent's children array via updateFrontmatter
+  try {
+    const currentChildren = (parentEntry.frontmatter.children ?? []) as string[];
+    if (!currentChildren.includes(entityLink)) {
+      await ops.updateFrontmatter(vault, parentEntry.path, {
+        children: [...currentChildren, entityLink],
+      });
+    }
+  } catch {
     try {
       await rollbackLog(
         vault,
@@ -208,7 +175,7 @@ export async function createEntity(
 
   // Log to daily note (best-effort)
   try {
-    await dailyAppend(vault, `- Created ${entityLink}`);
+    await ops.appendToDaily(vault, `- Created ${entityLink}`);
   } catch {
     /* best-effort */
   }

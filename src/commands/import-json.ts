@@ -4,9 +4,9 @@
 // Calls createEntity() directly (no subprocess) for each entry.
 
 import type { Command } from '../cli';
-import { encodeForJs } from '../lib/json';
 import { logError } from '../lib/logger';
-import { obEval, resolveVault } from '../lib/obsidian';
+import { resolveVault } from '../lib/obsidian';
+import { getVaultOps } from '../ports/provider';
 import type { EntityType } from '../types/entity';
 import { createEntity } from './create-entity';
 import { extractVaultFlag } from '../lib/vault-registry';
@@ -42,6 +42,7 @@ export async function importJson(params: {
   entries: ImportEntry[];
 }): Promise<{ created: number; skipped: number }> {
   const { vault, projectSlug, entries } = params;
+  const ops = getVaultOps();
 
   let created = 0;
   let skipped = 0;
@@ -98,18 +99,11 @@ export async function importJson(params: {
 
     if (Object.keys(extras).length > 0) {
       const notePath = result.data.path;
-      const jsExtras = encodeForJs(JSON.stringify(extras));
-      const jsPath = encodeForJs(notePath);
-      await obEval(
-        vault,
-        `(async () => {
-  const f = app.vault.getAbstractFileByPath(${jsPath});
-  if (f) {
-    const extras = JSON.parse(${jsExtras});
-    await app.fileManager.processFrontMatter(f, fm => { Object.assign(fm, extras); });
-  }
-})()`
-      ).catch(() => undefined);
+      try {
+        await ops.updateFrontmatter(vault, notePath, extras);
+      } catch {
+        /* best-effort */
+      }
     }
 
     created++;
@@ -154,13 +148,11 @@ const command: Command = {
     }
 
     // Verify the project exists
+    const ops = getVaultOps();
     const projDir = `projects/${projectSlug}`;
-    const projExists = await obEval(
-      vault,
-      `app.vault.getAbstractFileByPath(${encodeForJs(projDir)}) ? 'exists' : 'absent'`
-    ).catch(() => 'absent');
+    const projExists = await ops.fileExists(vault, projDir).catch(() => false);
 
-    if (projExists !== 'exists') {
+    if (!projExists) {
       logError(
         `import-json: project '${projectSlug}' not found in vault ${vault}. Run create-project first.`
       );

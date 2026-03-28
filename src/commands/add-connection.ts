@@ -4,12 +4,13 @@
 // inverse relationship type from the project's _ontology file.
 
 import type { Command } from '../cli';
-import { encodeForJs, parseJson } from '../lib/json';
 import { logError, logWarn } from '../lib/logger';
-import { obEval, resolveVault } from '../lib/obsidian';
+import { resolveVault } from '../lib/obsidian';
+import { getVaultOps } from '../ports/provider';
 import { extractVaultFlag } from '../lib/vault-registry';
 
 const REL_TYPE_RE = /^[a-z][a-z0-9-]*$/;
+const CONNECTION_LIMIT = 7;
 
 export interface AddConnectionParams {
   vault: string;
@@ -23,6 +24,40 @@ export interface AddConnectionResult {
   forwardWritten: boolean | 'skipped';
   inverseWritten: boolean | 'skipped';
   inverseError: string;
+}
+
+function basenameOf(path: string): string {
+  return (path.split('/').pop() ?? '').replace(/\.md$/, '');
+}
+
+function titleAlias(basename: string): string {
+  return basename.replace(/^[A-Z0-9]+\.[a-z0-9-]+ - /, '');
+}
+
+function connLine(type: string, targetBasename: string, ctx: string): string {
+  const alias = titleAlias(targetBasename);
+  const link = `[[${targetBasename}|${alias}]]`;
+  return `- ${type} :: ${link}${ctx ? ` \u2014 ${ctx}` : ''}`;
+}
+
+function countConnections(body: string): number {
+  const m = body.match(/^- [a-z][a-z0-9-]* :: \[\[/gm);
+  return m ? m.length : 0;
+}
+
+function hasConnection(body: string, targetBasename: string): boolean {
+  return body.includes(`[[${targetBasename}`);
+}
+
+function appendToConnections(body: string, line: string): { content: string; error: string } {
+  let idx = body.indexOf('\n## Connections');
+  if (idx === -1) idx = body.indexOf('## Connections');
+  if (idx === -1) return { content: body, error: 'no ## Connections section' };
+  const afterConn = body.indexOf('\n## ', idx + 1);
+  const insertAt = afterConn !== -1 ? afterConn : body.length;
+  const before = body.substring(0, insertAt).trimEnd();
+  const after = body.substring(insertAt);
+  return { content: `${before}\n${line}\n${after}`, error: '' };
 }
 
 /**
@@ -54,46 +89,27 @@ export async function addConnection(
   const projectSlug = slugMatch[1];
   const ontologyPath = `projects/${projectSlug}/_ontology.${projectSlug}.md`;
 
+  const ops = getVaultOps();
+
   // Look up inverse type and symmetric flag from the ontology file
-  const lookupJs = `(async () => {
-  var ontPath = ${encodeForJs(ontologyPath)};
-  var relType = ${encodeForJs(relType)};
-  var f = app.vault.getAbstractFileByPath(ontPath);
-  if (!f) return JSON.stringify({error: 'ontology not found: ' + ontPath});
-  var body = await app.vault.cachedRead(f);
-  var lines = body.split('\\n');
-  var inverse = '';
-  var symmetric = false;
-  for (var i = 0; i < lines.length; i++) {
-    var line = lines[i];
-    if (line.charAt(0) !== '|') continue;
-    var cols = line.split('|').map(function(c) { return c.trim().replace(/\x60/g, ''); });
-    if (cols[1] === relType) {
-      inverse   = cols[3] || '';
-      symmetric = (cols[4] || '').toLowerCase() === 'yes' || (cols[4] || '').toLowerCase() === 'true';
-      break;
-    }
-  }
-  return JSON.stringify({inverse: inverse, symmetric: symmetric});
-})()`;
-
-  const lookupRaw = await obEval(vault, lookupJs).catch(() => '');
-
   let inverseType = '';
   let symmetric = false;
 
-  if (!lookupRaw) {
-    logWarn('add-connection: could not read ontology; inverse will be skipped');
-  } else {
-    const lookup = parseJson<{ error?: string; inverse: string; symmetric: boolean }>(lookupRaw);
-    if (!lookup) {
-      logWarn('add-connection: could not parse ontology lookup result; inverse will be skipped');
-    } else if (lookup.error) {
-      logWarn(`add-connection: ${lookup.error}; inverse will be skipped`);
-    } else {
-      inverseType = lookup.inverse;
-      symmetric = lookup.symmetric;
+  try {
+    const ontFile = await ops.readFile(vault, ontologyPath);
+    const lines = ontFile.content.split('\n');
+    for (const line of lines) {
+      if (line.charAt(0) !== '|') continue;
+      const cols = line.split('|').map(c => c.trim().replace(/`/g, ''));
+      if (cols[1] === relType) {
+        inverseType = cols[3] || '';
+        symmetric =
+          (cols[4] || '').toLowerCase() === 'yes' || (cols[4] || '').toLowerCase() === 'true';
+        break;
+      }
     }
+  } catch {
+    logWarn('add-connection: could not read ontology; inverse will be skipped');
   }
 
   if (symmetric) {
@@ -104,139 +120,93 @@ export async function addConnection(
     logWarn(`add-connection: unknown relationship type "${relType}" — inverse will not be written`);
   }
 
-  // Write forward and inverse connections atomically via vault.process
-  const writeJs = `(async () => {
-  var sourcePath   = ${encodeForJs(sourcePath)};
-  var targetPath   = ${encodeForJs(targetPath)};
-  var relType      = ${encodeForJs(relType)};
-  var inverseType  = ${encodeForJs(inverseType)};
-  var ctx          = ${encodeForJs(context)};
-  var LIMIT        = 7;
-
-  function titleAlias(basename) {
-    return basename.replace(/^[A-Z0-9]+\\.[a-z0-9-]+ - /, '');
+  // Verify source and target exist
+  const sourceExists = await ops.fileExists(vault, sourcePath).catch(() => false);
+  if (!sourceExists) {
+    return {
+      ok: false,
+      data: { forwardWritten: false, inverseWritten: false, inverseError: '' },
+      error: `add-connection: source not found: ${sourcePath}`,
+    };
   }
 
-  function connLine(type, targetBasename, context) {
-    var alias = titleAlias(targetBasename);
-    var link  = '[[' + targetBasename + '|' + alias + ']]';
-    return '- ' + type + ' :: ' + link + (context ? ' \\u2014 ' + context : '');
+  const targetExists = await ops.fileExists(vault, targetPath).catch(() => false);
+  if (!targetExists) {
+    return {
+      ok: false,
+      data: { forwardWritten: false, inverseWritten: false, inverseError: '' },
+      error: `add-connection: target not found: ${targetPath}`,
+    };
   }
 
-  function countConnections(body) {
-    var m = body.match(/^- [a-z][a-z0-9-]* :: \\[\\[/gm);
-    return m ? m.length : 0;
-  }
+  const sourceBasename = basenameOf(sourcePath);
+  const targetBasename = basenameOf(targetPath);
 
-  function hasConnection(body, targetBasename) {
-    return body.indexOf('[[' + targetBasename) !== -1;
-  }
+  // Write forward connection
+  const sourceFile = await ops.readFile(vault, sourcePath);
+  let forwardWritten: boolean | 'skipped';
 
-  function appendToConnections(body, line) {
-    var idx = body.indexOf('\\n## Connections');
-    if (idx === -1) idx = body.indexOf('## Connections');
-    if (idx === -1) return {content: body, error: 'no ## Connections section'};
-    var afterConn = body.indexOf('\\n## ', idx + 1);
-    var insertAt  = afterConn !== -1 ? afterConn : body.length;
-    var before = body.substring(0, insertAt).trimEnd();
-    var after  = body.substring(insertAt);
-    return {content: before + '\\n' + line + '\\n' + after, error: ''};
-  }
-
-  var sourceFile = app.vault.getAbstractFileByPath(sourcePath);
-  if (!sourceFile) return JSON.stringify({error: 'source not found: ' + sourcePath});
-
-  var targetFile = app.vault.getAbstractFileByPath(targetPath);
-  if (!targetFile) return JSON.stringify({error: 'target not found: ' + targetPath});
-
-  var forwardWritten = false;
-  var inverseWritten = false;
-  var forwardError   = '';
-  var inverseError   = '';
-
-  await app.vault.process(sourceFile, function(body) {
-    if (hasConnection(body, targetFile.basename)) {
-      forwardWritten = 'skipped';
-      return body;
+  if (hasConnection(sourceFile.content, targetBasename)) {
+    forwardWritten = 'skipped';
+  } else {
+    const count = countConnections(sourceFile.content);
+    if (count >= CONNECTION_LIMIT) {
+      return {
+        ok: false,
+        data: { forwardWritten: false, inverseWritten: false, inverseError: '' },
+        error: `add-connection: Connection limit (${CONNECTION_LIMIT}) reached on ${sourceBasename}`,
+      };
     }
-    var count = countConnections(body);
-    if (count >= LIMIT) {
-      forwardError = 'Connection limit (' + LIMIT + ') reached on ' + sourceFile.basename;
-      return body;
+    const result = appendToConnections(
+      sourceFile.content,
+      connLine(relType, targetBasename, context)
+    );
+    if (result.error) {
+      return {
+        ok: false,
+        data: { forwardWritten: false, inverseWritten: false, inverseError: '' },
+        error: `add-connection: ${result.error}`,
+      };
     }
-    var result = appendToConnections(body, connLine(relType, targetFile.basename, ctx));
-    if (result.error) { forwardError = result.error; return body; }
+    await ops.replaceFileContent(vault, sourcePath, result.content);
     forwardWritten = true;
-    return result.content;
-  });
+  }
 
-  if (forwardError) return JSON.stringify({error: forwardError});
+  // Write inverse connection
+  let inverseWritten: boolean | 'skipped' = false;
+  let inverseError = '';
 
-  if (inverseType && targetFile) {
-    await app.vault.process(targetFile, function(body) {
-      if (hasConnection(body, sourceFile.basename)) {
-        inverseWritten = 'skipped';
-        return body;
+  if (inverseType) {
+    const targetFile = await ops.readFile(vault, targetPath);
+
+    if (hasConnection(targetFile.content, sourceBasename)) {
+      inverseWritten = 'skipped';
+    } else {
+      const count = countConnections(targetFile.content);
+      if (count >= CONNECTION_LIMIT) {
+        inverseError = `Connection limit (${CONNECTION_LIMIT}) reached on ${targetBasename}`;
+      } else {
+        const invCtx = context ? `inverse of: ${context}` : '';
+        const result = appendToConnections(
+          targetFile.content,
+          connLine(inverseType, sourceBasename, invCtx)
+        );
+        if (result.error) {
+          inverseError = result.error;
+        } else {
+          await ops.replaceFileContent(vault, targetPath, result.content);
+          inverseWritten = true;
+        }
       }
-      var count = countConnections(body);
-      if (count >= LIMIT) {
-        inverseError = 'Connection limit (' + LIMIT + ') reached on ' + targetFile.basename;
-        return body;
-      }
-      var invCtx = ctx ? 'inverse of: ' + ctx : '';
-      var result = appendToConnections(body, connLine(inverseType, sourceFile.basename, invCtx));
-      if (result.error) { inverseError = result.error; return body; }
-      inverseWritten = true;
-      return result.content;
-    });
-  }
-
-  return JSON.stringify({
-    forwardWritten: forwardWritten,
-    inverseWritten: inverseWritten,
-    inverseError:   inverseError
-  });
-})()`;
-
-  const writeRaw = await obEval(vault, writeJs).catch(() => '');
-
-  if (!writeRaw) {
-    return {
-      ok: false,
-      data: { forwardWritten: false, inverseWritten: false, inverseError: '' },
-      error: 'add-connection: Obsidian not reachable or eval failed',
-    };
-  }
-
-  const writeResult = parseJson<{
-    error?: string;
-    forwardWritten: boolean | 'skipped';
-    inverseWritten: boolean | 'skipped';
-    inverseError: string;
-  }>(writeRaw);
-
-  if (!writeResult) {
-    return {
-      ok: false,
-      data: { forwardWritten: false, inverseWritten: false, inverseError: '' },
-      error: 'add-connection: could not parse write result',
-    };
-  }
-
-  if (writeResult.error) {
-    return {
-      ok: false,
-      data: { forwardWritten: false, inverseWritten: false, inverseError: '' },
-      error: `add-connection: ${writeResult.error}`,
-    };
+    }
   }
 
   return {
     ok: true,
     data: {
-      forwardWritten: writeResult.forwardWritten,
-      inverseWritten: writeResult.inverseWritten,
-      inverseError: writeResult.inverseError,
+      forwardWritten,
+      inverseWritten,
+      inverseError,
     },
   };
 }
