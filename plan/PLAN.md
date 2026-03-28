@@ -816,3 +816,18 @@ Replace `mock.module('../../lib/obsidian', ...)` patterns across all 37 command 
 3. Rollback scenario tests preserved using `spyOn(rollbackLog)`.
 4. `bun test` exits 0 (all 37 unit tests pass); test runtime does not increase.
 5. `bun run typecheck` exits 0.
+
+---
+
+### Story 059 — Document the Ports & Adapters abstraction for contributors
+
+**Description**
+Create `docs/adapter-pattern.md` — a developer guide covering the VaultOps/DevOps port interfaces, ObsidianCliAdapter, MockVaultOps test pattern, how to add a new vault operation (5-step checklist), and the contract test gate. Add JSDoc to all public types in `src/ports/` and `src/adapters/`. Update `artifacts/obsidian-skills/cli-skill.md` and `artifacts/cli-guide/dev-skills.md` to surface the adapter boundary for agent authors and operators.
+
+**Acceptance criteria**
+
+1. `docs/adapter-pattern.md` exists with: architecture diagram, VaultOps and DevOps reference tables, before/after command snippet, 5-step checklist for adding new operations, MockVaultOps test pattern, contract test gate documentation.
+2. Every public type in `src/ports/` and `src/adapters/` has a JSDoc comment.
+3. `artifacts/obsidian-skills/cli-skill.md` contains an `## Adapter layer` section referencing `docs/adapter-pattern.md`.
+4. `artifacts/cli-guide/dev-skills.md` contains an `## Adapter pattern` subsection with the condensed 5-step checklist.
+5. `bun run typecheck` exits 0.
