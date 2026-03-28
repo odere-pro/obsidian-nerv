@@ -5,10 +5,10 @@
 // Security: rejects code paths containing ]] or newlines.
 
 import type { Command } from '../../cli';
-import { encodeForJs, parseJson } from '../../lib/json';
-import { obEval, resolveVault } from '../../lib/obsidian';
+import { resolveVault } from '../../lib/obsidian';
 import type { CommandResult } from '../../types/result';
 import { extractVaultFlag } from '../../lib/vault-registry';
+import { getVaultOps } from '../../ports/provider';
 
 export interface CodeLinkData {
   appended: boolean;
@@ -26,6 +26,38 @@ export function validateCodePath(codePath: string): string | null {
   return null;
 }
 
+export function appendCodeLink(
+  content: string,
+  codePath: string
+): { content: string; appended: boolean } {
+  const newLine = `- implements :: \`${codePath}\``;
+  const marker = '## Connections';
+  const idx = content.indexOf(marker);
+
+  if (idx === -1) return { content, appended: false };
+
+  const afterMarker = content.substring(idx + marker.length);
+  const nextSection = afterMarker.match(/\n## /);
+  const connSection = nextSection ? afterMarker.substring(0, nextSection.index) : afterMarker;
+
+  if (connSection.indexOf(codePath) !== -1) {
+    return { content, appended: false };
+  }
+
+  if (nextSection) {
+    const insertAt = idx + marker.length + (nextSection.index ?? 0);
+    return {
+      content: content.substring(0, insertAt) + '\n' + newLine + content.substring(insertAt),
+      appended: true,
+    };
+  }
+
+  return {
+    content: content.trimEnd() + '\n' + newLine + '\n',
+    appended: true,
+  };
+}
+
 export async function codeLink(
   vault: string,
   notePath: string,
@@ -40,82 +72,39 @@ export async function codeLink(
     };
   }
 
-  const jsPath = encodeForJs(notePath);
-  const jsCode = encodeForJs(codePath);
+  const ops = getVaultOps();
 
-  const raw = await obEval(
-    vault,
-    `(async () => {
-  var notePath = ${jsPath};
-  var codePath = ${jsCode};
-  var newLine  = '- implements :: \`' + codePath + '\`';
-
-  var f = app.vault.getAbstractFileByPath(notePath);
-  if (!f) return JSON.stringify({ error: 'note not found: ' + notePath });
-
-  var appended = false;
-
-  await app.vault.process(f, function(content) {
-    var marker = '## Connections';
-    var idx    = content.indexOf(marker);
-    if (idx === -1) return content;
-
-    var afterMarker = content.substring(idx + marker.length);
-    var nextSection = afterMarker.match(/\n## /);
-    var connSection = nextSection
-      ? afterMarker.substring(0, nextSection.index)
-      : afterMarker;
-
-    if (connSection.indexOf(codePath) !== -1) {
-      return content;
-    }
-
-    appended = true;
-
-    if (nextSection) {
-      var insertAt = idx + marker.length + nextSection.index;
-      return content.substring(0, insertAt) + '\n' + newLine + content.substring(insertAt);
-    }
-    return content.trimRight() + '\n' + newLine + '\n';
-  });
-
-  return JSON.stringify({ appended: appended, note: notePath, codePath: codePath });
-})()`
-  ).catch(() => '');
-
-  if (!raw) {
+  let file;
+  try {
+    file = await ops.readFile(vault, notePath);
+  } catch {
     return {
       ok: false,
       data: { appended: false, note: notePath, codePath },
-      error: 'code-link: Obsidian not reachable or eval failed',
+      error: `code-link: note not found: ${notePath}`,
     };
   }
 
-  const data = parseJson<{ error?: string; appended?: boolean; note?: string; codePath?: string }>(
-    raw
-  );
-  if (!data) {
-    return {
-      ok: false,
-      data: { appended: false, note: notePath, codePath },
-      error: 'code-link: invalid JSON from eval',
-    };
-  }
+  const result = appendCodeLink(file.content, codePath);
 
-  if (data.error) {
-    return {
-      ok: false,
-      data: { appended: false, note: notePath, codePath },
-      error: `code-link: ${data.error}`,
-    };
+  if (result.appended) {
+    try {
+      await ops.replaceFileContent(vault, notePath, result.content);
+    } catch {
+      return {
+        ok: false,
+        data: { appended: false, note: notePath, codePath },
+        error: 'code-link: could not write updated content',
+      };
+    }
   }
 
   return {
     ok: true,
     data: {
-      appended: data.appended ?? false,
-      note: data.note ?? notePath,
-      codePath: data.codePath ?? codePath,
+      appended: result.appended,
+      note: notePath,
+      codePath,
     },
   };
 }

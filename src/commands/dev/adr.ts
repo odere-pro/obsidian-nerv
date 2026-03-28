@@ -5,11 +5,11 @@
 // Delegates entity creation to createEntity().
 
 import type { Command } from '../../cli';
-import { encodeForJs } from '../../lib/json';
-import { obEval, resolveVault } from '../../lib/obsidian';
+import { resolveVault } from '../../lib/obsidian';
 import type { CommandResult } from '../../types/result';
 import { createEntity } from '../create-entity';
 import { extractVaultFlag } from '../../lib/vault-registry';
+import { getVaultOps } from '../../ports/provider';
 
 const ADR_SLUG_RE = /^[a-z0-9-]+$/;
 
@@ -36,6 +36,33 @@ export interface AdrData {
   slug: string;
   decisionDate: string;
   decisionStatus: string;
+}
+
+export function patchAdrContent(content: string): string {
+  const contextHint = '*What problem or force is driving this decision?*';
+  const decisionHint = '*What was decided? State it as a full sentence.*';
+  const consequencesHint = '*What are the resulting trade-offs, risks, and obligations?*';
+
+  const marker = '## Content';
+  const idx = content.indexOf(marker);
+  if (idx === -1) return content;
+
+  const after = content.substring(idx + marker.length);
+  if (after.indexOf('### Context') !== -1) return content;
+
+  const nextSection = after.match(/\n## /);
+  const insertAt = nextSection ? idx + marker.length + (nextSection.index ?? 0) : content.length;
+
+  const subsections =
+    '\n\n### Context\n\n' +
+    contextHint +
+    '\n\n### Decision\n\n' +
+    decisionHint +
+    '\n\n### Consequences\n\n' +
+    consequencesHint +
+    '\n';
+
+  return content.substring(0, idx + marker.length) + subsections + content.substring(insertAt);
 }
 
 export async function createAdr(params: AdrParams): Promise<CommandResult<AdrData>> {
@@ -66,29 +93,20 @@ export async function createAdr(params: AdrParams): Promise<CommandResult<AdrDat
     return {
       ok: false,
       data: { path: '', slug, decisionDate: today, decisionStatus: 'proposed' },
-      error: entityResult.error,
+      error: entityResult.error ?? 'unknown error',
     };
   }
 
   const notePath = entityResult.data.path;
-  const jsPath = encodeForJs(notePath);
-  const jsDate = encodeForJs(today);
+  const ops = getVaultOps();
 
   // Patch frontmatter: add decision-date and decision-status
-  const patchFmResult = await obEval(
-    vault,
-    `(async () => {
-  var f = app.vault.getAbstractFileByPath(${jsPath});
-  if (!f) return 'not-found';
-  await app.fileManager.processFrontMatter(f, function(fm) {
-    fm['decision-date']   = ${jsDate};
-    fm['decision-status'] = 'proposed';
-  });
-  return 'ok';
-})()`
-  ).catch(() => '');
-
-  if (!patchFmResult || patchFmResult === 'not-found') {
+  try {
+    await ops.updateFrontmatter(vault, notePath, {
+      'decision-date': today,
+      'decision-status': 'proposed',
+    });
+  } catch {
     return {
       ok: false,
       data: { path: notePath, slug, decisionDate: today, decisionStatus: 'proposed' },
@@ -97,39 +115,13 @@ export async function createAdr(params: AdrParams): Promise<CommandResult<AdrDat
   }
 
   // Patch ## Content with ADR subsections
-  const jsContextHint = encodeForJs('*What problem or force is driving this decision?*');
-  const jsDecisionHint = encodeForJs('*What was decided? State it as a full sentence.*');
-  const jsConsequencesHint = encodeForJs(
-    '*What are the resulting trade-offs, risks, and obligations?*'
-  );
-
-  const patchContentResult = await obEval(
-    vault,
-    `(async () => {
-  var f = app.vault.getAbstractFileByPath(${jsPath});
-  if (!f) return 'not-found';
-  await app.vault.process(f, function(content) {
-    var marker = '## Content';
-    var idx = content.indexOf(marker);
-    if (idx === -1) return content;
-    var after = content.substring(idx + marker.length);
-    if (after.indexOf('### Context') !== -1) return content;
-    var nextSection = after.match(/\n## /);
-    var insertAt = nextSection
-      ? idx + marker.length + nextSection.index
-      : content.length;
-    var subsections = '\n\n### Context\n\n' + ${jsContextHint} +
-      '\n\n### Decision\n\n' + ${jsDecisionHint} +
-      '\n\n### Consequences\n\n' + ${jsConsequencesHint} + '\n';
-    return content.substring(0, idx + marker.length) +
-           subsections +
-           content.substring(insertAt);
-  });
-  return 'ok';
-})()`
-  ).catch(() => '');
-
-  if (!patchContentResult || patchContentResult === 'not-found') {
+  try {
+    const file = await ops.readFile(vault, notePath);
+    const patched = patchAdrContent(file.content);
+    if (patched !== file.content) {
+      await ops.replaceFileContent(vault, notePath, patched);
+    }
+  } catch {
     return {
       ok: false,
       data: { path: notePath, slug, decisionDate: today, decisionStatus: 'proposed' },

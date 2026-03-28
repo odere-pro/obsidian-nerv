@@ -1,17 +1,14 @@
-// Mocks createEntity and obEval so no Obsidian instance is required.
+// Mocks createEntity and VaultOps so no Obsidian instance is required.
 
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import type { VaultOps } from '../../../ports/vault-ops';
+import { setVaultOps } from '../../../ports/provider';
 
 // ---------------------------------------------------------------------------
-// Mock obsidian and create-entity before importing adr
+// Mock create-entity before importing adr
 // ---------------------------------------------------------------------------
-const mockObEval = mock(async (_vault: string, _expr: string): Promise<string> => 'ok');
-
 mock.module('../../../lib/obsidian', () => ({
   resolveVault: async (arg?: string): Promise<string> => arg ?? 'test-vault',
-  obEval: mockObEval,
-  dailyAppend: mock(async () => undefined),
-  rollbackLog: mock(async () => undefined),
 }));
 
 const mockCreateEntity = mock(async (params: { title: string }) => ({
@@ -30,7 +27,35 @@ mock.module('../../create-entity', () => ({
     `projects/${project}/${project.toUpperCase()}.${slug} - ${title}.md`,
 }));
 
-const { generateAdrSlug, createAdr } = await import('../../dev/adr');
+const { generateAdrSlug, createAdr, patchAdrContent } = await import('../../dev/adr');
+
+// ---------------------------------------------------------------------------
+// Inline mock VaultOps
+// ---------------------------------------------------------------------------
+const mockUpdateFrontmatter = mock(async () => {});
+const mockReadFile = mock(async () => ({
+  path: 'test.md',
+  content: '---\n---\n## Content\n',
+  frontmatter: {},
+}));
+const mockReplaceFileContent = mock(async () => {});
+
+function createMockOps(): VaultOps {
+  return {
+    fileExists: mock(async () => false),
+    readFile: mockReadFile,
+    createFile: mock(async () => {}),
+    updateFrontmatter: mockUpdateFrontmatter,
+    listFiles: mock(async () => []),
+    appendToDaily: mock(async () => {}),
+    openDaily: mock(async () => {}),
+    listRecentFiles: mock(async () => []),
+    listUnresolved: mock(async () => []),
+    trashFile: mock(async () => {}),
+    appendToFile: mock(async () => {}),
+    replaceFileContent: mockReplaceFileContent,
+  } as VaultOps;
+}
 
 // ---------------------------------------------------------------------------
 // Slug generation tests
@@ -74,14 +99,50 @@ describe('generateAdrSlug', () => {
 });
 
 // ---------------------------------------------------------------------------
+// patchAdrContent tests
+// ---------------------------------------------------------------------------
+
+describe('patchAdrContent', () => {
+  test('inserts ADR subsections after ## Content marker', () => {
+    const content = '---\n---\n## Content\n\n## References\n';
+    const patched = patchAdrContent(content);
+    expect(patched).toContain('### Context');
+    expect(patched).toContain('### Decision');
+    expect(patched).toContain('### Consequences');
+    expect(patched).toContain('## References');
+  });
+
+  test('returns content unchanged if ### Context already exists', () => {
+    const content = '---\n---\n## Content\n\n### Context\nAlready here\n';
+    const patched = patchAdrContent(content);
+    expect(patched).toBe(content);
+  });
+
+  test('returns content unchanged if ## Content marker is missing', () => {
+    const content = '---\n---\nNo content section\n';
+    const patched = patchAdrContent(content);
+    expect(patched).toBe(content);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // createAdr tests
 // ---------------------------------------------------------------------------
 
 describe('createAdr', () => {
   beforeEach(() => {
-    mockObEval.mockReset();
+    mockUpdateFrontmatter.mockReset();
+    mockReadFile.mockReset();
+    mockReplaceFileContent.mockReset();
     mockCreateEntity.mockReset();
-    mockObEval.mockImplementation(async () => 'ok');
+
+    mockUpdateFrontmatter.mockImplementation(async () => {});
+    mockReadFile.mockImplementation(async () => ({
+      path: 'test.md',
+      content: '---\n---\n## Content\n',
+      frontmatter: {},
+    }));
+    mockReplaceFileContent.mockImplementation(async () => {});
     mockCreateEntity.mockImplementation(async (params: { title: string }) => ({
       ok: true,
       data: {
@@ -90,6 +151,8 @@ describe('createAdr', () => {
         title: params.title,
       },
     }));
+
+    setVaultOps(createMockOps());
   });
 
   test('calls createEntity with kind: decision', async () => {
@@ -97,10 +160,26 @@ describe('createAdr', () => {
     expect(mockCreateEntity.mock.calls[0][0]).toMatchObject({ kind: 'decision' });
   });
 
-  test('frontmatter patch call includes decision-status proposed', async () => {
+  test('calls updateFrontmatter with decision-date and decision-status', async () => {
     await createAdr({ vault: 'v', project: 'proj', title: 'Some Decision' });
-    const patchCall = mockObEval.mock.calls.find(c => (c[1] as string).includes("'proposed'"));
-    expect(patchCall).toBeDefined();
+    expect(mockUpdateFrontmatter).toHaveBeenCalledTimes(1);
+    const call = mockUpdateFrontmatter.mock.calls[0] as unknown as [
+      string,
+      string,
+      Record<string, unknown>,
+    ];
+    expect(call[2]).toMatchObject({ 'decision-status': 'proposed' });
+    expect(call[2]).toHaveProperty('decision-date');
+  });
+
+  test('calls replaceFileContent with patched ADR content', async () => {
+    await createAdr({ vault: 'v', project: 'proj', title: 'Some Decision' });
+    expect(mockReplaceFileContent).toHaveBeenCalledTimes(1);
+    const call = mockReplaceFileContent.mock.calls[0] as unknown as [string, string, string];
+    const newContent = call[2];
+    expect(newContent).toContain('### Context');
+    expect(newContent).toContain('### Decision');
+    expect(newContent).toContain('### Consequences');
   });
 
   test('returns ok:false when createEntity fails', async () => {
@@ -117,5 +196,23 @@ describe('createAdr', () => {
   test('uses ROOT as default parentSlug when not provided', async () => {
     await createAdr({ vault: 'v', project: 'proj', title: 'Default Parent' });
     expect(mockCreateEntity.mock.calls[0][0]).toMatchObject({ parentSlug: 'ROOT' });
+  });
+
+  test('returns ok:false when updateFrontmatter throws', async () => {
+    mockUpdateFrontmatter.mockImplementation(async () => {
+      throw new Error('frontmatter failed');
+    });
+    const result = await createAdr({ vault: 'v', project: 'proj', title: 'Fail FM' });
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('could not patch frontmatter');
+  });
+
+  test('returns ok:false when readFile throws', async () => {
+    mockReadFile.mockImplementation(async () => {
+      throw new Error('read failed');
+    });
+    const result = await createAdr({ vault: 'v', project: 'proj', title: 'Fail Read' });
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('could not patch Content sections');
   });
 });
