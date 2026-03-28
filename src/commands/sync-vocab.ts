@@ -8,9 +8,9 @@
 // Idempotent: full regeneration on every run. Updates `updated:` frontmatter date.
 
 import type { Command } from '../cli';
-import { encodeForJs, parseJson } from '../lib/json';
 import { logError } from '../lib/logger';
-import { obEval, resolveVault } from '../lib/obsidian';
+import { resolveVault } from '../lib/obsidian';
+import { getVaultOps } from '../ports/provider';
 import { extractVaultFlag } from '../lib/vault-registry';
 
 // ---------------------------------------------------------------------------
@@ -85,55 +85,33 @@ export function buildVocabContent(notes: VocabNote[], slug: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Obsidian interaction
+// VaultOps data fetch
 // ---------------------------------------------------------------------------
 
-function buildSyncExpr(slug: string, newBody: string): string {
-  const jsSlug = encodeForJs(slug);
-  const jsBody = encodeForJs(newBody);
-  const today = new Date().toISOString().split('T')[0];
-  const jsToday = encodeForJs(today);
-  return `(async () => {
-  var slug = ${jsSlug};
-  var vocabPath = 'projects/' + slug + '/_vocab.' + slug + '.md';
-  var today = ${jsToday};
-  var newBody = ${jsBody};
-  var f = app.vault.getAbstractFileByPath(vocabPath);
-  if (f) {
-    await app.vault.modify(f, newBody);
-    var f2 = app.vault.getAbstractFileByPath(vocabPath);
-    if (f2) await app.fileManager.processFrontMatter(f2, function(fm) { fm.updated = today; });
-  } else {
-    await app.vault.create(vocabPath, newBody);
-  }
-  return 'ok';
-})()`;
-}
+const EXCLUDED_PREFIXES = ['_vocab', '_topk', '_ontology', 'tpl-'];
 
-function buildFetchExpr(slug: string): string {
-  const jsSlug = encodeForJs(slug);
-  return `(async () => {
-  var slug = ${jsSlug};
-  var projDir = 'projects/' + slug;
-  var notes = app.vault.getMarkdownFiles().filter(function(f) {
-    if (!f.path.startsWith(projDir + '/')) return false;
-    var n = f.name;
-    return !n.startsWith('_vocab') && !n.startsWith('_topk') &&
-           !n.startsWith('_ontology') && !n.startsWith('tpl-');
-  });
-  var result = notes.map(function(f) {
-    var cache = app.metadataCache.getFileCache(f);
-    var fm = (cache && cache.frontmatter) ? cache.frontmatter : {};
-    return {
-      basename: f.basename,
-      type: fm.type ? String(fm.type) : 'LEAF',
-      spine: fm.spine ? String(fm.spine) : '',
-      status: fm.status ? String(fm.status) : 'draft',
-      childrenCount: Array.isArray(fm.children) ? fm.children.length : 0
-    };
-  });
-  return JSON.stringify(result);
-})()`;
+function fetchVocabNotes(
+  entries: { path: string; frontmatter: Record<string, unknown> }[],
+  slug: string
+): VocabNote[] {
+  const projDir = `projects/${slug}`;
+  return entries
+    .filter(e => {
+      if (!e.path.startsWith(projDir + '/')) return false;
+      const name = e.path.split('/').pop() ?? '';
+      return !EXCLUDED_PREFIXES.some(p => name.startsWith(p));
+    })
+    .map(e => {
+      const fm = e.frontmatter;
+      const basename = (e.path.split('/').pop() ?? '').replace(/\.md$/, '');
+      return {
+        basename,
+        type: fm.type ? String(fm.type) : 'LEAF',
+        spine: fm.spine ? String(fm.spine) : '',
+        status: fm.status ? String(fm.status) : 'draft',
+        childrenCount: Array.isArray(fm.children) ? fm.children.length : 0,
+      };
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -142,11 +120,25 @@ function buildFetchExpr(slug: string): string {
 
 /** Rebuild _vocab file for a project. Used by weekly-review. */
 export async function syncVocab(vault: string, slug: string): Promise<VocabResult> {
-  const raw = await obEval(vault, buildFetchExpr(slug)).catch(() => '');
-  if (!raw) throw new Error('sync-vocab: Obsidian not reachable or eval failed');
-  const notes = parseJson<VocabNote[]>(raw) ?? [];
+  const ops = getVaultOps();
+  const allFiles = await ops.listFiles(vault);
+  const notes = fetchVocabNotes(allFiles, slug);
+  if (notes.length === 0) throw new Error('sync-vocab: no notes found or vault not reachable');
+
   const newBody = buildVocabContent(notes, slug);
-  await obEval(vault, buildSyncExpr(slug, newBody));
+  const vocabPath = `projects/${slug}/_vocab.${slug}.md`;
+  const today = new Date().toISOString().split('T')[0];
+
+  const exists = await ops.fileExists(vault, vocabPath);
+  if (exists) {
+    await ops.replaceFileContent(vault, vocabPath, newBody);
+  } else {
+    await ops.createFile(vault, vocabPath, newBody);
+  }
+  if (await ops.fileExists(vault, vocabPath)) {
+    await ops.updateFrontmatter(vault, vocabPath, { updated: today });
+  }
+
   const entryCount = notes.filter(n => n.spine).length;
   const orphanCount = notes.filter(n => !n.spine).length;
   return { noteCount: notes.length, entryCount, orphanCount };
@@ -177,25 +169,15 @@ const command: Command = {
       );
     }
 
-    const raw = await obEval(vault, buildFetchExpr(slug)).catch(() => '');
-    if (!raw) {
-      process.stderr.write('ERROR: sync-vocab: Obsidian not reachable or eval failed\n');
+    try {
+      const result = await syncVocab(vault, slug);
+      process.stdout.write(
+        `sync-vocab: ${result.noteCount} note(s) scanned, ${result.entryCount} vocab entries, ${result.orphanCount} orphan(s) written to _vocab.${slug}.md\n`
+      );
+    } catch (err) {
+      process.stderr.write(`ERROR: ${err instanceof Error ? err.message : String(err)}\n`);
       process.exit(1);
     }
-
-    const notes = parseJson<VocabNote[]>(raw) ?? [];
-    const newBody = buildVocabContent(notes, slug);
-
-    await obEval(vault, buildSyncExpr(slug, newBody)).catch(() => {
-      process.stderr.write('ERROR: sync-vocab: failed to write vocab file\n');
-      process.exit(1);
-    });
-
-    const entryCount = notes.filter(n => n.spine).length;
-    const orphanCount = notes.filter(n => !n.spine).length;
-    process.stdout.write(
-      `sync-vocab: ${notes.length} note(s) scanned, ${entryCount} vocab entries, ${orphanCount} orphan(s) written to _vocab.${slug}.md\n`
-    );
   },
 };
 

@@ -13,9 +13,9 @@
 //   - default Command — CLI entry point
 
 import type { Command } from '../cli';
-import { encodeForJs, parseJson } from '../lib/json';
 import { logError } from '../lib/logger';
-import { obEval, resolveVault } from '../lib/obsidian';
+import { resolveVault } from '../lib/obsidian';
+import { getVaultOps } from '../ports/provider';
 import { extractVaultFlag } from '../lib/vault-registry';
 
 // ---------------------------------------------------------------------------
@@ -74,89 +74,125 @@ export function detectTopkViolations(notes: TopkNote[]): TopkViolation[] {
 }
 
 // ---------------------------------------------------------------------------
-// Obsidian interaction (single eval that reads notes + appends to topk file)
+// VaultOps data fetch + log update
 // ---------------------------------------------------------------------------
 
-function buildSyncExpr(slug: string): string {
-  const jsSlug = encodeForJs(slug);
-  return `(async () => {
-  var slug = ${jsSlug};
-  var projDir = 'projects/' + slug;
-  var topkPath = projDir + '/_topk.' + slug + '.md';
-  var today = new Date().toISOString().split('T')[0];
+const EXCLUDED_PREFIXES = ['_ontology', '_vocab', '_topk', 'tpl-'];
 
-  var notes = app.vault.getFiles().filter(function(f) {
-    if (f.extension !== 'md') return false;
-    if (!f.path.startsWith(projDir + '/')) return false;
-    var n = f.name;
-    return !n.startsWith('_ontology') && !n.startsWith('_vocab') &&
-           !n.startsWith('_topk') && !n.startsWith('tpl-');
+const CONN_RE = /^- [a-z][\w-]* :: \[\[/gm;
+const FLAG_RE = /^> \[!flag\b/gm;
+
+function stripFrontmatter(content: string): string {
+  return content.replace(/^---[\s\S]*?---\n?/, '');
+}
+
+async function runSync(
+  vault: string,
+  slug: string
+): Promise<{ noteCount: number; appended: number; warning: string }> {
+  const ops = getVaultOps();
+  const projDir = `projects/${slug}`;
+  const topkPath = `${projDir}/_topk.${slug}.md`;
+  const today = new Date().toISOString().split('T')[0];
+
+  // List all project notes
+  const allFiles = await ops.listFiles(vault);
+  const noteEntries = allFiles.filter(e => {
+    if (!e.path.startsWith(projDir + '/')) return false;
+    const name = e.path.split('/').pop() ?? '';
+    return !EXCLUDED_PREFIXES.some(p => name.startsWith(p));
   });
 
-  var violations = [];
-  for (var i = 0; i < notes.length; i++) {
-    var f = notes[i];
-    var body = await app.vault.cachedRead(f);
-    var cache = app.metadataCache.getFileCache(f);
-    var fm = (cache && cache.frontmatter) ? cache.frontmatter : {};
-    var link = '[[' + f.basename + ']]';
+  // Read each note body to compute metrics
+  const violations: TopkViolation[] = [];
+  for (const entry of noteEntries) {
+    const file = await ops.readFile(vault, entry.path);
+    const body = stripFrontmatter(file.content);
+    const basename = (entry.path.split('/').pop() ?? '').replace(/\.md$/, '');
+    const link = `[[${basename}]]`;
 
-    var connMatches = body.match(/^- [a-z][\\w-]* :: \\[\\[/gm) || [];
-    if (connMatches.length > 7)
-      violations.push({ note: link, field: 'connections', count: connMatches.length, threshold: 7 });
+    const connMatches = body.match(CONN_RE) ?? [];
+    if (connMatches.length > 7) {
+      violations.push({
+        note: link,
+        field: 'connections',
+        count: connMatches.length,
+        threshold: 7,
+      });
+    }
 
-    var flagMatches = body.match(/^> \\[!flag\\b/gm) || [];
-    if (flagMatches.length > 3)
-      violations.push({ note: link, field: 'callout-flags', count: flagMatches.length, threshold: 3 });
+    const flagMatches = body.match(FLAG_RE) ?? [];
+    if (flagMatches.length > 3) {
+      violations.push({
+        note: link,
+        field: 'callout-flags',
+        count: flagMatches.length,
+        threshold: 3,
+      });
+    }
 
-    var type = fm.type ? String(fm.type) : '';
-    if (type === 'BRANCH' && Array.isArray(fm.children) && fm.children.length > 7)
+    const fm = entry.frontmatter;
+    const type = fm.type ? String(fm.type) : '';
+    if (type === 'BRANCH' && Array.isArray(fm.children) && fm.children.length > 7) {
       violations.push({ note: link, field: 'children', count: fm.children.length, threshold: 7 });
+    }
   }
 
-  var topkFile = app.vault.getAbstractFileByPath(topkPath);
-  if (!topkFile) return JSON.stringify({ error: 'topk file not found: ' + topkPath });
+  // Read existing topk file
+  const topkExists = await ops.fileExists(vault, topkPath);
+  if (!topkExists) {
+    return {
+      noteCount: noteEntries.length,
+      appended: 0,
+      warning: `topk file not found: ${topkPath}`,
+    };
+  }
 
-  var appended = 0;
-  var warning = '';
+  const topkFile = await ops.readFile(vault, topkPath);
+  let content = topkFile.content;
 
-  await app.vault.process(topkFile, function(content) {
-    var logHeader = '## Overflow Log';
-    var logIdx = content.indexOf(logHeader);
-    if (logIdx === -1) return content;
+  const logHeader = '## Overflow Log';
+  const logIdx = content.indexOf(logHeader);
+  if (logIdx === -1) {
+    return { noteCount: noteEntries.length, appended: 0, warning: '' };
+  }
 
-    var afterHeader = content.substring(logIdx + logHeader.length);
-    var nextMatch = afterHeader.match(/\\n## /);
-    var logSection = nextMatch ? afterHeader.substring(0, nextMatch.index) : afterHeader;
+  const afterHeader = content.substring(logIdx + logHeader.length);
+  const nextMatch = afterHeader.match(/\n## /);
+  const logSection = nextMatch ? afterHeader.substring(0, nextMatch.index) : afterHeader;
 
-    var existingRows = logSection.split('\\n').filter(function(l) { return l.trimStart().charAt(0) === '|'; });
-    if (existingRows.length >= 200) {
-      warning = 'Overflow log has reached the 200-row cap. Operator cleanup required.';
-      return content;
+  const existingRows = logSection.split('\n').filter(l => l.trimStart().charAt(0) === '|');
+  if (existingRows.length >= 200) {
+    return {
+      noteCount: noteEntries.length,
+      appended: 0,
+      warning: 'Overflow log has reached the 200-row cap. Operator cleanup required.',
+    };
+  }
+
+  let appended = 0;
+  let newRows = '';
+  for (const viol of violations) {
+    const dup = existingRows.some(r => r.indexOf(viol.note) !== -1 && r.indexOf(viol.field) !== -1);
+    if (!dup && existingRows.length + appended < 200) {
+      newRows += `\n| ${today} | ${viol.note} | ${viol.field} | ${viol.count} | ${viol.threshold} |`;
+      appended++;
     }
+  }
 
-    var newRows = '';
-    for (var v = 0; v < violations.length; v++) {
-      var viol = violations[v];
-      var dup = existingRows.some(function(r) { return r.indexOf(viol.note) !== -1 && r.indexOf(viol.field) !== -1; });
-      if (!dup && (existingRows.length + appended) < 200) {
-        newRows += '\\n| ' + today + ' | ' + viol.note + ' | ' + viol.field + ' | ' + viol.count + ' | ' + viol.threshold + ' |';
-        appended++;
-      }
-    }
-    if (newRows === '') return content;
+  if (newRows !== '') {
     if (nextMatch) {
-      var insertAt = logIdx + logHeader.length + nextMatch.index;
-      return content.substring(0, insertAt) + newRows + content.substring(insertAt);
+      const insertAt = logIdx + logHeader.length + nextMatch.index!;
+      content = content.substring(0, insertAt) + newRows + content.substring(insertAt);
+    } else {
+      content = content.trimEnd() + newRows + '\n';
     }
-    return content.trimEnd() + newRows + '\\n';
-  });
+    await ops.replaceFileContent(vault, topkPath, content);
+  }
 
-  var topkAfter = app.vault.getAbstractFileByPath(topkPath);
-  if (topkAfter) await app.fileManager.processFrontMatter(topkAfter, function(fm) { fm.updated = today; });
+  await ops.updateFrontmatter(vault, topkPath, { updated: today }).catch(() => undefined);
 
-  return JSON.stringify({ appended: appended, warning: warning, noteCount: notes.length });
-})()`;
+  return { noteCount: noteEntries.length, appended, warning: '' };
 }
 
 // ---------------------------------------------------------------------------
@@ -171,21 +207,7 @@ export interface TopkResult {
 
 /** Run topk overflow detection and append rows. Used by weekly-review. */
 export async function syncTopk(vault: string, slug: string): Promise<TopkResult> {
-  const raw = await obEval(vault, buildSyncExpr(slug)).catch(() => '');
-  if (!raw) throw new Error('sync-topk: Obsidian not reachable or eval failed');
-  const data = parseJson<{
-    appended?: number;
-    warning?: string;
-    noteCount?: number;
-    error?: string;
-  }>(raw);
-  if (!data) throw new Error('sync-topk: unexpected response');
-  if (data.error) throw new Error(`sync-topk: ${data.error}`);
-  return {
-    noteCount: data.noteCount ?? 0,
-    appended: data.appended ?? 0,
-    warning: data.warning ?? '',
-  };
+  return runSync(vault, slug);
 }
 
 // ---------------------------------------------------------------------------
@@ -213,34 +235,21 @@ const command: Command = {
       );
     }
 
-    const raw = await obEval(vault, buildSyncExpr(slug)).catch(() => '');
-    if (!raw) {
-      process.stderr.write('ERROR: sync-topk: Obsidian not reachable or eval failed\n');
+    try {
+      const result = await runSync(vault, slug);
+      if (result.warning && result.appended === 0 && result.warning.includes('not found')) {
+        process.stderr.write(`ERROR: sync-topk: ${result.warning}\n`);
+        process.exit(1);
+      }
+      process.stdout.write(
+        `sync-topk: ${result.noteCount} note(s) scanned, ${result.appended} overflow row(s) appended to _topk.${slug}.md\n`
+      );
+      if (result.warning) {
+        process.stdout.write(`WARN: ${result.warning}\n`);
+      }
+    } catch (err) {
+      process.stderr.write(`ERROR: ${err instanceof Error ? err.message : String(err)}\n`);
       process.exit(1);
-    }
-
-    const data = parseJson<{
-      appended?: number;
-      warning?: string;
-      noteCount?: number;
-      error?: string;
-    }>(raw);
-    if (!data) {
-      process.stderr.write('ERROR: sync-topk: unexpected response\n');
-      process.exit(1);
-    }
-    if (data.error) {
-      process.stderr.write(`ERROR: sync-topk: ${data.error}\n`);
-      process.exit(1);
-    }
-
-    const n = data.noteCount ?? 0;
-    const added = data.appended ?? 0;
-    process.stdout.write(
-      `sync-topk: ${n} note(s) scanned, ${added} overflow row(s) appended to _topk.${slug}.md\n`
-    );
-    if (data.warning) {
-      process.stdout.write(`WARN: ${data.warning}\n`);
     }
   },
 };

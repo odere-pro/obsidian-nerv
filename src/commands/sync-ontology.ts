@@ -12,9 +12,9 @@
 // Idempotent: updates `updated:` date in ontology artifact file on every run.
 
 import type { Command } from '../cli';
-import { encodeForJs, parseJson } from '../lib/json';
 import { logError } from '../lib/logger';
-import { obEval, resolveVault } from '../lib/obsidian';
+import { resolveVault } from '../lib/obsidian';
+import { getVaultOps } from '../ports/provider';
 import { getRelations } from './cli-relations';
 import { extractVaultFlag } from '../lib/vault-registry';
 
@@ -63,66 +63,50 @@ export function detectMissingInverses(
 }
 
 // ---------------------------------------------------------------------------
-// Obsidian data fetch
+// VaultOps data fetch
 // ---------------------------------------------------------------------------
 
-function buildMetaFetchExpr(slug: string): string {
-  const jsSlug = encodeForJs(slug);
-  return `(async () => {
-  var slug = ${jsSlug};
-  var projDir = 'projects/' + slug;
-  var REQUIRED = ['title', 'type', 'kind', 'spine', 'status'];
+const EXCLUDED_PREFIXES = ['_vocab', '_topk', '_ontology', 'tpl-'];
+const REQUIRED = ['title', 'type', 'kind', 'spine', 'status'];
 
-  var notes = app.vault.getMarkdownFiles().filter(function(f) {
-    if (!f.path.startsWith(projDir + '/')) return false;
-    var n = f.name;
-    return !n.startsWith('_vocab') && !n.startsWith('_topk') &&
-           !n.startsWith('_ontology') && !n.startsWith('tpl-');
+function fetchMeta(
+  entries: { path: string; frontmatter: Record<string, unknown> }[],
+  slug: string
+): OntologyMeta {
+  const projDir = `projects/${slug}`;
+  const notes = entries.filter(e => {
+    if (!e.path.startsWith(projDir + '/')) return false;
+    const name = e.path.split('/').pop() ?? '';
+    return !EXCLUDED_PREFIXES.some(p => name.startsWith(p));
   });
 
-  var entities = {ROOT: 0, BRANCH: 0, LEAF: 0};
-  var kinds = {}, spines = {}, statuses = {};
-  var incomplete = 0;
+  const entities: Record<string, number> = { ROOT: 0, BRANCH: 0, LEAF: 0 };
+  const kinds: Record<string, number> = {};
+  const spines: Record<string, number> = {};
+  const statuses: Record<string, number> = {};
+  let incomplete = 0;
 
-  notes.forEach(function(f) {
-    var cache = app.metadataCache.getFileCache(f);
-    var fm = (cache && cache.frontmatter) ? cache.frontmatter : {};
-    var type = fm.type ? String(fm.type) : 'LEAF';
-    var kind = fm.kind ? String(fm.kind) : '';
-    var spine = fm.spine ? String(fm.spine) : '';
-    var status = fm.status ? String(fm.status) : 'draft';
+  for (const n of notes) {
+    const fm = n.frontmatter;
+    const type = fm.type ? String(fm.type) : 'LEAF';
+    const kind = fm.kind ? String(fm.kind) : '';
+    const spine = fm.spine ? String(fm.spine) : '';
+    const status = fm.status ? String(fm.status) : 'draft';
 
     if (entities[type] !== undefined) entities[type]++;
     else entities[type] = 1;
-    if (kind)  kinds[kind]   = (kinds[kind]   || 0) + 1;
-    if (spine) spines[spine] = (spines[spine] || 0) + 1;
-    statuses[status] = (statuses[status] || 0) + 1;
+    if (kind) kinds[kind] = (kinds[kind] ?? 0) + 1;
+    if (spine) spines[spine] = (spines[spine] ?? 0) + 1;
+    statuses[status] = (statuses[status] ?? 0) + 1;
 
-    var missing = REQUIRED.some(function(k) {
-      var v = fm[k]; return v === undefined || v === null || v === '';
+    const missing = REQUIRED.some(k => {
+      const v = fm[k];
+      return v === undefined || v === null || v === '';
     });
     if (missing) incomplete++;
-  });
+  }
 
-  return JSON.stringify({
-    noteCount: notes.length, entities: entities,
-    kinds: kinds, spines: spines, statuses: statuses, incomplete: incomplete
-  });
-})()`;
-}
-
-function buildUpdateDateExpr(slug: string): string {
-  const jsSlug = encodeForJs(slug);
-  const today = new Date().toISOString().split('T')[0];
-  const jsToday = encodeForJs(today);
-  return `(async () => {
-  var slug = ${jsSlug};
-  var today = ${jsToday};
-  var ontoPath = 'projects/' + slug + '/_ontology.' + slug + '.md';
-  var f = app.vault.getAbstractFileByPath(ontoPath);
-  if (f) await app.fileManager.processFrontMatter(f, function(fm) { fm.updated = today; });
-  return 'ok';
-})()`;
+  return { noteCount: notes.length, entities, kinds, spines, statuses, incomplete };
 }
 
 // ---------------------------------------------------------------------------
@@ -131,6 +115,8 @@ function buildUpdateDateExpr(slug: string): string {
 
 /** Run ontology health analysis for a project. Used by weekly-review. */
 export async function syncOntology(vault: string, slug: string): Promise<OntologyResult> {
+  const ops = getVaultOps();
+
   const relResult = await getRelations(vault, slug).catch(() => ({
     project: slug,
     edges: [],
@@ -138,16 +124,18 @@ export async function syncOntology(vault: string, slug: string): Promise<Ontolog
     unknownTypes: [],
   }));
 
-  const metaRaw = await obEval(vault, buildMetaFetchExpr(slug)).catch(() => '');
-  if (!metaRaw) throw new Error('sync-ontology: Obsidian not reachable or eval failed');
-
-  const meta = parseJson<OntologyMeta>(metaRaw);
-  if (!meta) throw new Error('sync-ontology: unexpected response from Obsidian');
+  const allFiles = await ops.listFiles(vault);
+  const meta = fetchMeta(allFiles, slug);
+  if (meta.noteCount === 0) throw new Error('sync-ontology: no notes found or vault not reachable');
 
   const edges = relResult.edges;
   const missingInverses = detectMissingInverses(edges).slice(0, 20);
 
-  await obEval(vault, buildUpdateDateExpr(slug)).catch(() => undefined);
+  const ontoPath = `projects/${slug}/_ontology.${slug}.md`;
+  const today = new Date().toISOString().split('T')[0];
+  if (allFiles.some(e => e.path === ontoPath)) {
+    await ops.updateFrontmatter(vault, ontoPath, { updated: today }).catch(() => undefined);
+  }
 
   return {
     entities: meta.entities,
@@ -189,6 +177,8 @@ const command: Command = {
       );
     }
 
+    const ops = getVaultOps();
+
     // Fetch relations via getRelations (no subprocess)
     const relResult = await getRelations(vault, slug).catch(() => ({
       project: slug,
@@ -197,16 +187,11 @@ const command: Command = {
       unknownTypes: [],
     }));
 
-    // Fetch metadata
-    const metaRaw = await obEval(vault, buildMetaFetchExpr(slug)).catch(() => '');
-    if (!metaRaw) {
-      process.stderr.write('ERROR: sync-ontology: Obsidian not reachable or eval failed\n');
-      process.exit(1);
-    }
-
-    const meta = parseJson<OntologyMeta>(metaRaw);
-    if (!meta) {
-      process.stderr.write('ERROR: sync-ontology: unexpected response from Obsidian\n');
+    // Fetch metadata via VaultOps
+    const allFiles = await ops.listFiles(vault);
+    const meta = fetchMeta(allFiles, slug);
+    if (meta.noteCount === 0) {
+      process.stderr.write('ERROR: sync-ontology: no notes found or vault not reachable\n');
       process.exit(1);
     }
 
@@ -216,7 +201,11 @@ const command: Command = {
     const avgEdges = edgeCount / Math.max(meta.noteCount, 1);
 
     // Update updated: date in ontology file
-    await obEval(vault, buildUpdateDateExpr(slug)).catch(() => undefined);
+    const ontoPath = `projects/${slug}/_ontology.${slug}.md`;
+    const today = new Date().toISOString().split('T')[0];
+    if (allFiles.some(e => e.path === ontoPath)) {
+      await ops.updateFrontmatter(vault, ontoPath, { updated: today }).catch(() => undefined);
+    }
 
     if (jsonOutput) {
       const result: OntologyResult = {

@@ -6,8 +6,9 @@
 //   - default Command — CLI entry point
 
 import type { Command } from '../cli';
-import { encodeForJs, parseJson } from '../lib/json';
-import { obEval, resolveVault } from '../lib/obsidian';
+import { resolveVault } from '../lib/obsidian';
+import { getVaultOps } from '../ports/provider';
+import type { VaultFileEntry } from '../ports/vault-ops';
 import { extractVaultFlag } from '../lib/vault-registry';
 
 // ---------------------------------------------------------------------------
@@ -102,68 +103,71 @@ export function detectOrphans(notes: OrphanNoteData[]): OrphanIssue[] {
 }
 
 // ---------------------------------------------------------------------------
-// Obsidian data fetch
+// VaultOps data fetch + wikilink resolution in TypeScript
 // ---------------------------------------------------------------------------
 
-function buildFetchExpr(folder: string): string {
-  const jsFolder = encodeForJs(folder);
-  return `(async () => {
-  var folder = ${jsFolder};
-  var allFiles = app.vault.getMarkdownFiles().filter(function(f) {
-    if (folder && !f.path.startsWith(folder + '/') && f.path !== folder) return false;
-    var n = f.name;
-    return !n.startsWith('tpl-') && !n.startsWith('_vocab') &&
-           !n.startsWith('_topk') && !n.startsWith('_ontology');
+const EXCLUDED_PREFIXES = ['tpl-', '_vocab', '_topk', '_ontology'];
+
+function rawLink(s: string): string {
+  return String(s).replace(/^\[\[/, '').replace(/\]\]$/, '').split('|')[0].trim();
+}
+
+function buildOrphanNotes(allEntries: VaultFileEntry[], folder: string): OrphanNoteData[] {
+  // Build basename → entry map for wikilink resolution
+  const basenameMap = new Map<string, VaultFileEntry>();
+  for (const entry of allEntries) {
+    const bn = (entry.path.split('/').pop() ?? '').replace(/\.md$/, '');
+    basenameMap.set(bn, entry);
+  }
+
+  // Filter project notes
+  const entries = allEntries.filter(e => {
+    if (folder && !e.path.startsWith(folder + '/') && e.path !== folder) return false;
+    const name = e.path.split('/').pop() ?? '';
+    return !EXCLUDED_PREFIXES.some(p => name.startsWith(p));
   });
 
-  function resolveLink(linktext, sourcePath) {
-    return app.metadataCache.getFirstLinkpathDest(linktext, sourcePath) || null;
-  }
-  function rawLink(s) {
-    return String(s).replace(/^\\[\\[/, '').replace(/\\]\\]$/, '').split('|')[0].trim();
-  }
+  return entries.map(e => {
+    const basename = (e.path.split('/').pop() ?? '').replace(/\.md$/, '');
+    const fm = e.frontmatter;
+    const type = fm.type ? String(fm.type) : '';
+    const parent = fm.parent ? String(fm.parent) : '';
 
-  var notes = allFiles.map(function(f) {
-    var cache = app.metadataCache.getFileCache(f);
-    var fm = (cache && cache.frontmatter) ? cache.frontmatter : {};
-    var type = fm.type ? String(fm.type) : '';
-    var parent = fm.parent ? String(fm.parent) : '';
+    let resolvedParentPath: string | null = null;
+    let parentChildrenBasenames: string[] = [];
 
-    var resolvedParentPath = null;
-    var parentChildrenBasenames = [];
     if (parent.trim() !== '') {
-      var pFile = resolveLink(rawLink(parent), f.path);
-      if (pFile) {
-        resolvedParentPath = pFile.path;
-        var pCache = app.metadataCache.getFileCache(pFile);
-        var pFm = (pCache && pCache.frontmatter) ? pCache.frontmatter : {};
-        var children = Array.isArray(pFm.children) ? pFm.children : [];
-        parentChildrenBasenames = children.map(function(c) {
-          var cFile = resolveLink(rawLink(String(c)), pFile.path);
-          return cFile ? cFile.basename : null;
-        }).filter(Boolean);
+      const parentBn = rawLink(parent);
+      const parentEntry = basenameMap.get(parentBn);
+      if (parentEntry) {
+        resolvedParentPath = parentEntry.path;
+        const pFm = parentEntry.frontmatter;
+        const children = Array.isArray(pFm.children) ? pFm.children : [];
+        parentChildrenBasenames = children
+          .map((c: unknown) => {
+            const cBn = rawLink(String(c));
+            return basenameMap.has(cBn) ? cBn : null;
+          })
+          .filter((b): b is string => b !== null);
       }
     }
 
-    var myChildren = Array.isArray(fm.children) ? fm.children : [];
-    var childrenBasenames = myChildren.map(function(c) {
-      var cFile = resolveLink(rawLink(String(c)), f.path);
-      return cFile ? cFile.basename : null;
+    const myChildren = Array.isArray(fm.children) ? fm.children : [];
+    const childrenBasenames: (string | null)[] = myChildren.map((c: unknown) => {
+      const cBn = rawLink(String(c));
+      return basenameMap.has(cBn) ? cBn : null;
     });
 
     return {
-      path: f.path,
-      basename: f.basename,
-      type: type,
-      parent: parent,
-      resolvedParentPath: resolvedParentPath,
-      parentChildrenBasenames: parentChildrenBasenames,
-      childrenBasenames: childrenBasenames
+      path: e.path,
+      basename,
+      type,
+      parent,
+      resolvedParentPath,
+      parentChildrenBasenames,
+      childrenBasenames,
     };
   });
-
-  return JSON.stringify(notes);
-})()`;
 }
 
 // ---------------------------------------------------------------------------
@@ -172,10 +176,11 @@ function buildFetchExpr(folder: string): string {
 
 /** Run orphan detection against a vault folder. Used by weekly-review. */
 export async function findOrphans(vault: string, folder: string): Promise<OrphanResult> {
-  const raw = await obEval(vault, buildFetchExpr(folder)).catch(() => '[]');
-  const rawNotes = parseJson<OrphanNoteData[]>(raw) ?? [];
-  const issues = detectOrphans(rawNotes);
-  return { issues, count: issues.length, noteCount: rawNotes.length };
+  const ops = getVaultOps();
+  const allEntries = await ops.listFiles(vault).catch(() => []);
+  const notes = buildOrphanNotes(allEntries, folder);
+  const issues = detectOrphans(notes);
+  return { issues, count: issues.length, noteCount: notes.length };
 }
 
 // ---------------------------------------------------------------------------
@@ -205,11 +210,7 @@ const command: Command = {
 
     const vault = await resolveVault(vaultArg);
     const folder = projectFilter || positional[0] || '';
-    const raw = await obEval(vault, buildFetchExpr(folder)).catch(() => '[]');
-    const rawNotes = parseJson<OrphanNoteData[]>(raw) ?? [];
-    const issues = detectOrphans(rawNotes);
-
-    const result: OrphanResult = { issues, count: issues.length, noteCount: rawNotes.length };
+    const result = await findOrphans(vault, folder);
 
     if (jsonOutput) {
       // omit noteCount from JSON output
@@ -221,11 +222,11 @@ const command: Command = {
         MISMATCH: '✗ MISMATCH',
         CHILD: '✗ BROKEN',
       };
-      for (const iss of issues) {
+      for (const iss of result.issues) {
         process.stdout.write(`${labels[iss.type]}: ${iss.note} — ${iss.detail}\n`);
       }
       process.stdout.write(
-        `Link check complete. ${issues.length} issue(s) in ${rawNotes.length} note(s).\n`
+        `Link check complete. ${result.count} issue(s) in ${result.noteCount} note(s).\n`
       );
     }
   },

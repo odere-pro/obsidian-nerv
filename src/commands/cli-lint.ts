@@ -7,8 +7,8 @@
 //   - default Command — CLI entry point for the dispatcher
 
 import type { Command } from '../cli';
-import { encodeForJs, parseJson } from '../lib/json';
-import { obEval, resolveVault } from '../lib/obsidian';
+import { resolveVault } from '../lib/obsidian';
+import { getVaultOps } from '../ports/provider';
 import { extractVaultFlag } from '../lib/vault-registry';
 
 // ---------------------------------------------------------------------------
@@ -239,48 +239,13 @@ export const VIOLATION_RULES: ViolationRule[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Obsidian data fetch
+// VaultOps data fetch
 // ---------------------------------------------------------------------------
 
-interface RawNote {
-  path: string;
-  frontmatter: Record<string, unknown>;
-  body: string;
-}
+const EXCLUDED_PREFIXES = ['tpl-', '_vocab', '_topk', '_ontology'];
 
-function buildFetchExpr(folder: string): string {
-  const jsFolder = encodeForJs(folder);
-  return `(async () => {
-  var folder = ${jsFolder};
-  var files = app.vault.getFiles().filter(function(f) {
-    if (f.extension !== 'md') return false;
-    if (folder && !f.path.startsWith(folder + '/') && f.path !== folder) return false;
-    var n = f.name;
-    return !n.startsWith('tpl-') && !n.startsWith('_vocab') &&
-           !n.startsWith('_topk') && !n.startsWith('_ontology');
-  });
-  var notes = [];
-  for (var i = 0; i < files.length; i++) {
-    var f = files[i];
-    var cache = app.metadataCache.getFileCache(f);
-    var fm = (cache && cache.frontmatter) ? cache.frontmatter : {};
-    var raw = await app.vault.cachedRead(f);
-    var body = raw.replace(/^---[\\s\\S]*?---\\n?/, '');
-    notes.push({ path: f.path, frontmatter: fm, body: body });
-  }
-  return JSON.stringify(notes);
-})()`;
-}
-
-function toNoteData(raw: RawNote): NoteData {
-  const connections = parseConnections(raw.body);
-  return {
-    path: raw.path,
-    frontmatter: raw.frontmatter,
-    body: raw.body,
-    connections,
-    backlinks: [],
-  };
+function stripFrontmatter(content: string): string {
+  return content.replace(/^---[\s\S]*?---\n?/, '');
 }
 
 // ---------------------------------------------------------------------------
@@ -289,9 +254,27 @@ function toNoteData(raw: RawNote): NoteData {
 
 /** Lint all notes in the vault (or a folder) and return structured results. */
 export async function lintProject(vault: string, folder = ''): Promise<LintResult> {
-  const raw = await obEval(vault, buildFetchExpr(folder)).catch(() => '[]');
-  const rawNotes = parseJson<RawNote[]>(raw) ?? [];
-  const notes = rawNotes.map(toNoteData);
+  const ops = getVaultOps();
+  const allFiles = await ops.listFiles(vault).catch(() => []);
+  const filtered = allFiles.filter(e => {
+    if (folder && !e.path.startsWith(folder + '/') && e.path !== folder) return false;
+    const name = e.path.split('/').pop() ?? '';
+    return !EXCLUDED_PREFIXES.some(p => name.startsWith(p));
+  });
+
+  const notes: NoteData[] = [];
+  for (const entry of filtered) {
+    const file = await ops.readFile(vault, entry.path);
+    const body = stripFrontmatter(file.content);
+    const connections = parseConnections(body);
+    notes.push({
+      path: file.path,
+      frontmatter: file.frontmatter,
+      body,
+      connections,
+      backlinks: [],
+    });
+  }
 
   const issues: Violation[] = [];
   for (const note of notes) {

@@ -11,8 +11,8 @@
 //    "summary":{...},"unknownTypes":[...]}
 
 import type { Command } from '../cli';
-import { encodeForJs, parseJson } from '../lib/json';
-import { obEval, resolveVault } from '../lib/obsidian';
+import { resolveVault } from '../lib/obsidian';
+import { getVaultOps } from '../ports/provider';
 import { extractSection } from './cli-lint';
 import { extractVaultFlag } from '../lib/vault-registry';
 
@@ -77,59 +77,30 @@ export function extractEdges(
 }
 
 // ---------------------------------------------------------------------------
-// Obsidian data fetch
+// VaultOps data fetch + ontology parsing in TypeScript
 // ---------------------------------------------------------------------------
 
-interface RawRelFetch {
-  notes: RawRelNote[];
-  validTypes: string[];
+function stripFrontmatter(content: string): string {
+  return content.replace(/^---[\s\S]*?---\n?/, '');
 }
 
-function buildFetchExpr(folder: string): string {
-  const jsFolder = encodeForJs(folder);
-  return `(async () => {
-  var folder = ${jsFolder};
-  var allFiles = app.vault.getFiles().filter(function(f) {
-    if (f.extension !== 'md') return false;
-    if (folder && !f.path.startsWith(folder + '/') && f.path !== folder) return false;
-    return true;
-  });
-
-  // Load valid relationship types from _ontology.*.md files
-  var ontologyFiles = allFiles.filter(function(f) { return f.name.startsWith('_ontology'); });
-  var validTypes = {};
-  for (var oi = 0; oi < ontologyFiles.length; oi++) {
-    var oContent = await app.vault.cachedRead(ontologyFiles[oi]);
-    var oLines = oContent.split('\\n');
-    var inTable = false;
-    for (var ol = 0; ol < oLines.length; ol++) {
-      var oLine = oLines[ol];
-      if (/^## Relationship Types/.test(oLine)) { inTable = true; continue; }
-      if (inTable && /^## /.test(oLine)) { inTable = false; break; }
-      if (inTable && /^\\|/.test(oLine)) {
-        var col = (oLine.split('|')[1] || '').replace(/[\`\\s]/g, '');
-        if (col && col !== 'Type' && !/^-+$/.test(col)) validTypes[col] = true;
-      }
+/** Parse valid relationship types from an _ontology file's ## Relationship Types table. */
+function parseValidTypes(content: string): string[] {
+  const lines = content.split('\n');
+  const types: string[] = [];
+  let inTable = false;
+  for (const line of lines) {
+    if (/^## Relationship Types/.test(line)) {
+      inTable = true;
+      continue;
+    }
+    if (inTable && /^## /.test(line)) break;
+    if (inTable && line.startsWith('|')) {
+      const col = (line.split('|')[1] ?? '').replace(/[`\s]/g, '');
+      if (col && col !== 'Type' && !/^-+$/.test(col)) types.push(col);
     }
   }
-
-  // Note files to scan
-  var noteFiles = allFiles.filter(function(f) {
-    var n = f.name;
-    return !n.startsWith('_vocab') && !n.startsWith('_topk') &&
-           !n.startsWith('_ontology') && !n.startsWith('tpl-');
-  });
-
-  var notes = [];
-  for (var ni = 0; ni < noteFiles.length; ni++) {
-    var nf = noteFiles[ni];
-    var content = await app.vault.cachedRead(nf);
-    var body = content.replace(/^---[\\s\\S]*?---\\n?/, '');
-    notes.push({ basename: nf.basename, body: body });
-  }
-
-  return JSON.stringify({ notes: notes, validTypes: Object.keys(validTypes) });
-})()`;
+  return types;
 }
 
 // ---------------------------------------------------------------------------
@@ -138,13 +109,45 @@ function buildFetchExpr(folder: string): string {
 
 /** Get typed relations for a project. Used by dependency-map. */
 export async function getRelations(vault: string, project: string): Promise<RelationResult> {
+  const ops = getVaultOps();
   const folder = project.includes('/') ? project : `projects/${project}`;
-  const raw = await obEval(vault, buildFetchExpr(folder)).catch(
-    () => '{"notes":[],"validTypes":[]}'
+
+  const allFiles = await ops.listFiles(vault).catch(() => []);
+  const folderFiles = allFiles.filter(
+    e => folder && (e.path.startsWith(folder + '/') || e.path === folder)
   );
-  const fetched = parseJson<RawRelFetch>(raw) ?? { notes: [], validTypes: [] };
-  const validTypes = new Set(fetched.validTypes);
-  const result = extractEdges(fetched.notes, validTypes);
+
+  // Load valid relationship types from _ontology files
+  const ontologyFiles = folderFiles.filter(e =>
+    (e.path.split('/').pop() ?? '').startsWith('_ontology')
+  );
+  const allValidTypes: string[] = [];
+  for (const of_ of ontologyFiles) {
+    const file = await ops.readFile(vault, of_.path);
+    allValidTypes.push(...parseValidTypes(file.content));
+  }
+  const validTypes = new Set(allValidTypes);
+
+  // Read note files to extract connections
+  const noteFiles = folderFiles.filter(e => {
+    const name = e.path.split('/').pop() ?? '';
+    return (
+      !name.startsWith('_vocab') &&
+      !name.startsWith('_topk') &&
+      !name.startsWith('_ontology') &&
+      !name.startsWith('tpl-')
+    );
+  });
+
+  const notes: RawRelNote[] = [];
+  for (const entry of noteFiles) {
+    const file = await ops.readFile(vault, entry.path);
+    const body = stripFrontmatter(file.content);
+    const basename = (entry.path.split('/').pop() ?? '').replace(/\.md$/, '');
+    notes.push({ basename, body });
+  }
+
+  const result = extractEdges(notes, validTypes);
   return { project, ...result };
 }
 
@@ -168,13 +171,8 @@ const command: Command = {
 
     const vault = await resolveVault(vaultArg);
     const rawFolder = positional[0] ?? '';
-    const raw = await obEval(vault, buildFetchExpr(rawFolder)).catch(
-      () => '{"notes":[],"validTypes":[]}'
-    );
-    const fetched = parseJson<RawRelFetch>(raw) ?? { notes: [], validTypes: [] };
-    const validTypes = new Set(fetched.validTypes);
-    const result = extractEdges(fetched.notes, validTypes);
-    const fullResult: RelationResult = { project: rawFolder, ...result };
+
+    const fullResult = await getRelations(vault, rawFolder);
 
     if (jsonOutput) {
       process.stdout.write(JSON.stringify(fullResult) + '\n');
