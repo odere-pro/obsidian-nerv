@@ -1,6 +1,7 @@
 export interface OntologyParams {
   project: string;
-  updated: string; // YYYY-MM-DD
+  /** YYYY-MM-DD */
+  updated: string;
 }
 
 export function renderOntology(params: OntologyParams): string {
@@ -27,13 +28,14 @@ updated: ${params.updated}
 `;
 }
 
-// ---------------------------------------------------------------------------
-// Vault template variant — used by init-vault for Obsidian template files
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Vault template variant — used by init-vault for Obsidian template files
+ * --------------------------------------------------------------------------- */
 
 export interface VaultOntologyParams {
   title: string;
-  created: string; // YYYY-MM-DD or {{date}}
+  /** YYYY-MM-DD or `{{date}}` template token */
+  created: string;
   modified: string;
 }
 

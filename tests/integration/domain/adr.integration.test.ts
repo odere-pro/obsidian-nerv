@@ -1,8 +1,6 @@
 //
 // Ports assertions from cli/core/tests/test-adr.sh.
-// Requires OBSIDIAN_RUNNING=1 to execute; skips the full suite otherwise.
-//
-// Run: OBSIDIAN_RUNNING=1 bun test tests/integration/domain/adr.integration.test
+// Run: bun test tests/integration/domain/adr.integration.test
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { createProject } from '../../../src/commands/create-project';
@@ -10,8 +8,7 @@ import { createAdr } from '../../../src/commands/dev/adr';
 import { encodeForJs } from '../../../src/lib/json';
 import { obEval } from '../../../src/lib/obsidian';
 
-const RUNNING = process.env.OBSIDIAN_RUNNING === '1';
-const VAULT = process.env.TEST_VAULT ?? 'study';
+const VAULT_NAME = process.env.NERV_TEST_VAULT ?? 'test';
 
 const PROJ_SLUG = 'testadr-ts';
 const PROJ_TITLE = 'Test ADR TS';
@@ -20,7 +17,7 @@ const PROJ_DIR = `projects/${PROJ_SLUG}`;
 
 async function fileExists(path: string): Promise<boolean> {
   const result = await obEval(
-    VAULT,
+    VAULT_NAME,
     `app.vault.getAbstractFileByPath(${encodeForJs(path)}) ? 'yes' : 'no'`
   ).catch(() => 'no');
   return result === 'yes';
@@ -28,38 +25,34 @@ async function fileExists(path: string): Promise<boolean> {
 
 async function readFile(path: string): Promise<string> {
   return obEval(
-    VAULT,
+    VAULT_NAME,
     `(async () => { const f = app.vault.getAbstractFileByPath(${encodeForJs(path)}); return f ? await app.vault.cachedRead(f) : ''; })()`
   ).catch(() => '');
 }
 
 async function cleanup(): Promise<void> {
   await obEval(
-    VAULT,
+    VAULT_NAME,
     `(async () => { const f = app.vault.getAbstractFileByPath(${encodeForJs(PROJ_DIR)}); if (f) await app.vault.trash(f, false); })()`
   ).catch(() => undefined);
 }
 
 describe('adr integration', () => {
-  if (!RUNNING) {
-    test.skip('OBSIDIAN_RUNNING=1 not set — skipping integration suite', () => {});
-    return;
-  }
-
   let adrPath = '';
 
   beforeAll(async () => {
     await cleanup();
-    await createProject({ vault: VAULT, slug: PROJ_SLUG, title: PROJ_TITLE });
+    await createProject({ vault: VAULT_NAME, slug: PROJ_SLUG, title: PROJ_TITLE });
   }, 30_000);
 
   afterAll(async () => {
+    if (process.env.NERV_SKIP_CLEANUP === '1') return;
     await cleanup();
   });
 
   test('creates ADR note at correct vault path', async () => {
     const result = await createAdr({
-      vault: VAULT,
+      vault: VAULT_NAME,
       project: PROJ_SLUG,
       title: 'Use Event Sourcing',
     });

@@ -1,10 +1,11 @@
-//
-// Fetches a URL via `defuddle parse`, creates a LEAF note with kind: web-source,
-// patches frontmatter with url/source_title/source_date, and writes extracted
-// content into the note body.
-//
-// Programmatic API:  ingestUrl(url, vault, project, parent?)
-// CLI:               nerv web-ingest/add [--vault <name>] <project> <url> [<parent_slug>] [--json]
+/**
+ * web-ingest/add — Fetches a URL via `defuddle parse`, creates a LEAF note with
+ * kind: web-source, patches frontmatter with url/source_title/source_date, and
+ * writes extracted content into the note body.
+ *
+ * Programmatic API:  ingestUrl(url, vault, project, parent?)
+ * CLI:               nerv web-ingest/add [--vault <name>] <project> <url> [<parent_slug>] [--json]
+ */
 
 import type { Command } from '../../cli';
 import { fetchAndParse, generateUrlSlug } from '../../lib/defuddle';
@@ -15,16 +16,16 @@ import type { CommandResult } from '../../types/result';
 import { createEntity } from '../create-entity';
 import { extractVaultFlag } from '../../lib/vault-registry';
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Constants
+ * --------------------------------------------------------------------------- */
 
 const URL_RE = /^https?:\/\/.+/;
 const SLUG_RE = /^[a-z0-9-]+$/;
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Types
+ * --------------------------------------------------------------------------- */
 
 export interface IngestResult {
   ingested: boolean;
@@ -35,9 +36,9 @@ export interface IngestResult {
   tokenEstimate: number;
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Helpers
+ * --------------------------------------------------------------------------- */
 
 function estimateTokens(text: string): number {
   const words = text.trim().split(/\s+/).filter(Boolean).length;
@@ -48,28 +49,30 @@ function countWords(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length;
 }
 
-// ---------------------------------------------------------------------------
-// Idempotency check — search project notes for url: frontmatter match
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Idempotency check — search project notes for url: frontmatter match
+ * --------------------------------------------------------------------------- */
 
 async function findExistingNote(
   vault: string,
   project: string,
   url: string,
   ops: VaultOps
-): Promise<string | null> {
+): Promise<{ path: string; title: string } | null> {
   const entries = await ops.listFiles(vault);
   const prefix = `projects/${project}/`;
   for (const entry of entries) {
     if (!entry.path.startsWith(prefix)) continue;
-    if (entry.frontmatter['url'] === url) return entry.path;
+    if (entry.frontmatter['url'] === url) {
+      return { path: entry.path, title: (entry.frontmatter['title'] as string) ?? '' };
+    }
   }
   return null;
 }
 
-// ---------------------------------------------------------------------------
-// Note body patching
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Note body patching
+ * --------------------------------------------------------------------------- */
 
 async function patchNoteFrontmatter(
   vault: string,
@@ -156,9 +159,9 @@ async function appendParentConnection(
   await ops.replaceFileContent(vault, parentEntry.path, newBody);
 }
 
-// ---------------------------------------------------------------------------
-// Programmatic API
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Programmatic API
+ * --------------------------------------------------------------------------- */
 
 export async function ingestUrl(
   url: string,
@@ -169,7 +172,7 @@ export async function ingestUrl(
 ): Promise<CommandResult<IngestResult>> {
   const vaultOps = ops ?? getVaultOps();
 
-  // 1. Validate URL scheme
+  /* 1. Validate URL scheme */
   if (!URL_RE.test(url)) {
     return {
       ok: false,
@@ -178,16 +181,23 @@ export async function ingestUrl(
     };
   }
 
-  // 2. Idempotency check
+  /* 2. Idempotency check */
   const existing = await findExistingNote(vault, project, url, vaultOps).catch(() => null);
   if (existing) {
     return {
       ok: true,
-      data: { ingested: false, path: existing, title: '', url, wordCount: 0, tokenEstimate: 0 },
+      data: {
+        ingested: false,
+        path: existing.path,
+        title: existing.title,
+        url,
+        wordCount: 0,
+        tokenEstimate: 0,
+      },
     };
   }
 
-  // 3. Fetch content via defuddle
+  /* 3. Fetch content via defuddle */
   let defuddleOut: Awaited<ReturnType<typeof fetchAndParse>>;
   try {
     defuddleOut = await fetchAndParse(url);
@@ -203,7 +213,7 @@ export async function ingestUrl(
   const { title, content } = defuddleOut;
   const sourceDate = defuddleOut.date ?? new Date().toISOString().slice(0, 10);
 
-  // 4. Generate slug from URL
+  /* 4. Generate slug from URL */
   const rawSlug = generateUrlSlug(url);
   if (!SLUG_RE.test(rawSlug)) {
     return {
@@ -215,7 +225,7 @@ export async function ingestUrl(
 
   const parentSlug = parent ?? 'ROOT';
 
-  // 5. Create base note via createEntity
+  /* 5. Create base note via createEntity */
   const entityResult = await createEntity({
     vault,
     project,
@@ -231,32 +241,32 @@ export async function ingestUrl(
     return {
       ok: false,
       data: { ingested: false, path: '', title, url, wordCount: 0, tokenEstimate: 0 },
-      error: entityResult.error,
+      error: entityResult.error || '',
     };
   }
 
   const notePath = entityResult.data.path;
 
-  // 6. Patch frontmatter with web-specific fields
+  /* 6. Patch frontmatter with web-specific fields */
   try {
     await patchNoteFrontmatter(vault, notePath, url, title, sourceDate, vaultOps);
   } catch {
-    // Non-fatal — note exists, just frontmatter fields missing
+    /* Non-fatal — note exists, just frontmatter fields missing */
   }
 
-  // 7. Patch ## Content with extracted markdown + ## Metadata section
+  /* 7. Patch ## Content with extracted markdown + ## Metadata section */
   try {
     await patchNoteContent(vault, notePath, content, url, sourceDate, vaultOps);
   } catch {
-    // Non-fatal
+    /* Non-fatal */
   }
 
-  // 8. Append sources connection to parent if explicitly specified
+  /* 8. Append sources connection to parent if explicitly specified */
   if (parent) {
     await appendParentConnection(vault, project, parent, url, vaultOps).catch(() => undefined);
   }
 
-  // 9. Log to daily note (best-effort)
+  /* 9. Log to daily note (best-effort) */
   try {
     await vaultOps.appendToDaily(vault, `- Ingested web source: [${title}](${url}) → ${notePath}`);
   } catch {
@@ -272,9 +282,9 @@ export async function ingestUrl(
   };
 }
 
-// ---------------------------------------------------------------------------
-// CLI command
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * CLI command
+ * --------------------------------------------------------------------------- */
 
 const command: Command = {
   name: 'web-ingest/add',

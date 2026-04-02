@@ -1,9 +1,11 @@
-// cli-orphans — Reflex skill: verify bidirectional parent↔children integrity.
-//
-// Exports:
-//   - OrphanType, OrphanIssue (types)
-//   - detectOrphans(notes) — pure function, unit-testable without Obsidian
-//   - default Command — CLI entry point
+/**
+ * cli-orphans — Reflex skill: verify bidirectional parent↔children integrity.
+ *
+ * Exports:
+ *   - OrphanType, OrphanIssue (types)
+ *   - detectOrphans(notes) — pure function, unit-testable without Obsidian
+ *   - default Command — CLI entry point
+ */
 
 import type { Command } from '../cli';
 import { resolveVault } from '../lib/obsidian';
@@ -11,9 +13,9 @@ import { getVaultOps } from '../ports/provider';
 import type { VaultFileEntry } from '../ports/vault-ops';
 import { extractVaultFlag } from '../lib/vault-registry';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Types
+ * --------------------------------------------------------------------------- */
 
 export type OrphanType = 'ORPHAN' | 'BROKEN' | 'MISMATCH' | 'CHILD';
 
@@ -40,12 +42,13 @@ export interface OrphanNoteData {
   /** basenames of children listed in parent's frontmatter */
   parentChildrenBasenames: string[];
   /** basenames of this note's children[] entries */
-  childrenBasenames: (string | null)[]; // null = child wikilink unresolvable
+  /** null = child wikilink unresolvable */
+  childrenBasenames: (string | null)[];
 }
 
-// ---------------------------------------------------------------------------
-// Pure detection logic
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Pure detection logic
+ * --------------------------------------------------------------------------- */
 
 /** Detect orphan issues from pre-resolved note data. Pure function, no Obsidian. */
 export function detectOrphans(notes: OrphanNoteData[]): OrphanIssue[] {
@@ -54,13 +57,13 @@ export function detectOrphans(notes: OrphanNoteData[]): OrphanIssue[] {
   for (const note of notes) {
     const type = note.type;
 
-    // ORPHAN: BRANCH/LEAF with no parent field
+    /* ORPHAN: BRANCH/LEAF with no parent field */
     if ((type === 'BRANCH' || type === 'LEAF') && note.parent.trim() === '') {
       issues.push({ type: 'ORPHAN', note: note.path, detail: `${type} has no parent` });
       continue;
     }
 
-    // BROKEN: parent wikilink resolves to no file
+    /* BROKEN: parent wikilink resolves to no file */
     if ((type === 'BRANCH' || type === 'LEAF') && note.parent.trim() !== '') {
       if (note.resolvedParentPath === null) {
         const rawParent = note.parent
@@ -72,7 +75,7 @@ export function detectOrphans(notes: OrphanNoteData[]): OrphanIssue[] {
         continue;
       }
 
-      // MISMATCH: parent exists but does not list this note in children
+      /* MISMATCH: parent exists but does not list this note in children */
       if (!note.parentChildrenBasenames.includes(note.basename)) {
         const rawParent = note.parent
           .replace(/^\[\[/, '')
@@ -87,7 +90,7 @@ export function detectOrphans(notes: OrphanNoteData[]): OrphanIssue[] {
       }
     }
 
-    // CHILD: children listed that don't exist
+    /* CHILD: children listed that don't exist */
     for (let i = 0; i < note.childrenBasenames.length; i++) {
       if (note.childrenBasenames[i] === null) {
         issues.push({
@@ -102,9 +105,9 @@ export function detectOrphans(notes: OrphanNoteData[]): OrphanIssue[] {
   return issues;
 }
 
-// ---------------------------------------------------------------------------
-// VaultOps data fetch + wikilink resolution in TypeScript
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * VaultOps data fetch + wikilink resolution in TypeScript
+ * --------------------------------------------------------------------------- */
 
 const EXCLUDED_PREFIXES = ['tpl-', '_vocab', '_topk', '_ontology'];
 
@@ -113,14 +116,14 @@ function rawLink(s: string): string {
 }
 
 function buildOrphanNotes(allEntries: VaultFileEntry[], folder: string): OrphanNoteData[] {
-  // Build basename → entry map for wikilink resolution
+  /* Build basename → entry map for wikilink resolution */
   const basenameMap = new Map<string, VaultFileEntry>();
   for (const entry of allEntries) {
     const bn = (entry.path.split('/').pop() ?? '').replace(/\.md$/, '');
     basenameMap.set(bn, entry);
   }
 
-  // Filter project notes
+  /* Filter project notes */
   const entries = allEntries.filter(e => {
     if (folder && !e.path.startsWith(folder + '/') && e.path !== folder) return false;
     const name = e.path.split('/').pop() ?? '';
@@ -170,9 +173,9 @@ function buildOrphanNotes(allEntries: VaultFileEntry[], folder: string): OrphanN
   });
 }
 
-// ---------------------------------------------------------------------------
-// Programmatic API
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Programmatic API
+ * --------------------------------------------------------------------------- */
 
 /** Run orphan detection against a vault folder. Used by weekly-review. */
 export async function findOrphans(vault: string, folder: string): Promise<OrphanResult> {
@@ -183,9 +186,9 @@ export async function findOrphans(vault: string, folder: string): Promise<Orphan
   return { issues, count: issues.length, noteCount: notes.length };
 }
 
-// ---------------------------------------------------------------------------
-// CLI Command
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * CLI Command
+ * --------------------------------------------------------------------------- */
 
 const command: Command = {
   name: 'cli-orphans',
@@ -213,7 +216,7 @@ const command: Command = {
     const result = await findOrphans(vault, folder);
 
     if (jsonOutput) {
-      // omit noteCount from JSON output
+      /* omit noteCount from JSON output */
       process.stdout.write(JSON.stringify({ issues: result.issues, count: result.count }) + '\n');
     } else {
       const labels: Record<OrphanType, string> = {

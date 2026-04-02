@@ -7,12 +7,15 @@ export interface BaseEntityParams {
   kind: string;
   spine: string;
   status: EntityStatus;
-  created: string; // YYYY-MM-DD
-  modified: string; // YYYY-MM-DD
+  /** YYYY-MM-DD */
+  created: string;
+  /** YYYY-MM-DD */
+  modified: string;
 }
 
 export interface LeafParams extends BaseEntityParams {
-  parent: string; // wiki link e.g. [[PROJ.ROOT - Title]]
+  /** Wiki link, e.g. `[[PROJ.ROOT - Title]]` */
+  parent: string;
 }
 
 export function renderLeaf(params: LeafParams): string {

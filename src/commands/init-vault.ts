@@ -1,10 +1,11 @@
-//
-// TypeScript port of bootstrap-vault.sh — idempotent Obsidian vault provisioner.
-// Usage: nerv add-vault --vault <name> [--path <path>]
-//
-// initVault() handles vault filesystem provisioning + git init (fully unit-testable).
-// Host-level side effects (agent deploy, PATH patching) live in the CLI run() adapter
-// in add-vault.ts.
+/**
+ * init-vault — TypeScript port of bootstrap-vault.sh; idempotent Obsidian vault provisioner.
+ * Usage: nerv add-vault --vault <name> [--path <path>]
+ *
+ * initVault() handles vault filesystem provisioning + git init (fully unit-testable).
+ * Host-level side effects (agent deploy, PATH patching) live in the CLI run() adapter
+ * in add-vault.ts.
+ */
 
 import { basename, dirname, join, resolve } from 'node:path';
 import {
@@ -38,16 +39,16 @@ async function mkdirp(dir: string): Promise<void> {
   await Bun.$`mkdir -p ${dir}`.quiet();
 }
 
-// ---------------------------------------------------------------------------
-// Validation
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Validation
+ * --------------------------------------------------------------------------- */
 
 /** Vault name must not contain spaces or path separator characters. */
 const NAME_RE = /^[^\s/\\]+$/;
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Types
+ * --------------------------------------------------------------------------- */
 
 export interface InitVaultParams {
   /** Vault name — used in git commit message and agent config lookup. */
@@ -61,9 +62,9 @@ export interface InitVaultResult {
   skipped: string[];
 }
 
-// ---------------------------------------------------------------------------
-// Directories to create inside the vault (relative to vault root)
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Directories to create inside the vault (relative to vault root)
+ * --------------------------------------------------------------------------- */
 
 export const VAULT_DIRS: readonly string[] = [
   '.obsidian',
@@ -76,13 +77,13 @@ export const VAULT_DIRS: readonly string[] = [
   'projects',
 ];
 
-// ---------------------------------------------------------------------------
-// Pure: build the complete file map — relative path → file content
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Pure: build the complete file map — relative path → file content
+ * --------------------------------------------------------------------------- */
 
 export function buildVaultFileMap(): Record<string, string> {
   return {
-    // ---- Obsidian config (from src/configuration/*.json) ----
+    /* ---- Obsidian config (from src/configuration/*.json) ---- */
     '.obsidian/app.json': JSON.stringify(appConfig, null, 2),
     '.obsidian/core-plugins.json': JSON.stringify(corePluginsConfig, null, 2),
     '.obsidian/core-plugins-migration.json': JSON.stringify(corePluginsMigrationConfig, null, 2),
@@ -94,7 +95,7 @@ export function buildVaultFileMap(): Record<string, string> {
     '.obsidian/workspaces.json': JSON.stringify(workspacesConfig, null, 2),
     '.obsidian/bookmarks.json': JSON.stringify(bookmarksConfig, null, 2),
 
-    // ---- Markdown templates (reuse render functions from src/templates/) ----
+    /* ---- Markdown templates (reuse render functions from src/templates/) ---- */
 
     '_templates/tpl-root.md': renderRoot({
       title: '{{title}}',
@@ -156,7 +157,7 @@ export function buildVaultFileMap(): Record<string, string> {
 
     '_templates/tpl-project.base': vaultProjectBaseYml,
 
-    // ---- Audit bases ----
+    /* ---- Audit bases ---- */
 
     '_bases/audit-missing-properties.base': auditMissingPropertiesYml,
     '_bases/audit-drafts.base': auditDraftsYml,
@@ -164,9 +165,9 @@ export function buildVaultFileMap(): Record<string, string> {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Filesystem helper
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Filesystem helper
+ * --------------------------------------------------------------------------- */
 
 async function writeIfAbsent(
   filePath: string,
@@ -183,9 +184,9 @@ async function writeIfAbsent(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Git operations (uses spawnCapture — mockable in unit tests)
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Git operations (uses spawnCapture — mockable in unit tests)
+ * --------------------------------------------------------------------------- */
 
 export async function gitInit(
   vaultPath: string,
@@ -223,9 +224,9 @@ export async function gitInit(
   process.stdout.write('    git: initialized and committed\n');
 }
 
-// ---------------------------------------------------------------------------
-// Main programmatic API — vault structure only (no host side-effects)
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Main programmatic API — vault structure only (no host side-effects)
+ * --------------------------------------------------------------------------- */
 
 export async function initVault(params: InitVaultParams): Promise<InitVaultResult> {
   const { name, path: vaultPath } = params;
@@ -239,18 +240,18 @@ export async function initVault(params: InitVaultParams): Promise<InitVaultResul
   const result: InitVaultResult = { created: [], skipped: [] };
   process.stdout.write(`==> Bootstrapping vault '${name}' at '${vaultPath}'\n`);
 
-  // 1. Create vault directories
+  /* 1. Create vault directories */
   for (const dir of VAULT_DIRS) {
     await mkdirp(join(vaultPath, dir));
   }
 
-  // 2. Write all vault files (idempotent — existing files are never overwritten)
+  /* 2. Write all vault files (idempotent — existing files are never overwritten) */
   const fileMap = buildVaultFileMap();
   for (const [relPath, content] of Object.entries(fileMap)) {
     await writeIfAbsent(join(vaultPath, relPath), content, result);
   }
 
-  // 3. Git init + initial commit
+  /* 3. Git init + initial commit */
   await gitInit(vaultPath, name, result);
 
   process.stdout.write(`\n==> Vault '${name}' ready at '${vaultPath}'\n`);
@@ -259,9 +260,9 @@ export async function initVault(params: InitVaultParams): Promise<InitVaultResul
   return result;
 }
 
-// ---------------------------------------------------------------------------
-// Host-level helpers (agent deploy + PATH) — called by CLI run() only
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Host-level helpers (agent deploy + PATH) — called by CLI run() only
+ * --------------------------------------------------------------------------- */
 
 const PATH_MARKER = '# ontology-cli PATH — added by nerv init-vault';
 const PATH_EXPORT = 'export PATH="${HOME}/.ontology-cli/bin:${PATH}"';
@@ -279,9 +280,9 @@ export async function ensureZprofilePath(
 }
 
 export async function deployAgentFiles(vaultName: string, vaultPath: string): Promise<void> {
-  // Infer repo root from running binary/script:
-  //   dev:      argv[1] = <repo>/src/cli.ts  → dirname = <repo>/src  → up 1 = <repo>
-  //   compiled: argv[1] = <repo>/bin/nerv    → dirname = <repo>/bin  → up 1 = <repo>
+  /* Infer repo root from running binary/script:
+   *   dev:      argv[1] = <repo>/src/cli.ts  → dirname = <repo>/src  → up 1 = <repo>
+   *   compiled: argv[1] = <repo>/bin/nerv    → dirname = <repo>/bin  → up 1 = <repo> */
   const argv1 = process.argv[1] ?? '';
   const parentDir = dirname(argv1);
   const repoDir =
@@ -311,7 +312,7 @@ export async function deployAgentFiles(vaultName: string, vaultPath: string): Pr
     process.stdout.write(`    deployed: ${claudeDst}\n`);
   }
 
-  // Deploy the nerv binary to ~/.ontology-cli/bin/
+  /* Deploy the nerv binary to ~/.ontology-cli/bin/ */
   const nativeBin = join(repoDir, 'bin', 'nerv');
   const hostBin = join(Bun.env.HOME ?? '', '.ontology-cli', 'bin');
   await mkdirp(hostBin);

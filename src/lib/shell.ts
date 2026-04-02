@@ -33,7 +33,7 @@ export async function spawnCapture(cmd: [string, ...string[]]): Promise<{
       proc.kill();
       reject(new ShellTimeoutError(cmd[0]));
     }, TIMEOUT_MS);
-    // Allow the process to exit without keeping the event loop alive
+    /* Allow the process to exit without keeping the event loop alive */
     if (typeof t === 'object' && t !== null && 'unref' in t) {
       (t as NodeJS.Timeout).unref();
     }

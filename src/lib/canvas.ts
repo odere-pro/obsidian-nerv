@@ -1,14 +1,17 @@
-// canvas — Shared utilities for JSON Canvas 1.0 spec-compliant file generation.
-//
-// Exports:
-//   - CanvasNode, CanvasEdge, CanvasData, CanvasResult (types)
-//   - deterministicHexId(path, type) — 16-char hex node ID (SHA-256 based)
-//   - EDGE_COLORS — relationship type → hex color map
-//   - NODE_GAP_X, NODE_GAP_Y, NODE_W, NODE_H — layout constants
+/**
+ * Shared utilities for JSON Canvas 1.0 spec-compliant file generation.
+ *
+ * Exports:
+ * - `CanvasNode`, `CanvasEdge`, `CanvasData`, `CanvasResult` (types)
+ * - `deterministicHexId(path, type)` — 16-char hex node ID (SHA-256 based)
+ * - `deterministicEdgeId(fromNode, toNode, label)` — 16-char hex edge ID
+ * - `EDGE_COLORS` — relationship type → hex color map
+ * - `NODE_GAP_X`, `NODE_GAP_Y`, `NODE_W`, `NODE_H` — layout constants
+ */
 
-// ---------------------------------------------------------------------------
-// JSON Canvas 1.0 types
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * JSON Canvas 1.0 types
+ * --------------------------------------------------------------------------- */
 
 export type CanvasSide = 'top' | 'bottom' | 'left' | 'right';
 export type CanvasColor = '1' | '2' | '3' | '4' | '5' | '6' | string;
@@ -47,30 +50,32 @@ export interface CanvasResult {
   error?: string;
 }
 
-// ---------------------------------------------------------------------------
-// Layout constants (JSON Canvas spec uses px units)
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Layout constants (JSON Canvas spec uses px units)
+ * --------------------------------------------------------------------------- */
 
 export const NODE_W = 400;
 export const NODE_H = 200;
-export const NODE_GAP_X = 520; // horizontal gap between depth levels
-export const NODE_GAP_Y = 260; // vertical gap between siblings
+/** Horizontal gap between depth levels */
+export const NODE_GAP_X = 520;
+/** Vertical gap between siblings */
+export const NODE_GAP_Y = 260;
 
-// ---------------------------------------------------------------------------
-// Edge color map — relationship type → hex color string
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Edge color map — relationship type → hex color string
+ * --------------------------------------------------------------------------- */
 
 export const EDGE_COLORS: Record<string, string> = {
-  'parent-of': '#4488FF', // blue
-  'depends-on': '#9955FF', // purple
-  'related-to': '#888888', // gray
-  triggers: '#44BB44', // green
-  implements: '#FF8800', // orange
+  /* blue   */ 'parent-of': '#4488FF',
+  /* purple */ 'depends-on': '#9955FF',
+  /* gray   */ 'related-to': '#888888',
+  /* green  */ triggers: '#44BB44',
+  /* orange */ implements: '#FF8800',
 };
 
-// ---------------------------------------------------------------------------
-// Deterministic 16-char hex ID (SHA-256 of "path\x00type")
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Deterministic 16-char hex ID (SHA-256 of "path\x00type")
+ * --------------------------------------------------------------------------- */
 
 /**
  * Generate a deterministic 16-character lowercase hex ID.

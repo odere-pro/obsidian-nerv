@@ -1,5 +1,7 @@
-// ObsidianDevAdapter — DevOps implementation backed by the Obsidian CLI.
-// Each method translates a domain-level dev operation into a spawnCapture call.
+/**
+ * DevOps implementation backed by the Obsidian CLI.
+ * Each method translates a domain-level dev operation into a spawnCapture call.
+ */
 
 import { logError } from '../lib/logger';
 import { spawnCapture } from '../lib/shell';

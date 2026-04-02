@@ -1,20 +1,21 @@
-//
-// Reads a JSON file containing an array of URLs and ingests each one.
-// Skips URLs that error; continues with remaining URLs.
-//
-// Input file schema: { "urls": ["https://...", ...], "parent": "parent-slug" (optional) }
-// Output schema:     { "ingested": N, "skipped": M, "failed": K, "totalTokens": N }
-//
-// CLI: nerv web-ingest/batch [--vault <name>] <project> <path-to-json> [--json]
+/**
+ * web-ingest/batch — Reads a JSON file of URLs and ingests each one.
+ * Skips URLs that error; continues with remaining URLs.
+ *
+ * Input file schema: { "urls": ["https://...", ...], "parent": "parent-slug" (optional) }
+ * Output schema:     { "ingested": N, "skipped": M, "failed": K, "totalTokens": N }
+ *
+ * CLI: nerv web-ingest/batch [--vault <name>] <project> <path-to-json> [--json]
+ */
 
 import type { Command } from '../../cli';
 import { resolveVault } from '../../lib/obsidian';
 import { ingestUrl } from './add';
 import { extractVaultFlag } from '../../lib/vault-registry';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Types
+ * --------------------------------------------------------------------------- */
 
 interface BatchFile {
   urls: string[];
@@ -28,9 +29,9 @@ interface BatchSummary {
   totalTokens: number;
 }
 
-// ---------------------------------------------------------------------------
-// Core
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Core
+ * --------------------------------------------------------------------------- */
 
 export async function runBatch(
   vault: string,
@@ -64,9 +65,9 @@ export async function runBatch(
   return summary;
 }
 
-// ---------------------------------------------------------------------------
-// CLI command
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * CLI command
+ * --------------------------------------------------------------------------- */
 
 const command: Command = {
   name: 'web-ingest/batch',

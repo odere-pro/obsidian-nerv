@@ -1,17 +1,19 @@
-// canvas/relations — Generate a JSON Canvas relations graph from project connections.
-//
-// Reads relationship edges via getRelations().
-// Outputs projects/<slug>/<slug>.relations.canvas conforming to JSON Canvas 1.0 spec.
-//
-// Edge colors:
-//   parent-of → blue (#4488FF), depends-on → purple (#9955FF),
-//   related-to → gray (#888888), triggers → green (#44BB44),
-//   implements → orange (#FF8800)
-//
-// Exports:
-//   - CanvasResult (re-export from lib/canvas)
-//   - generateRelationsCanvas(vault, project) — programmatic API
-//   - default Command — CLI entry point
+/**
+ * canvas/relations — Generate a JSON Canvas relations graph from project connections.
+ *
+ * Reads relationship edges via getRelations().
+ * Outputs projects/<slug>/<slug>.relations.canvas conforming to JSON Canvas 1.0 spec.
+ *
+ * Edge colors:
+ *   parent-of → blue (#4488FF), depends-on → purple (#9955FF),
+ *   related-to → gray (#888888), triggers → green (#44BB44),
+ *   implements → orange (#FF8800)
+ *
+ * Exports:
+ *   - CanvasResult (re-export from lib/canvas)
+ *   - generateRelationsCanvas(vault, project) — programmatic API
+ *   - default Command — CLI entry point
+ */
 
 import type { Command } from '../../cli';
 import {
@@ -34,9 +36,9 @@ import { extractVaultFlag } from '../../lib/vault-registry';
 
 export type { CanvasResult };
 
-// ---------------------------------------------------------------------------
-// Pure canvas builder
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Pure canvas builder
+ * --------------------------------------------------------------------------- */
 
 export interface RelationsInput {
   noteNames: string[];
@@ -50,7 +52,7 @@ export interface RelationsInput {
 export function buildRelationsCanvas(input: RelationsInput): CanvasData {
   const { noteNames, edges } = input;
 
-  // Collect all unique note names (sources + targets + explicit noteNames)
+  /* Collect all unique note names (sources + targets + explicit noteNames) */
   const allNames = new Set(noteNames);
   for (const e of edges) {
     allNames.add(e.source);
@@ -58,7 +60,7 @@ export function buildRelationsCanvas(input: RelationsInput): CanvasData {
   }
   const names = [...allNames].sort();
 
-  // Grid layout: fill columns first (up to COLS_PER_ROW per row)
+  /* Grid layout: fill columns first (up to COLS_PER_ROW per row) */
   const COLS = Math.max(1, Math.ceil(Math.sqrt(names.length)));
   const nodeMap = new Map<string, CanvasNode>();
 
@@ -101,9 +103,9 @@ export function buildRelationsCanvas(input: RelationsInput): CanvasData {
   return { nodes: [...nodeMap.values()], edges: canvasEdges };
 }
 
-// ---------------------------------------------------------------------------
-// Canvas write helper (via obEval)
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Canvas write helper (via obEval)
+ * --------------------------------------------------------------------------- */
 
 function buildWriteExpr(filePath: string, content: string): string {
   const jsPath = encodeForJs(filePath);
@@ -125,9 +127,9 @@ function buildWriteExpr(filePath: string, content: string): string {
 })()`;
 }
 
-// ---------------------------------------------------------------------------
-// Programmatic API
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Programmatic API
+ * --------------------------------------------------------------------------- */
 
 export async function generateRelationsCanvas(
   vault: string,
@@ -162,9 +164,9 @@ export async function generateRelationsCanvas(
   return { ok: true, data: canvas, outputPath };
 }
 
-// ---------------------------------------------------------------------------
-// CLI Command
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * CLI Command
+ * --------------------------------------------------------------------------- */
 
 const command: Command = {
   name: 'canvas/relations',

@@ -1,14 +1,16 @@
-//
-// Wraps `defuddle parse <url> --json` and provides:
-//   - DefuddleOutput type representing the stable JSON contract
-//   - fetchAndParse()     — subprocess call with 30-second timeout
-//   - generateUrlSlug()   — deterministic, URL-safe slug from a URL
+/**
+ * Wraps `defuddle parse <url> --json` and provides:
+ * - `DefuddleOutput` — stable JSON contract type
+ * - `fetchAndParse()` — subprocess call with 30-second timeout
+ * - `generateUrlSlug()` — deterministic, URL-safe slug from a URL
+ */
 
+import { dirname, join } from 'node:path';
 import { spawnCapture } from './shell';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Types
+ * --------------------------------------------------------------------------- */
 
 export interface DefuddleOutput {
   title: string;
@@ -20,9 +22,9 @@ export interface DefuddleOutput {
   url?: string;
 }
 
-// ---------------------------------------------------------------------------
-// Slug generation
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Slug generation
+ * --------------------------------------------------------------------------- */
 
 /**
  * Generate a deterministic, URL-safe slug from a URL.
@@ -37,13 +39,13 @@ export function generateUrlSlug(url: string): string {
   try {
     parsed = new URL(url);
   } catch {
-    // Fallback: hash the raw string
+    /* Fallback: hash the raw string */
     parsed = { hostname: 'unknown' } as URL;
   }
 
   const domainSlug = parsed.hostname.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
-  // djb2 hash — keep unsigned 32-bit result
+  /* djb2 hash — keep unsigned 32-bit result */
   let hash = 5381;
   for (let i = 0; i < url.length; i++) {
     hash = ((hash << 5) + hash + url.charCodeAt(i)) >>> 0;
@@ -53,9 +55,9 @@ export function generateUrlSlug(url: string): string {
   return `${domainSlug}-${hashHex}`.replace(/-+/g, '-').replace(/^-|-$/g, '');
 }
 
-// ---------------------------------------------------------------------------
-// Defuddle subprocess call
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Defuddle subprocess call
+ * --------------------------------------------------------------------------- */
 
 /**
  * Call `defuddle parse <url> --json` and return parsed output.
@@ -68,7 +70,12 @@ export function generateUrlSlug(url: string): string {
  *   tuple form which prevents shell injection.
  */
 export async function fetchAndParse(url: string): Promise<DefuddleOutput> {
-  const { stdout, stderr, exitCode } = await spawnCapture(['defuddle', 'parse', url, '--json']);
+  /*
+   * Find defuddle: system PATH first, then bun's global bin directory as fallback.
+   * (`bun add -g defuddle` installs to the same directory as the bun executable.)
+   */
+  const defuddleBin = Bun.which('defuddle') ?? join(dirname(process.execPath), 'defuddle');
+  const { stdout, stderr, exitCode } = await spawnCapture([defuddleBin, 'parse', url, '--json']);
 
   if (exitCode !== 0) {
     const msg = stderr.trim() || stdout.trim() || 'unknown error';

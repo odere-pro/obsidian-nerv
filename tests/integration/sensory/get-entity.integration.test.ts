@@ -1,5 +1,4 @@
 // Ports assertions from cli/core/tests/test-get-entity.sh.
-// Requires: OBSIDIAN_RUNNING=1 environment variable.
 //
 // Creates a small two-note project in the vault, exercises all match levels,
 // verifies JSON output schema, sections, backlinks, and outgoing links,
@@ -10,8 +9,7 @@ import { getEntity } from '../../../src/commands/get-entity';
 import { encodeForJs } from '../../../src/lib/json';
 import { obEval } from '../../../src/lib/obsidian';
 
-const VAULT = process.env.TEST_VAULT ?? 'study';
-const RUNNING = process.env.OBSIDIAN_RUNNING === '1';
+const VAULT_NAME = process.env.NERV_TEST_VAULT ?? 'test';
 
 const TEST_SLUG = 'testge-ts';
 const TEST_TITLE = 'Test GetEntity TS';
@@ -33,7 +31,7 @@ async function createNote(path: string, content: string): Promise<void> {
   const jsContent = encodeForJs(content);
   const jsDir = encodeForJs(TEST_PROJ);
   await obEval(
-    VAULT,
+    VAULT_NAME,
     `(async () => {
   const dir = ${jsDir};
   const folder = app.vault.getAbstractFileByPath(dir);
@@ -47,7 +45,7 @@ async function createNote(path: string, content: string): Promise<void> {
 async function cleanup(): Promise<void> {
   const jsDir = encodeForJs(TEST_PROJ);
   await obEval(
-    VAULT,
+    VAULT_NAME,
     `(async () => {
   const f = app.vault.getAbstractFileByPath(${jsDir});
   if (f) await app.vault.trash(f, false);
@@ -61,7 +59,6 @@ function sleep(ms: number): Promise<void> {
 }
 
 beforeAll(async () => {
-  if (!RUNNING) return;
   await cleanup();
 
   // Note A: alpha-concept — has aliases, Summary/Content/Connections sections, links to Note B
@@ -127,7 +124,7 @@ Beta Concept provides supplementary material.
 });
 
 afterAll(async () => {
-  if (!RUNNING) return;
+  if (process.env.NERV_SKIP_CLEANUP === '1') return;
   await cleanup();
 });
 
@@ -136,8 +133,8 @@ afterAll(async () => {
 // ---------------------------------------------------------------------------
 
 describe('get-entity integration', () => {
-  test.skipIf(!RUNNING)('exact basename match returns valid output', async () => {
-    const result = await getEntity(VAULT, NOTE_A_BASENAME);
+  test('exact basename match returns valid output', async () => {
+    const result = await getEntity(VAULT_NAME, NOTE_A_BASENAME);
     expect(result).not.toBeNull();
     expect(typeof result?.path).toBe('string');
     expect(typeof result?.matchType).toBe('string');
@@ -147,26 +144,26 @@ describe('get-entity integration', () => {
     expect(Array.isArray(result?.outgoing)).toBe(true);
   });
 
-  test.skipIf(!RUNNING)('matchType is "exact" for full basename', async () => {
-    const result = await getEntity(VAULT, NOTE_A_BASENAME);
+  test('matchType is "exact" for full basename', async () => {
+    const result = await getEntity(VAULT_NAME, NOTE_A_BASENAME);
     expect(result?.matchType).toBe('exact');
   });
 
-  test.skipIf(!RUNNING)('path matches expected note path', async () => {
-    const result = await getEntity(VAULT, NOTE_A_BASENAME);
+  test('path matches expected note path', async () => {
+    const result = await getEntity(VAULT_NAME, NOTE_A_BASENAME);
     expect(result?.path).toBe(NOTE_A_PATH);
   });
 
-  test.skipIf(!RUNNING)('frontmatter has required fields', async () => {
-    const result = await getEntity(VAULT, NOTE_A_BASENAME);
+  test('frontmatter has required fields', async () => {
+    const result = await getEntity(VAULT_NAME, NOTE_A_BASENAME);
     const fm = result?.frontmatter ?? {};
     for (const key of ['title', 'type', 'kind', 'spine', 'status']) {
       expect(fm[key]).toBeDefined();
     }
   });
 
-  test.skipIf(!RUNNING)('sections parsed — Summary, Content, Connections present', async () => {
-    const result = await getEntity(VAULT, NOTE_A_BASENAME);
+  test('sections parsed — Summary, Content, Connections present', async () => {
+    const result = await getEntity(VAULT_NAME, NOTE_A_BASENAME);
     const sections = result?.sections ?? {};
     expect(sections['Summary']).toBeDefined();
     expect(sections['Content']).toBeDefined();
@@ -174,8 +171,8 @@ describe('get-entity integration', () => {
     expect((sections['Summary'] ?? '').length).toBeGreaterThan(0);
   });
 
-  test.skipIf(!RUNNING)('outgoing links present with correct schema', async () => {
-    const result = await getEntity(VAULT, NOTE_A_BASENAME);
+  test('outgoing links present with correct schema', async () => {
+    const result = await getEntity(VAULT_NAME, NOTE_A_BASENAME);
     const outgoing = result?.outgoing ?? [];
     expect(outgoing.length).toBeGreaterThan(0);
     const first = outgoing[0];
@@ -184,22 +181,22 @@ describe('get-entity integration', () => {
     expect(typeof first.display).toBe('string');
   });
 
-  test.skipIf(!RUNNING)('alias match resolves to correct note', async () => {
-    const result = await getEntity(VAULT, 'alpha-alias');
+  test('alias match resolves to correct note', async () => {
+    const result = await getEntity(VAULT_NAME, 'alpha-alias');
     expect(result).not.toBeNull();
     expect(result?.path).toBe(NOTE_A_PATH);
     expect(result?.matchType).toBe('alias');
   });
 
-  test.skipIf(!RUNNING)('slug match (normalized basename) resolves to correct note', async () => {
-    const result = await getEntity(VAULT, 'alpha-concept');
+  test('slug match (normalized basename) resolves to correct note', async () => {
+    const result = await getEntity(VAULT_NAME, 'alpha-concept');
     expect(result).not.toBeNull();
     // Should match at slug or fuzzy level (normalized basename matches)
-    expect(['slug', 'fuzzy', 'title']).toContain(result?.matchType);
+    expect(['slug', 'fuzzy', 'title']).toContain(result?.matchType as string);
   });
 
-  test.skipIf(!RUNNING)('Note B backlinks include Note A', async () => {
-    const result = await getEntity(VAULT, NOTE_B_BASENAME);
+  test('Note B backlinks include Note A', async () => {
+    const result = await getEntity(VAULT_NAME, NOTE_B_BASENAME);
     expect(result).not.toBeNull();
     const backlinks = result?.backlinks ?? [];
     const hasNoteA = backlinks.some(
@@ -208,8 +205,8 @@ describe('get-entity integration', () => {
     expect(hasNoteA).toBe(true);
   });
 
-  test.skipIf(!RUNNING)('backlink entries have path, title, type, kind, spine fields', async () => {
-    const result = await getEntity(VAULT, NOTE_B_BASENAME);
+  test('backlink entries have path, title, type, kind, spine fields', async () => {
+    const result = await getEntity(VAULT_NAME, NOTE_B_BASENAME);
     const backlinks = result?.backlinks ?? [];
     for (const bl of backlinks) {
       expect(typeof bl.path).toBe('string');
@@ -220,8 +217,8 @@ describe('get-entity integration', () => {
     }
   });
 
-  test.skipIf(!RUNNING)('missing entity returns null', async () => {
-    const result = await getEntity(VAULT, 'zzzz_absolutely_no_match_xyzabc_9999');
+  test('missing entity returns null', async () => {
+    const result = await getEntity(VAULT_NAME, 'zzzz_absolutely_no_match_xyzabc_9999');
     expect(result).toBeNull();
   });
 });

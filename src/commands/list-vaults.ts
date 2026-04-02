@@ -1,5 +1,5 @@
 import type { Command } from '../cli';
-import { readRegistry } from '../lib/vault-registry';
+import { readRegistry, vaultName } from '../lib/vault-registry';
 
 const command: Command = {
   name: 'list-vaults',
@@ -15,7 +15,7 @@ const command: Command = {
 
     if (json) {
       const out = registry.vaults.map(v => ({
-        name: v.name,
+        name: vaultName(v),
         path: v.path,
         isDefault: v.isDefault === true,
       }));
@@ -30,7 +30,7 @@ const command: Command = {
       return;
     }
 
-    const maxName = Math.max(...registry.vaults.map(v => v.name.length), 'NAME'.length);
+    const maxName = Math.max(...registry.vaults.map(v => vaultName(v).length), 'NAME'.length);
     const maxPath = Math.max(...registry.vaults.map(v => v.path.length), 'PATH'.length);
 
     const header = `${'NAME'.padEnd(maxName)}  ${'PATH'.padEnd(maxPath)}  DEFAULT\n`;
@@ -38,7 +38,7 @@ const command: Command = {
 
     for (const v of registry.vaults) {
       const def = v.isDefault ? 'yes' : '';
-      process.stdout.write(`${v.name.padEnd(maxName)}  ${v.path.padEnd(maxPath)}  ${def}\n`);
+      process.stdout.write(`${vaultName(v).padEnd(maxName)}  ${v.path.padEnd(maxPath)}  ${def}\n`);
     }
   },
 };

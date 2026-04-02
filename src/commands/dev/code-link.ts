@@ -1,8 +1,10 @@
-// code-link — Dev skill: append a code-path reference to ## Connections.
-//
-// Appends "- implements :: `<codepath>`" to the note's ## Connections section.
-// Idempotent: exits 0 if exact code path already present.
-// Security: rejects code paths containing ]] or newlines.
+/**
+ * code-link — Dev skill: append a code-path reference to ## Connections.
+ *
+ * Appends "- implements :: `<codepath>`" to the note's ## Connections section.
+ * Idempotent: exits 0 if exact code path already present.
+ * Security: rejects code paths containing ]] or newlines.
+ */
 
 import type { Command } from '../../cli';
 import { resolveVault } from '../../lib/obsidian';

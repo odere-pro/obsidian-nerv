@@ -1,27 +1,29 @@
-// get-entity — Sensory skill: deep single-note retrieval with 5-level match resolution.
-//
-// Exports:
-//   - EntityNote, BacklinkEntry, OutgoingEntry (types)
-//   - MatchType, MatchResult (types)
-//   - resolveEntity(query, notes) — pure match-resolution function, zero side effects
-//   - getEntity(vault, query) — programmatic API used by explain-topic
-//   - default Command — CLI entry point
-//
-// Match levels (tried in order; first level with exactly one result wins):
-//   1. exact    — basename === query (case-insensitive)
-//   2. alias    — any frontmatter alias exactly equals query (case-insensitive)
-//   3. slug     — normalize(basename) === normalize(query)  [strips "PREFIX.slug - " prefix]
-//   4. title    — frontmatter.title contains query as substring (case-insensitive)
-//   5. fuzzy    — basename or normalized basename contains query as substring
+/**
+ * get-entity — Sensory skill: deep single-note retrieval with 5-level match resolution.
+ *
+ * Exports:
+ *   - EntityNote, BacklinkEntry, OutgoingEntry (types)
+ *   - MatchType, MatchResult (types)
+ *   - resolveEntity(query, notes) — pure match-resolution function, zero side effects
+ *   - getEntity(vault, query) — programmatic API used by explain-topic
+ *   - default Command — CLI entry point
+ *
+ * Match levels (tried in order; first level with exactly one result wins):
+ *   1. exact    — basename === query (case-insensitive)
+ *   2. alias    — any frontmatter alias exactly equals query (case-insensitive)
+ *   3. slug     — normalize(basename) === normalize(query)  [strips "PREFIX.slug - " prefix]
+ *   4. title    — frontmatter.title contains query as substring (case-insensitive)
+ *   5. fuzzy    — basename or normalized basename contains query as substring
+ */
 
 import type { Command } from '../cli';
 import { parseJson } from '../lib/json';
 import { obEval, resolveVault } from '../lib/obsidian';
 import { extractVaultFlag } from '../lib/vault-registry';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Types
+ * --------------------------------------------------------------------------- */
 
 export interface BacklinkEntry {
   path: string;
@@ -54,9 +56,9 @@ export interface MatchResult {
   matchType: MatchType;
 }
 
-// ---------------------------------------------------------------------------
-// Pure match-resolution function
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Pure match-resolution function
+ * --------------------------------------------------------------------------- */
 
 /** Strip note naming prefixes like "ML.gpt-4 - GPT-4" → "gpt-4". */
 function normalizeBasename(s: string): string {
@@ -85,32 +87,32 @@ export function resolveEntity(query: string, notes: EntityNote[]): MatchResult |
   const termLow = query.toLowerCase();
   const termNorm = normalizeBasename(query);
 
-  // Level 1: exact basename match (case-insensitive)
+  /* Level 1: exact basename match (case-insensitive) */
   for (const note of notes) {
     if (note.basename.toLowerCase() === termLow) {
       return { note, matchType: 'exact' };
     }
   }
 
-  // Level 2: alias exact match
+  /* Level 2: alias exact match */
   for (const note of notes) {
     if (getAliases(note.frontmatter).some(a => a === termLow)) {
       return { note, matchType: 'alias' };
     }
   }
 
-  // Level 3: slug match — normalize(basename) === normalize(query)
+  /* Level 3: slug match — normalize(basename) === normalize(query) */
   const slugMatches: EntityNote[] = [];
   for (const note of notes) {
     const norm = normalizeBasename(note.basename);
     if (norm === termNorm && norm !== note.basename.toLowerCase()) {
-      // Only count as slug match when normalization actually changed something
+      /* Only count as slug match when normalization actually changed something */
       slugMatches.push(note);
     }
   }
   if (slugMatches.length === 1) return { note: slugMatches[0], matchType: 'slug' };
 
-  // Level 4: title substring match
+  /* Level 4: title substring match */
   const titleMatches: EntityNote[] = [];
   for (const note of notes) {
     const titleLow = String(note.frontmatter['title'] ?? note.basename).toLowerCase();
@@ -120,7 +122,7 @@ export function resolveEntity(query: string, notes: EntityNote[]): MatchResult |
   }
   if (titleMatches.length === 1) return { note: titleMatches[0], matchType: 'title' };
 
-  // Level 5: fuzzy — basename contains query as substring
+  /* Level 5: fuzzy — basename contains query as substring */
   const seen = new Set<string>();
   const fuzzyMatches: EntityNote[] = [];
   for (const note of notes) {
@@ -140,9 +142,9 @@ export function resolveEntity(query: string, notes: EntityNote[]): MatchResult |
   return null;
 }
 
-// ---------------------------------------------------------------------------
-// Section parser
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Section parser
+ * --------------------------------------------------------------------------- */
 
 function parseSections(rawBody: string): Record<string, string> {
   const body = rawBody.replace(/^---[\s\S]*?---\n?/, '');
@@ -157,9 +159,9 @@ function parseSections(rawBody: string): Record<string, string> {
   return sections;
 }
 
-// ---------------------------------------------------------------------------
-// Obsidian data fetch
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Obsidian data fetch
+ * --------------------------------------------------------------------------- */
 
 function buildFetchExpr(): string {
   return `(async () => {
@@ -176,13 +178,11 @@ function buildFetchExpr(): string {
       if (keys[k] !== 'position') fmOut[keys[k]] = fm[keys[k]];
     }
     var backlinks = [];
-    var blResult = app.metadataCache.getBacklinksForFile(f);
-    if (blResult && blResult.data) {
-      var blPaths = Object.keys(blResult.data);
-      for (var b = 0; b < blPaths.length; b++) {
-        var blPath = blPaths[b];
-        var blFile = app.vault.getAbstractFileByPath(blPath);
-        var blTitle = blPath, blType = '', blKind = '', blSpine = '';
+    var resolved = app.metadataCache.resolvedLinks;
+    for (var srcPath in resolved) {
+      if (resolved[srcPath] && resolved[srcPath][f.path]) {
+        var blFile = app.vault.getAbstractFileByPath(srcPath);
+        var blTitle = srcPath, blType = '', blKind = '', blSpine = '';
         if (blFile) {
           var blCache = app.metadataCache.getFileCache(blFile);
           var blFm = (blCache && blCache.frontmatter) ? blCache.frontmatter : {};
@@ -191,7 +191,7 @@ function buildFetchExpr(): string {
           blKind  = String(blFm.kind  || '');
           blSpine = String(blFm.spine || '');
         }
-        backlinks.push({ path: blPath, title: blTitle, type: blType, kind: blKind, spine: blSpine });
+        backlinks.push({ path: srcPath, title: blTitle, type: blType, kind: blKind, spine: blSpine });
       }
     }
     var outgoing = [];
@@ -219,9 +219,9 @@ function buildFetchExpr(): string {
 })()`;
 }
 
-// ---------------------------------------------------------------------------
-// Programmatic API
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Programmatic API
+ * --------------------------------------------------------------------------- */
 
 export interface EntityOutput {
   path: string;
@@ -251,9 +251,9 @@ export async function getEntity(vault: string, query: string): Promise<EntityOut
   };
 }
 
-// ---------------------------------------------------------------------------
-// CLI Command
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * CLI Command
+ * --------------------------------------------------------------------------- */
 
 const command: Command = {
   name: 'get-entity',

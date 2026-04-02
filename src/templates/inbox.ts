@@ -1,6 +1,7 @@
 export interface InboxParams {
   title: string;
-  captured: string; // YYYY-MM-DD or {{date}}
+  /** YYYY-MM-DD or `{{date}}` template token */
+  captured: string;
 }
 
 export function renderInbox(params: InboxParams): string {

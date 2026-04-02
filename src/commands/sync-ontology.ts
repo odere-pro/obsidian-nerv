@@ -1,15 +1,17 @@
-// sync-ontology — Autonomic skill: produce ontology health report for a project.
-//
-// Scans ## Connections sections, compares rel-types against _ontology.<slug>.md,
-// reports entity distribution, relationship usage, missing inverses, and unknown types.
-// Calls getRelations() directly (no subprocess) for edge data.
-//
-// JSON schema (--json):
-//   {"entities":{"ROOT":N,"BRANCH":N,"LEAF":N},
-//    "edges":M,"missingInverses":[{"source":"...","rel":"...","target":"..."}],
-//    "incomplete":P}
-//
-// Idempotent: updates `updated:` date in ontology artifact file on every run.
+/**
+ * sync-ontology — Autonomic skill: produce ontology health report for a project.
+ *
+ * Scans ## Connections sections, compares rel-types against _ontology.<slug>.md,
+ * reports entity distribution, relationship usage, missing inverses, and unknown types.
+ * Calls getRelations() directly (no subprocess) for edge data.
+ *
+ * JSON schema (--json):
+ *   {"entities":{"ROOT":N,"BRANCH":N,"LEAF":N},
+ *    "edges":M,"missingInverses":[{"source":"...","rel":"...","target":"..."}],
+ *    "incomplete":P}
+ *
+ * Idempotent: updates `updated:` date in ontology artifact file on every run.
+ */
 
 import type { Command } from '../cli';
 import { logError } from '../lib/logger';
@@ -18,9 +20,9 @@ import { getVaultOps } from '../ports/provider';
 import { getRelations } from './cli-relations';
 import { extractVaultFlag } from '../lib/vault-registry';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Types
+ * --------------------------------------------------------------------------- */
 
 export interface OntologyMeta {
   noteCount: number;
@@ -44,9 +46,9 @@ export interface OntologyResult {
   incomplete: number;
 }
 
-// ---------------------------------------------------------------------------
-// Missing inverse detection — pure function
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Missing inverse detection — pure function
+ * --------------------------------------------------------------------------- */
 
 /** Detect edges that have no corresponding reverse edge in the edge set. */
 export function detectMissingInverses(
@@ -62,9 +64,9 @@ export function detectMissingInverses(
   return missing;
 }
 
-// ---------------------------------------------------------------------------
-// VaultOps data fetch
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * VaultOps data fetch
+ * --------------------------------------------------------------------------- */
 
 const EXCLUDED_PREFIXES = ['_vocab', '_topk', '_ontology', 'tpl-'];
 const REQUIRED = ['title', 'type', 'kind', 'spine', 'status'];
@@ -109,9 +111,9 @@ function fetchMeta(
   return { noteCount: notes.length, entities, kinds, spines, statuses, incomplete };
 }
 
-// ---------------------------------------------------------------------------
-// Programmatic API
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Programmatic API
+ * --------------------------------------------------------------------------- */
 
 /** Run ontology health analysis for a project. Used by weekly-review. */
 export async function syncOntology(vault: string, slug: string): Promise<OntologyResult> {
@@ -145,9 +147,9 @@ export async function syncOntology(vault: string, slug: string): Promise<Ontolog
   };
 }
 
-// ---------------------------------------------------------------------------
-// CLI Command
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * CLI Command
+ * --------------------------------------------------------------------------- */
 
 const command: Command = {
   name: 'sync-ontology',
@@ -179,7 +181,7 @@ const command: Command = {
 
     const ops = getVaultOps();
 
-    // Fetch relations via getRelations (no subprocess)
+    /* Fetch relations via getRelations (no subprocess) */
     const relResult = await getRelations(vault, slug).catch(() => ({
       project: slug,
       edges: [],
@@ -187,7 +189,7 @@ const command: Command = {
       unknownTypes: [],
     }));
 
-    // Fetch metadata via VaultOps
+    /* Fetch metadata via VaultOps */
     const allFiles = await ops.listFiles(vault);
     const meta = fetchMeta(allFiles, slug);
     if (meta.noteCount === 0) {
@@ -200,7 +202,7 @@ const command: Command = {
     const missingInverses = detectMissingInverses(edges).slice(0, 20);
     const avgEdges = edgeCount / Math.max(meta.noteCount, 1);
 
-    // Update updated: date in ontology file
+    /* Update updated: date in ontology file */
     const ontoPath = `projects/${slug}/_ontology.${slug}.md`;
     const today = new Date().toISOString().split('T')[0];
     if (allFiles.some(e => e.path === ontoPath)) {
@@ -218,7 +220,7 @@ const command: Command = {
       return;
     }
 
-    // Human-readable report
+    /* Human-readable report */
     process.stdout.write(`=== Ontology Health Report: ${slug} ===\n\n`);
 
     process.stdout.write('--- Entity Distribution ---\n');

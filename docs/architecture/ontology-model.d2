@@ -1,0 +1,105 @@
+direction: right
+
+project: "Project: projects/<slug>/" {
+  style.fill: "#e3f2fd"
+  style.font-size: 16
+
+  hierarchy: Entity Hierarchy {
+    style.fill: "#bbdefb"
+
+    root: "ROOT\nAWS.ROOT - Amazon Web Services.md" {
+      style.fill: "#1565c0"
+      style.font-color: "#ffffff"
+      style.font-size: 14
+    }
+
+    branch1: "BRANCH\nAWS.compute - Compute.md" {
+      style.fill: "#42a5f5"
+      style.font-color: "#ffffff"
+    }
+    branch2: "BRANCH\nAWS.storage - Storage.md" {
+      style.fill: "#42a5f5"
+      style.font-color: "#ffffff"
+    }
+
+    leaf1: "LEAF\nAWS.ec2 - EC2.md" {
+      style.fill: "#90caf9"
+    }
+    leaf2: "LEAF\nAWS.lambda - Lambda.md" {
+      style.fill: "#90caf9"
+    }
+    leaf3: "LEAF\nAWS.s3 - S3.md" {
+      style.fill: "#90caf9"
+    }
+    leaf4: "LEAF\nAWS.ebs - EBS.md" {
+      style.fill: "#90caf9"
+    }
+
+    root -> branch1: "children[]"
+    root -> branch2: "children[]"
+    branch1 -> leaf1: "children[]"
+    branch1 -> leaf2: "children[]"
+    branch2 -> leaf3: "children[]"
+    branch2 -> leaf4: "children[]"
+
+    leaf1 -> branch1: "parent" {style.stroke-dash: 3}
+    leaf2 -> branch1: "parent" {style.stroke-dash: 3}
+    leaf3 -> branch2: "parent" {style.stroke-dash: 3}
+    leaf4 -> branch2: "parent" {style.stroke-dash: 3}
+    branch1 -> root: "parent" {style.stroke-dash: 3}
+    branch2 -> root: "parent" {style.stroke-dash: 3}
+  }
+
+  meta: Meta Files {
+    style.fill: "#fff3e0"
+
+    ontology: "_ontology.aws.md\nRelationship Types" {
+      style.fill: "#ffe0b2"
+    }
+    vocab: "_vocab.aws.md\nVocabulary Index\nL0 → L1 → L2 → L3" {
+      style.fill: "#ffe0b2"
+    }
+    topk: "_topk.aws.md\nOverflow Tracking\nLimits & Log" {
+      style.fill: "#ffe0b2"
+    }
+  }
+}
+
+frontmatter: Entity Frontmatter {
+  style.fill: "#f3e5f5"
+  fields: "title: S3\ntype: LEAF\nkind: storage-service\nspine: storage\nstatus: published\nparent: [[AWS.storage - Storage]]\nchildren: []\naliases: [Simple Storage Service]\ncreated: 2026-03-25"
+}
+
+relationships: Typed Relationships {
+  style.fill: "#e8f5e9"
+  style.font-size: 14
+
+  types: "10 built-in pairs" {
+    style.fill: "#c8e6c9"
+    r1: "depends-on ↔ depended-by"
+    r2: "implements ↔ implemented-by"
+    r3: "extends ↔ extended-by"
+    r4: "compares-to ↔ compares-to (sym)"
+    r5: "replaces ↔ replaced-by"
+    r6: "triggers ↔ triggered-by"
+    r7: "feeds-data ↔ fed-by"
+    r8: "contains ↔ contained-by"
+    r9: "authenticates-via ↔ authenticates"
+    r10: "mitigates ↔ mitigated-by"
+  }
+
+  syntax: "Connection line syntax:\n- depends-on :: [[target]] — context\n\nBidirectional: inverse\nauto-written on target note" {
+    style.fill: "#a5d6a7"
+  }
+}
+
+# Connections between sections
+project.hierarchy.leaf3 -> frontmatter: "YAML\nfrontmatter" {
+  style.stroke: "#7b1fa2"
+}
+project.hierarchy.leaf3 -> relationships.syntax: "## Connections\nsection" {
+  style.stroke: "#2e7d32"
+}
+project.meta.ontology -> relationships.types: "defines valid\nrelationship types" {
+  style.stroke-dash: 3
+}

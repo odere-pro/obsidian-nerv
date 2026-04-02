@@ -1,21 +1,23 @@
 #!/usr/bin/env bun
-// Bun CLI foundation: entry point and subcommand dispatcher
-// Use JSON import for version so compiled binary embeds it correctly
+/**
+ * Bun CLI entry point and subcommand dispatcher.
+ * JSON import for version ensures compiled binary embeds it correctly.
+ */
 
 import pkg from '../package.json';
 
-// ---------------------------------------------------------------------------
-// Command interface — every command module must export a default satisfying this
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Command interface — every command module must export a default satisfying this
+ * --------------------------------------------------------------------------- */
 export interface Command {
   name: string;
   description: string;
   run(args: string[]): Promise<void>;
 }
 
-// ---------------------------------------------------------------------------
-// Static command registry — keep in sync with src/commands/
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Static command registry — keep in sync with src/commands/
+ * --------------------------------------------------------------------------- */
 const COMMANDS: Array<{ name: string; description: string }> = [
   { name: 'add-vault', description: 'Provision and register a new vault (idempotent)' },
   { name: 'list-vaults', description: 'List all registered vaults' },
@@ -42,9 +44,9 @@ const COMMANDS: Array<{ name: string; description: string }> = [
   { name: 'context', description: 'Print vault context for AI prompts' },
 ];
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Helpers
+ * --------------------------------------------------------------------------- */
 
 function packageVersion(): string {
   return (pkg as { version?: string }).version ?? '0.0.0';
@@ -58,9 +60,9 @@ function printHelp(): void {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Dispatcher
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Dispatcher
+ * --------------------------------------------------------------------------- */
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   const subcommand = argv[0];
@@ -76,7 +78,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Dynamically import the command module so each command is code-split
+  /* Dynamically import the command module so each command is code-split */
   let mod: { default: Command };
   try {
     mod = (await import(`./commands/${subcommand}`)) as { default: Command };

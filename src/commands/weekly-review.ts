@@ -1,16 +1,18 @@
-// weekly-review — Orchestration skill: run full vault health review.
-//
-// Composes 6 reflex/autonomic skills as direct module imports, plus
-// `obsidian unresolved` via spawnCapture (step 7).
-//
-// CRITICAL: ALL sub-command outputs are buffered before appending to the
-// daily note. A partial append followed by failure would corrupt the note.
-//
-// JSON schema (--json):
-//   {"lint":{"issues":N},"orphans":{"issues":N},"relations":{"unknown":N},
-//    "ontology":{"missingInverses":N},"unresolved":N}
-//
-// Exits 0 on all success; exits 1 with failing command name on stderr.
+/**
+ * weekly-review — Orchestration skill: run full vault health review.
+ *
+ * Composes 6 reflex/autonomic skills as direct module imports, plus
+ * `obsidian unresolved` via spawnCapture (step 7).
+ *
+ * CRITICAL: ALL sub-command outputs are buffered before appending to the
+ * daily note. A partial append followed by failure would corrupt the note.
+ *
+ * JSON schema (--json):
+ *   {"lint":{"issues":N},"orphans":{"issues":N},"relations":{"unknown":N},
+ *    "ontology":{"missingInverses":N},"unresolved":N}
+ *
+ * Exits 0 on all success; exits 1 with failing command name on stderr.
+ */
 
 import type { Command } from '../cli';
 import { dailyAppend, resolveVault } from '../lib/obsidian';
@@ -23,9 +25,9 @@ import { syncTopk } from './sync-topk';
 import { syncVocab } from './sync-vocab';
 import { extractVaultFlag } from '../lib/vault-registry';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Types
+ * --------------------------------------------------------------------------- */
 
 export interface WeeklyReviewResult {
   lint: { issues: number };
@@ -46,9 +48,9 @@ export interface WeeklyReviewDeps {
   dailyAppend: typeof dailyAppend;
 }
 
-// ---------------------------------------------------------------------------
-// Core orchestration — injectable deps for unit testing
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Core orchestration — injectable deps for unit testing
+ * --------------------------------------------------------------------------- */
 
 export async function runWeeklyReview(
   vault: string,
@@ -67,7 +69,7 @@ export async function runWeeklyReview(
   let unresolvedCount = 0;
   let failedCmd = '';
 
-  // Step 1: lintProject
+  /* Step 1: lintProject */
   try {
     const r = await deps.lintProject(vault, folder);
     lintIssues = r.count;
@@ -75,7 +77,7 @@ export async function runWeeklyReview(
     if (!failedCmd) failedCmd = 'cli-lint';
   }
 
-  // Step 2: findOrphans
+  /* Step 2: findOrphans */
   try {
     const r = await deps.findOrphans(vault, folder);
     orphanIssues = r.count;
@@ -83,7 +85,7 @@ export async function runWeeklyReview(
     if (!failedCmd) failedCmd = 'cli-orphans';
   }
 
-  // Step 3: getRelations
+  /* Step 3: getRelations */
   try {
     const r = await deps.getRelations(vault, slug);
     relUnknown = r.unknownTypes.length;
@@ -91,7 +93,7 @@ export async function runWeeklyReview(
     if (!failedCmd) failedCmd = 'cli-relations';
   }
 
-  // Step 4: syncOntology
+  /* Step 4: syncOntology */
   try {
     const r = await deps.syncOntology(vault, slug);
     ontMissing = r.missingInverses.length;
@@ -99,14 +101,14 @@ export async function runWeeklyReview(
     if (!failedCmd) failedCmd = 'sync-ontology';
   }
 
-  // Step 5: syncVocab
+  /* Step 5: syncVocab */
   try {
     await deps.syncVocab(vault, slug);
   } catch {
     if (!failedCmd) failedCmd = 'sync-vocab';
   }
 
-  // Step 6: syncTopk
+  /* Step 6: syncTopk */
   try {
     const r = await deps.syncTopk(vault, slug);
     topkViolations = r.appended;
@@ -114,7 +116,7 @@ export async function runWeeklyReview(
     if (!failedCmd) failedCmd = 'sync-topk';
   }
 
-  // Step 7: obsidian unresolved (graceful fallback on failure)
+  /* Step 7: obsidian unresolved (graceful fallback on failure) */
   try {
     const { stdout, exitCode } = await deps.spawnCapture([
       'obsidian',
@@ -145,7 +147,7 @@ export async function runWeeklyReview(
     process.stdout.write(`[weekly-review] topk: ${topkViolations} overflow(s) appended\n`);
     process.stdout.write(`[weekly-review] unresolved: ${unresolvedCount} wikilink(s)\n`);
 
-    // Append summary to daily note only after ALL sub-commands have buffered results.
+    /* Append summary to daily note only after ALL sub-commands have buffered results. */
     const summary = [
       '## Ontology Work Log',
       '',
@@ -164,9 +166,9 @@ export async function runWeeklyReview(
   return { result, failedCmd, topkViolations };
 }
 
-// ---------------------------------------------------------------------------
-// Real deps (used by CLI)
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Real deps (used by CLI)
+ * --------------------------------------------------------------------------- */
 
 const REAL_DEPS: WeeklyReviewDeps = {
   lintProject,
@@ -179,9 +181,9 @@ const REAL_DEPS: WeeklyReviewDeps = {
   dailyAppend,
 };
 
-// ---------------------------------------------------------------------------
-// CLI Command
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * CLI Command
+ * --------------------------------------------------------------------------- */
 
 const command: Command = {
   name: 'weekly-review',

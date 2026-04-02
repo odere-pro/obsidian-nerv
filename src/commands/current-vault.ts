@@ -1,5 +1,5 @@
 import type { Command } from '../cli';
-import { extractVaultFlag, getDefaultVault, readRegistry } from '../lib/vault-registry';
+import { extractVaultFlag, getDefaultVault, readRegistry, vaultName } from '../lib/vault-registry';
 
 type Source = 'env' | 'default' | 'none';
 
@@ -10,26 +10,26 @@ interface Resolution {
 }
 
 async function resolve(explicitVault?: string): Promise<Resolution> {
-  // --vault override: look up specific vault, never throw
+  /* --vault override: look up specific vault, never throw */
   if (explicitVault !== undefined) {
     const registry = await readRegistry();
-    const entry = registry.vaults.find(v => v.name === explicitVault);
+    const entry = registry.vaults.find(v => vaultName(v) === explicitVault);
     if (!entry) return { name: null, path: null, source: 'none' };
-    return { name: entry.name, path: entry.path, source: 'default' };
+    return { name: vaultName(entry), path: entry.path, source: 'default' };
   }
 
-  // NERV_DEFAULT_VAULT env
+  /* NERV_DEFAULT_VAULT env */
   const envVault = Bun.env.NERV_DEFAULT_VAULT;
   if (envVault) {
     const registry = await readRegistry();
-    const entry = registry.vaults.find(v => v.name === envVault);
-    if (entry) return { name: entry.name, path: entry.path, source: 'env' };
+    const entry = registry.vaults.find(v => vaultName(v) === envVault);
+    if (entry) return { name: vaultName(entry), path: entry.path, source: 'env' };
   }
 
-  // Registry default
+  /* Registry default */
   const defaultEntry = await getDefaultVault();
   if (defaultEntry) {
-    return { name: defaultEntry.name, path: defaultEntry.path, source: 'default' };
+    return { name: vaultName(defaultEntry), path: defaultEntry.path, source: 'default' };
   }
 
   return { name: null, path: null, source: 'none' };
@@ -56,22 +56,22 @@ const command: Command = {
     const json = args.includes('--json');
     const { vault: explicitVault } = extractVaultFlag(args);
 
-    // --vault specified but not registered
+    /* --vault specified but not registered */
     if (explicitVault !== undefined) {
       const registry = await readRegistry();
-      const entry = registry.vaults.find(v => v.name === explicitVault);
+      const entry = registry.vaults.find(v => vaultName(v) === explicitVault);
       if (!entry) {
         process.stdout.write(`Vault "${explicitVault}" is not registered. Run: nerv list-vaults\n`);
         return;
       }
       if (json) {
         process.stdout.write(
-          JSON.stringify({ vault: entry.name, path: entry.path, source: 'default' }) + '\n'
+          JSON.stringify({ vault: vaultName(entry), path: entry.path, source: 'default' }) + '\n'
         );
         return;
       }
       process.stdout.write(
-        `Current vault: ${entry.name}\n  Path:   ${entry.path}\n  Source: default  (--vault flag)\n`
+        `Current vault: ${vaultName(entry)}\n  Path:   ${entry.path}\n  Source: default  (--vault flag)\n`
       );
       return;
     }

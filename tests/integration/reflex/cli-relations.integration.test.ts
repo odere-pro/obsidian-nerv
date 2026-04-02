@@ -1,6 +1,4 @@
 // Ports assertions from cli/core/tests/test-cli-relations.sh.
-// Requires: OBSIDIAN_RUNNING=1 environment variable.
-//
 // Creates a test project with notes containing typed connections,
 // verifies edge extraction, JSON schema, unknown type detection,
 // summary sorting, context capture, and exclusion rules.
@@ -10,11 +8,10 @@ import { getRelations } from '../../../src/commands/cli-relations';
 import { encodeForJs } from '../../../src/lib/json';
 import { obEval } from '../../../src/lib/obsidian';
 
-const VAULT = process.env.TEST_VAULT ?? 'study';
+const VAULT_NAME = process.env.NERV_TEST_VAULT ?? 'test';
 const TEST_SLUG = 'testrel-ts';
 const TEST_DIR = `projects/${TEST_SLUG}`;
 const TEST_UPPER = 'TESTREL-TS';
-const RUNNING = process.env.OBSIDIAN_RUNNING === '1';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -25,7 +22,7 @@ async function createNote(path: string, content: string): Promise<void> {
   const jsContent = encodeForJs(content);
   const jsProjDir = encodeForJs(TEST_DIR);
   await obEval(
-    VAULT,
+    VAULT_NAME,
     `(async () => {
   const dir = ${jsProjDir};
   const folder = app.vault.getAbstractFileByPath(dir);
@@ -38,7 +35,7 @@ async function createNote(path: string, content: string): Promise<void> {
 async function cleanup(): Promise<void> {
   const jsDir = encodeForJs(TEST_DIR);
   await obEval(
-    VAULT,
+    VAULT_NAME,
     `(async () => {
   const f = app.vault.getAbstractFileByPath(${jsDir});
   if (f) await app.vault.trash(f, false);
@@ -51,7 +48,6 @@ async function cleanup(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 beforeAll(async () => {
-  if (!RUNNING) return;
   await cleanup();
 
   // Note A: two known connections + one unknown type
@@ -166,7 +162,7 @@ updated: 2026-01-01
 });
 
 afterAll(async () => {
-  if (!RUNNING) return;
+  if (process.env.NERV_SKIP_CLEANUP === '1') return;
   await cleanup();
 });
 
@@ -175,8 +171,8 @@ afterAll(async () => {
 // ---------------------------------------------------------------------------
 
 describe('cli-relations integration', () => {
-  test.skipIf(!RUNNING)('getRelations returns a valid RelationResult structure', async () => {
-    const result = await getRelations(VAULT, TEST_SLUG);
+  test('getRelations returns a valid RelationResult structure', async () => {
+    const result = await getRelations(VAULT_NAME, TEST_SLUG);
     expect(result).toHaveProperty('project');
     expect(result).toHaveProperty('edges');
     expect(result).toHaveProperty('summary');
@@ -185,27 +181,27 @@ describe('cli-relations integration', () => {
     expect(Array.isArray(result.unknownTypes)).toBe(true);
   });
 
-  test.skipIf(!RUNNING)('extracts edges with correct source, rel, target fields', async () => {
-    const result = await getRelations(VAULT, TEST_SLUG);
+  test('extracts edges with correct source, rel, target fields', async () => {
+    const result = await getRelations(VAULT_NAME, TEST_SLUG);
     const rels = result.edges.map(e => e.rel);
     expect(rels).toContain('depends-on');
     expect(rels).toContain('implements');
     expect(rels).toContain('mystery-rel');
   });
 
-  test.skipIf(!RUNNING)('detects unknown relationship type mystery-rel', async () => {
-    const result = await getRelations(VAULT, TEST_SLUG);
+  test('detects unknown relationship type mystery-rel', async () => {
+    const result = await getRelations(VAULT_NAME, TEST_SLUG);
     expect(result.unknownTypes).toContain('mystery-rel');
   });
 
-  test.skipIf(!RUNNING)('does not flag known types as unknown', async () => {
-    const result = await getRelations(VAULT, TEST_SLUG);
+  test('does not flag known types as unknown', async () => {
+    const result = await getRelations(VAULT_NAME, TEST_SLUG);
     expect(result.unknownTypes).not.toContain('depends-on');
     expect(result.unknownTypes).not.toContain('implements');
   });
 
-  test.skipIf(!RUNNING)('summary is sorted descending by count', async () => {
-    const result = await getRelations(VAULT, TEST_SLUG);
+  test('summary is sorted descending by count', async () => {
+    const result = await getRelations(VAULT_NAME, TEST_SLUG);
     const keys = Object.keys(result.summary);
     expect(keys.length).toBeGreaterThan(0);
     // depends-on appears twice (note-a→b, note-b→c), implements once
@@ -215,14 +211,14 @@ describe('cli-relations integration', () => {
     expect(keys[0]).toBe('depends-on');
   });
 
-  test.skipIf(!RUNNING)('captures context strings from connection lines', async () => {
-    const result = await getRelations(VAULT, TEST_SLUG);
+  test('captures context strings from connection lines', async () => {
+    const result = await getRelations(VAULT_NAME, TEST_SLUG);
     const contextEdge = result.edges.find(e => e.context === 'load balancing dependency');
     expect(contextEdge).toBeDefined();
   });
 
-  test.skipIf(!RUNNING)('excluded file types are not in edge sources', async () => {
-    const result = await getRelations(VAULT, TEST_SLUG);
+  test('excluded file types are not in edge sources', async () => {
+    const result = await getRelations(VAULT_NAME, TEST_SLUG);
     const sources = result.edges.map(e => e.source);
     for (const prefix of ['_ontology', '_vocab', '_topk', 'tpl-']) {
       const excluded = sources.filter(s => s.startsWith(prefix));
@@ -230,8 +226,8 @@ describe('cli-relations integration', () => {
     }
   });
 
-  test.skipIf(!RUNNING)('returns 0 edges for a non-existent scope gracefully', async () => {
-    const result = await getRelations(VAULT, 'nonexistent-xyz-proj');
+  test('returns 0 edges for a non-existent scope gracefully', async () => {
+    const result = await getRelations(VAULT_NAME, 'nonexistent-xyz-proj');
     expect(result.edges).toHaveLength(0);
   });
 });

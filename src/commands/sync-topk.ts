@@ -1,16 +1,18 @@
-// sync-topk — Autonomic skill: append overflow log entries to _topk.<project>.md.
-//
-// Scans every project note for overflow conditions:
-//   connections      > 7
-//   callout-flags    > 3
-//   children         > 7  (BRANCH notes only)
-//
-// Deduplicates rows already in the log. Updates `updated:` frontmatter date.
-// Idempotent: existing rows for the same note+field are skipped.
-//
-// Exports:
-//   - TopkViolation, detectTopkViolations(notes) — pure function, unit-testable
-//   - default Command — CLI entry point
+/**
+ * sync-topk — Autonomic skill: append overflow log entries to _topk.<project>.md.
+ *
+ * Scans every project note for overflow conditions:
+ *   connections      > 7
+ *   callout-flags    > 3
+ *   children         > 7  (BRANCH notes only)
+ *
+ * Deduplicates rows already in the log. Updates `updated:` frontmatter date.
+ * Idempotent: existing rows for the same note+field are skipped.
+ *
+ * Exports:
+ *   - TopkViolation, detectTopkViolations(notes) — pure function, unit-testable
+ *   - default Command — CLI entry point
+ */
 
 import type { Command } from '../cli';
 import { logError } from '../lib/logger';
@@ -18,9 +20,9 @@ import { resolveVault } from '../lib/obsidian';
 import { getVaultOps } from '../ports/provider';
 import { extractVaultFlag } from '../lib/vault-registry';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Types
+ * --------------------------------------------------------------------------- */
 
 export interface TopkNote {
   basename: string;
@@ -37,9 +39,9 @@ export interface TopkViolation {
   threshold: number;
 }
 
-// ---------------------------------------------------------------------------
-// Pure detection logic
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Pure detection logic
+ * --------------------------------------------------------------------------- */
 
 /** Detect overflow violations from pre-computed note metrics. Pure function. */
 export function detectTopkViolations(notes: TopkNote[]): TopkViolation[] {
@@ -73,9 +75,9 @@ export function detectTopkViolations(notes: TopkNote[]): TopkViolation[] {
   return violations;
 }
 
-// ---------------------------------------------------------------------------
-// VaultOps data fetch + log update
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * VaultOps data fetch + log update
+ * --------------------------------------------------------------------------- */
 
 const EXCLUDED_PREFIXES = ['_ontology', '_vocab', '_topk', 'tpl-'];
 
@@ -95,7 +97,7 @@ async function runSync(
   const topkPath = `${projDir}/_topk.${slug}.md`;
   const today = new Date().toISOString().split('T')[0];
 
-  // List all project notes
+  /* List all project notes */
   const allFiles = await ops.listFiles(vault);
   const noteEntries = allFiles.filter(e => {
     if (!e.path.startsWith(projDir + '/')) return false;
@@ -103,7 +105,7 @@ async function runSync(
     return !EXCLUDED_PREFIXES.some(p => name.startsWith(p));
   });
 
-  // Read each note body to compute metrics
+  /* Read each note body to compute metrics */
   const violations: TopkViolation[] = [];
   for (const entry of noteEntries) {
     const file = await ops.readFile(vault, entry.path);
@@ -138,7 +140,7 @@ async function runSync(
     }
   }
 
-  // Read existing topk file
+  /* Read existing topk file */
   const topkExists = await ops.fileExists(vault, topkPath);
   if (!topkExists) {
     return {
@@ -195,9 +197,9 @@ async function runSync(
   return { noteCount: noteEntries.length, appended, warning: '' };
 }
 
-// ---------------------------------------------------------------------------
-// Programmatic API
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Programmatic API
+ * --------------------------------------------------------------------------- */
 
 export interface TopkResult {
   noteCount: number;
@@ -210,9 +212,9 @@ export async function syncTopk(vault: string, slug: string): Promise<TopkResult>
   return runSync(vault, slug);
 }
 
-// ---------------------------------------------------------------------------
-// CLI Command
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * CLI Command
+ * --------------------------------------------------------------------------- */
 
 const command: Command = {
   name: 'sync-topk',

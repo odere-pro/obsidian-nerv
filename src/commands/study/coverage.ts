@@ -1,8 +1,10 @@
-// coverage — Study skill: report spine-domain coverage for a project.
-//
-// Scans notes in a project, groups by spine frontmatter field,
-// computes coverage metrics (status distribution, coverage %).
-// Returns JSON output matching the Bash coverage.sh schema.
+/**
+ * coverage — Study skill: report spine-domain coverage for a project.
+ *
+ * Scans notes in a project, groups by spine frontmatter field,
+ * computes coverage metrics (status distribution, coverage %).
+ * Returns JSON output matching the Bash coverage.sh schema.
+ */
 
 import type { Command } from '../../cli';
 import { encodeForJs, parseJson } from '../../lib/json';

@@ -14,7 +14,9 @@ export interface NoteEntity {
   children: string[];
   aliases: string[];
   attachments: string[];
-  created: string; // ISO date string
-  modified: string; // ISO date string
+  /** ISO date string */
+  created: string;
+  /** ISO date string */
+  modified: string;
   tags: string[];
 }

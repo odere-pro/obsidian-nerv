@@ -1,0 +1,112 @@
+direction: down
+
+agent: Claude Code Agent {
+  style.fill: "#f3e5f5"
+  style.font-size: 16
+
+  claude-md: "CLAUDE.md\nbehavioral rules per vault"
+  patterns: "Intent Router" {
+    style.fill: "#e1bee7"
+    researcher: "Researcher\n\"what is X?\"\n→ nerv context"
+    writer: "Writer\n\"save this\"\n→ nerv create-entity"
+    linker: "Linker\n\"connect A to B\"\n→ nerv add-connection"
+    auditor: "Auditor\n\"run a review\"\n→ nerv weekly-review"
+  }
+  claude-md -> patterns: "route user intent"
+}
+
+nerv: nerv CLI {
+  style.fill: "#e3f2fd"
+  style.font-size: 16
+
+  dispatch: "src/cli.ts\ncommand dispatcher" {
+    style.fill: "#bbdefb"
+  }
+
+  commands: Skill Categories {
+    style.fill: "#bbdefb"
+    motor: "Motor (write)\ncreate-entity\ncreate-project\nadd-connection\nimport-json"
+    sensory: "Sensory (read)\ncontext\nget-entity\nget-tree"
+    reflex: "Reflex (validate)\ncli-lint\ncli-orphans\ncli-relations"
+    autonomic: "Autonomic (sync)\nsync-ontology\nsync-vocab\nsync-topk"
+    orchestration: "Orchestration\nmorning\nweekly-review\nmigrate"
+  }
+
+  dispatch -> commands: "nerv <command> [args]"
+}
+
+ports: VaultOps Interface {
+  style.fill: "#90caf9"
+  style.font-size: 14
+  boundary: "src/ports/vault-ops.ts\n12 methods: fileExists, readFile,\ncreateFile, updateFrontmatter,\nlistFiles, appendToDaily, ..."
+}
+
+adapter: ObsidianCliAdapter {
+  style.fill: "#c8e6c9"
+  impl: "src/adapters/obsidian-cli.ts\nbuilds JS expressions\nall strings → encodeForJs()"
+}
+
+mock: MockVaultOps {
+  style.fill: "#fff3e0"
+  test: "src/ports/mock-vault-ops.ts\nin-memory Map\nunit tests, no Obsidian needed"
+}
+
+obsidian-cli: Obsidian CLI {
+  style.fill: "#a5d6a7"
+  ipc: "IPC bridge (macOS)\nobsidian eval vault=X code=Y\nobsidian daily | files | unresolved"
+}
+
+obsidian-app: Obsidian App {
+  style.fill: "#81c784"
+  style.font-size: 16
+  runtime: "Electron Runtime" {
+    style.fill: "#66bb6a"
+    vault-api: "app.vault\ncreate · read · modify\nappend · trash"
+    cache-api: "app.metadataCache\nfrontmatter · backlinks\nresolved links"
+    fm-api: "app.fileManager\nprocessFrontMatter()"
+  }
+}
+
+vault: Obsidian Vault {
+  style.fill: "#e8f5e9"
+  style.font-size: 16
+  files: "Markdown files\nYAML frontmatter\n## Connections\n## Content"
+}
+
+# Main flow
+agent.patterns -> nerv.dispatch: "nerv <skill> <vault> [args]" {
+  style.stroke: "#7b1fa2"
+  style.stroke-width: 2
+}
+nerv.commands -> ports.boundary: "getVaultOps()"
+
+ports.boundary <- adapter.impl: "implements" {
+  style.stroke-dash: 3
+}
+ports.boundary <- mock.test: "implements" {
+  style.stroke-dash: 3
+}
+
+adapter.impl -> obsidian-cli.ipc: "spawnCapture()\nobEval(vault, expr)" {
+  style.stroke: "#d32f2f"
+  style.stroke-width: 2
+}
+obsidian-cli.ipc -> obsidian-app.runtime: "IPC" {
+  style.stroke: "#2e7d32"
+  style.stroke-width: 2
+}
+obsidian-app.runtime -> vault.files: "read / write" {
+  style.stroke: "#2e7d32"
+}
+
+# Contract tests
+contract: "Contract Tests\nverify behavioral parity" {
+  style.fill: "#ffecb3"
+  style.font-size: 12
+}
+contract -> adapter.impl {
+  style.stroke-dash: 3
+}
+contract -> mock.test {
+  style.stroke-dash: 3
+}

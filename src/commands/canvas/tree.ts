@@ -1,12 +1,14 @@
-// canvas/tree — Generate a JSON Canvas tree from project hierarchy.
-//
-// Reads ROOT/BRANCH/LEAF note hierarchy via getTree().
-// Outputs projects/<slug>/<slug>.tree.canvas conforming to JSON Canvas 1.0 spec.
-//
-// Exports:
-//   - CanvasResult (re-export from lib/canvas)
-//   - generateTreeCanvas(vault, project) — programmatic API
-//   - default Command — CLI entry point
+/**
+ * canvas/tree — Generate a JSON Canvas tree from project hierarchy.
+ *
+ * Reads ROOT/BRANCH/LEAF note hierarchy via getTree().
+ * Outputs projects/<slug>/<slug>.tree.canvas conforming to JSON Canvas 1.0 spec.
+ *
+ * Exports:
+ *   - CanvasResult (re-export from lib/canvas)
+ *   - generateTreeCanvas(vault, project) — programmatic API
+ *   - default Command — CLI entry point
+ */
 
 import type { Command } from '../../cli';
 import {
@@ -28,19 +30,19 @@ import { extractVaultFlag } from '../../lib/vault-registry';
 
 export type { CanvasResult };
 
-// ---------------------------------------------------------------------------
-// Node color by note type
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Node color by note type
+ * --------------------------------------------------------------------------- */
 
 function nodeColor(type: string): string {
-  if (type === 'ROOT') return '1'; // Red
-  if (type === 'BRANCH') return '2'; // Orange
-  return '3'; // Yellow (LEAF and others)
+  if (type === 'ROOT') return '1'; /* Red */
+  if (type === 'BRANCH') return '2'; /* Orange */
+  return '3'; /* Yellow (LEAF and others) */
 }
 
-// ---------------------------------------------------------------------------
-// Pure canvas builder
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Pure canvas builder
+ * --------------------------------------------------------------------------- */
 
 interface NodePos {
   x: number;
@@ -55,7 +57,7 @@ export function buildTreeCanvas(treeNodes: TreeNode[]): CanvasData {
   const nodes: CanvasNode[] = [];
   const edges: CanvasEdge[] = [];
 
-  // Track sibling index per depth level to compute y positions
+  /* Track sibling index per depth level to compute y positions */
   const siblingCounters: number[] = [];
 
   function visit(node: TreeNode, depth: number, parentId: string | null): NodePos {
@@ -107,9 +109,9 @@ export function buildTreeCanvas(treeNodes: TreeNode[]): CanvasData {
   return { nodes, edges };
 }
 
-// ---------------------------------------------------------------------------
-// Obsidian data fetch (same expression as get-tree)
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Obsidian data fetch (same expression as get-tree)
+ * --------------------------------------------------------------------------- */
 
 function buildFetchExpr(slug: string): string {
   const jsSlug = encodeForJs(slug);
@@ -136,11 +138,11 @@ function buildFetchExpr(slug: string): string {
 })()`;
 }
 
-// ---------------------------------------------------------------------------
-// Canvas write helper (via obEval)
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Canvas write helper (via obEval)
+ * --------------------------------------------------------------------------- */
 
-function buildWriteExpr(vault: string, filePath: string, content: string): string {
+function buildWriteExpr(_vault: string, filePath: string, content: string): string {
   const jsPath = encodeForJs(filePath);
   const jsContent = encodeForJs(content);
   return `(async () => {
@@ -150,7 +152,7 @@ function buildWriteExpr(vault: string, filePath: string, content: string): strin
   if (existing) {
     await app.vault.modify(existing, content);
   } else {
-    // Ensure parent folder exists
+    /* Ensure parent folder exists */
     var parts = path.split('/');
     parts.pop();
     var dir = parts.join('/');
@@ -161,9 +163,9 @@ function buildWriteExpr(vault: string, filePath: string, content: string): strin
 })()`;
 }
 
-// ---------------------------------------------------------------------------
-// Programmatic API
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Programmatic API
+ * --------------------------------------------------------------------------- */
 
 export async function generateTreeCanvas(vault: string, project: string): Promise<CanvasResult> {
   if (!/^[a-z0-9][a-z0-9-]*$/.test(project)) {
@@ -175,7 +177,13 @@ export async function generateTreeCanvas(vault: string, project: string): Promis
     };
   }
 
-  const raw = await obEval(vault, buildFetchExpr(project)).catch(() => '[]');
+  let raw: string;
+  try {
+    raw = await obEval(vault, buildFetchExpr(project));
+  } catch (e) {
+    return { ok: false, data: { nodes: [], edges: [] }, outputPath: '', error: String(e) };
+  }
+
   const notes = parseJson<FlatNote[]>(raw) ?? [];
   const treeResult = buildTree(notes);
   const canvas = buildTreeCanvas(treeResult.tree);
@@ -183,14 +191,18 @@ export async function generateTreeCanvas(vault: string, project: string): Promis
   const outputPath = `projects/${project}/${project}.tree.canvas`;
   const content = JSON.stringify(canvas, null, 2);
 
-  await obEval(vault, buildWriteExpr(vault, outputPath, content)).catch(() => undefined);
+  try {
+    await obEval(vault, buildWriteExpr(vault, outputPath, content));
+  } catch (e) {
+    return { ok: false, data: canvas, outputPath, error: String(e) };
+  }
 
   return { ok: true, data: canvas, outputPath };
 }
 
-// ---------------------------------------------------------------------------
-// CLI Command
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * CLI Command
+ * --------------------------------------------------------------------------- */
 
 const command: Command = {
   name: 'canvas/tree',

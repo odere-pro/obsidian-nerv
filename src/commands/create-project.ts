@@ -1,6 +1,7 @@
-//
-// TypeScript port of cli/core/create-project.sh.
-// Scaffolds 5 project files using typed templates.
+/**
+ * create-project — TypeScript port of cli/core/create-project.sh.
+ * Scaffolds 5 project files using typed templates.
+ */
 
 import type { Command } from '../cli';
 import { logError } from '../lib/logger';
@@ -45,7 +46,7 @@ export async function createProject(params: CreateProjectParams): Promise<void> 
   const topkPath = `${projDir}/_topk.${slug}.md`;
   const basePath = `${projDir}/${slug}.base`;
 
-  // Idempotency check
+  /* Idempotency check */
   const existing = await ops.fileExists(vault, rootPath).catch(() => false);
 
   if (existing) {
@@ -55,7 +56,7 @@ export async function createProject(params: CreateProjectParams): Promise<void> 
     return;
   }
 
-  // Create ROOT — all subsequent failures record rollback state
+  /* Create ROOT — all subsequent failures record rollback state */
   await ops
     .createFile(
       vault,

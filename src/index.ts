@@ -1,5 +1,7 @@
-// Import from this file when using the library programmatically.
-// For the CLI binary, use src/cli as the entry point.
+/**
+ * Library entry point for programmatic use.
+ * For the CLI binary, use `src/cli` as the entry point.
+ */
 
 export * from './types/entity';
 export * from './types/project';

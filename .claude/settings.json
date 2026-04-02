@@ -1,0 +1,28 @@
+{
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "permissions": {
+    "allow": [
+      "Bash(bun install:*)",
+      "Bash(bun run:*)",
+      "Bash(bun test:*)",
+      "Bash(bunx:*)",
+      "Bash(bun --version)",
+      "Bash(command -v bun)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git stash:*)",
+      "Bash(git show:*)",
+      "Bash(git rm:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git status:*)",
+      "Bash(git remote:*)",
+      "Bash(git branch:*)",
+      "Bash(/opt/homebrew/bin/d2:*)"
+    ],
+    "defaultMode": "acceptEdits"
+  }
+}

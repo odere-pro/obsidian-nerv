@@ -1,5 +1,7 @@
-// MockVaultOps — Map-backed in-memory VaultOps implementation for tests.
-// Commands unit tests use this instead of mocking Obsidian internals.
+/**
+ * MockVaultOps — Map-backed in-memory VaultOps implementation for tests.
+ * Commands unit tests use this instead of mocking Obsidian internals.
+ */
 
 import type { VaultFile, VaultFileEntry, VaultOps } from './vault-ops';
 
@@ -8,13 +10,26 @@ interface StoredFile {
   frontmatter: Record<string, unknown>;
 }
 
+/**
+ * In-memory VaultOps implementation for unit tests.
+ * Must not be imported in production code — test use only.
+ * @implements {VaultOps}
+ */
 export class MockVaultOps implements VaultOps {
   private files = new Map<string, Map<string, StoredFile>>();
   private dailyEntries = new Map<string, string[]>();
   private trashedPaths: string[] = [];
 
-  /** Seed a file into the in-memory vault for test setup. */
-  seedFile(vault: string, path: string, content: string, frontmatter: Record<string, unknown> = {}): void {
+  /**
+   * Seed a file into the in-memory vault for test setup.
+   * Call this in beforeEach to establish preconditions before exercising a command.
+   */
+  seedFile(
+    vault: string,
+    path: string,
+    content: string,
+    frontmatter: Record<string, unknown> = {}
+  ): void {
     if (!this.files.has(vault)) this.files.set(vault, new Map());
     this.files.get(vault)!.set(path, { content, frontmatter: { ...frontmatter } });
   }
@@ -50,7 +65,11 @@ export class MockVaultOps implements VaultOps {
     vm.set(path, { content, frontmatter: {} });
   }
 
-  async updateFrontmatter(vault: string, path: string, mutations: Record<string, unknown>): Promise<void> {
+  async updateFrontmatter(
+    vault: string,
+    path: string,
+    mutations: Record<string, unknown>
+  ): Promise<void> {
     const stored = this.vaultMap(vault).get(path);
     if (!stored) throw new Error(`MockVaultOps: file not found: ${path}`);
     Object.assign(stored.frontmatter, mutations);
@@ -70,7 +89,7 @@ export class MockVaultOps implements VaultOps {
   }
 
   async openDaily(_vault: string): Promise<void> {
-    // No-op in mock — there is no UI to open.
+    /* No-op in mock — there is no UI to open */
   }
 
   async listRecentFiles(vault: string, limit: number, _sort?: string): Promise<string[]> {
@@ -79,7 +98,7 @@ export class MockVaultOps implements VaultOps {
   }
 
   async listUnresolved(_vault: string): Promise<string[]> {
-    // Mock returns empty — no link resolution engine.
+    /* Mock returns empty — no link resolution engine */
     return [];
   }
 

@@ -1,5 +1,4 @@
 // Runs --dry-run and --apply against a test project in a live Obsidian vault.
-// Requires: OBSIDIAN_RUNNING=1 environment variable.
 //
 // Tests:
 //   1. --dry-run exits 0 with correct output shape
@@ -15,9 +14,8 @@ import { encodeForJs } from '../../../src/lib/json';
 import { obEval } from '../../../src/lib/obsidian';
 import { spawnCapture } from '../../../src/lib/shell';
 
-const VAULT = process.env.TEST_VAULT ?? 'study';
-const TEST_SLUG = '_migrate-test-ts';
-const RUNNING = process.env.OBSIDIAN_RUNNING === '1';
+const VAULT_NAME = process.env.NERV_TEST_VAULT ?? 'test';
+const TEST_SLUG = 'migrate-test-ts';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -26,7 +24,7 @@ const RUNNING = process.env.OBSIDIAN_RUNNING === '1';
 async function createTestProject(): Promise<void> {
   const jsSlug = encodeForJs(TEST_SLUG);
   await obEval(
-    VAULT,
+    VAULT_NAME,
     `(async () => {
   var projDir = 'projects/' + ${jsSlug};
   var f = app.vault.getAbstractFileByPath(projDir);
@@ -56,7 +54,7 @@ async function createTestProject(): Promise<void> {
 async function cleanupTestProject(): Promise<void> {
   const jsSlug = encodeForJs(TEST_SLUG);
   await obEval(
-    VAULT,
+    VAULT_NAME,
     `(async () => {
   var f = app.vault.getAbstractFileByPath('projects/' + ${jsSlug});
   if (f) await app.vault.trash(f, false);
@@ -69,12 +67,11 @@ async function cleanupTestProject(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 beforeAll(async () => {
-  if (!RUNNING) return;
   await createTestProject();
 });
 
 afterAll(async () => {
-  if (!RUNNING) return;
+  if (process.env.NERV_SKIP_CLEANUP === '1') return;
   await cleanupTestProject();
 });
 
@@ -83,29 +80,31 @@ afterAll(async () => {
 // ---------------------------------------------------------------------------
 
 describe('migrate integration', () => {
-  test.skipIf(!RUNNING)('--dry-run: validateSpec passes for rename-rel spec', async () => {
+  test('--dry-run: validateSpec passes for rename-rel spec', async () => {
     const spec: MigrateOp[] = [{ op: 'rename-rel', from: 'old-rel', to: 'new-rel' }];
     const errors = validateSpec(spec);
     expect(errors).toHaveLength(0);
   });
 
-  test.skipIf(!RUNNING)('--dry-run via CLI exits 0 on valid spec', async () => {
+  test('--dry-run via CLI exits 0 on valid spec', async () => {
     // Write temp spec file
     const specPath = path.join(os.tmpdir(), `migrate-test-${Date.now()}.json`);
     const spec: MigrateOp[] = [{ op: 'rename-rel', from: 'old-rel', to: 'new-rel' }];
     await fs.writeFile(specPath, JSON.stringify(spec));
 
     try {
-      const { exitCode, stdout } = await spawnCapture([
-        'bun',
+      const { exitCode, stdout, stderr } = await spawnCapture([
+        process.execPath,
         'run',
-        'src/cli',
+        'src/cli.ts',
         'migrate',
-        `vault=${VAULT}`,
+        '--vault',
+        VAULT_NAME,
         TEST_SLUG,
         specPath,
         '--dry-run',
       ]);
+      if (exitCode !== 0) console.error('migrate dry-run stderr:', stderr);
       expect(exitCode).toBe(0);
       expect(stdout).toContain('Dry-run');
     } finally {
@@ -113,18 +112,19 @@ describe('migrate integration', () => {
     }
   });
 
-  test.skipIf(!RUNNING)('rename-rel --apply rewrites connections in project notes', async () => {
+  test('rename-rel --apply rewrites connections in project notes', async () => {
     const specPath = path.join(os.tmpdir(), `migrate-apply-${Date.now()}.json`);
     const spec: MigrateOp[] = [{ op: 'rename-rel', from: 'old-rel', to: 'new-rel' }];
     await fs.writeFile(specPath, JSON.stringify(spec));
 
     try {
       const { exitCode, stdout } = await spawnCapture([
-        'bun',
+        process.execPath,
         'run',
-        'src/cli',
+        'src/cli.ts',
         'migrate',
-        `vault=${VAULT}`,
+        '--vault',
+        VAULT_NAME,
         TEST_SLUG,
         specPath,
       ]);
@@ -135,7 +135,7 @@ describe('migrate integration', () => {
     }
   });
 
-  test.skipIf(!RUNNING)('idempotency: re-running rename-rel shows 0 notes modified', async () => {
+  test('idempotency: re-running rename-rel shows 0 notes modified', async () => {
     // old-rel was already renamed to new-rel in the previous test — running again gives 0
     const specPath = path.join(os.tmpdir(), `migrate-idempotent-${Date.now()}.json`);
     const spec: MigrateOp[] = [{ op: 'rename-rel', from: 'old-rel', to: 'new-rel' }];
@@ -143,11 +143,12 @@ describe('migrate integration', () => {
 
     try {
       const { exitCode, stdout } = await spawnCapture([
-        'bun',
+        process.execPath,
         'run',
-        'src/cli',
+        'src/cli.ts',
         'migrate',
-        `vault=${VAULT}`,
+        '--vault',
+        VAULT_NAME,
         TEST_SLUG,
         specPath,
       ]);

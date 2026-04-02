@@ -1,7 +1,9 @@
-//
-// TypeScript port of cli/core/create-entity.sh.
-// Dual-export: default Command for the dispatcher + named createEntity() for
-// programmatic callers (import-json, adr).
+/**
+ * TypeScript port of cli/core/create-entity.sh.
+ *
+ * Dual-export: default Command for the dispatcher + named createEntity() for
+ * programmatic callers (import-json, adr).
+ */
 
 import type { Command } from '../cli';
 import { logError } from '../lib/logger';
@@ -81,14 +83,14 @@ export async function createEntity(
   const entityBasename = `${projUpper}.${slug} - ${title}`;
   const entityPath = `${projDir}/${entityBasename}.md`;
 
-  // Idempotency check
+  /* Idempotency check */
   const exists = await ops.fileExists(vault, entityPath).catch(() => false);
 
   if (exists) {
     return { ok: true, data: { created: false, path: entityPath, title } };
   }
 
-  // Locate parent note and read its spine via listFiles
+  /* Locate parent note and read its spine via listFiles */
   const parentPrefix = `${projUpper}.${parentSlug} - `;
   const allFiles = await ops.listFiles(vault).catch(() => []);
   const parentEntry = allFiles.find(f => {
@@ -104,14 +106,14 @@ export async function createEntity(
   const parentBasename = parentEntry.path.split('/').pop()!.replace(/\.md$/, '');
   const parentSpine = (parentEntry.frontmatter.spine as string) ?? '';
 
-  // Spine inheritance
+  /* Spine inheritance */
   if (!spine && parentSpine) spine = parentSpine;
   if (!spine) spine = project;
 
   const parentLink = `[[${parentBasename}]]`;
   const entityLink = `[[${entityBasename}]]`;
 
-  // Build note content using the typed template for this entity type
+  /* Build note content using the typed template for this entity type */
   const sharedParams = {
     title,
     slug,
@@ -128,11 +130,11 @@ export async function createEntity(
   } else if (type === 'BRANCH') {
     content = renderBranch({ ...sharedParams, parent: parentLink });
   } else {
-    // ROOT
+    /* ROOT */
     content = renderRoot({ title, kind, spine, status: 'draft', created: today, modified: today });
   }
 
-  // Create the note file
+  /* Create the note file */
   try {
     await ops.createFile(vault, entityPath, content);
   } catch {
@@ -148,7 +150,7 @@ export async function createEntity(
     };
   }
 
-  // Update parent's children array via updateFrontmatter
+  /* Update parent's children array via updateFrontmatter */
   try {
     const currentChildren = (parentEntry.frontmatter.children ?? []) as string[];
     if (!currentChildren.includes(entityLink)) {
@@ -173,7 +175,7 @@ export async function createEntity(
     };
   }
 
-  // Log to daily note (best-effort)
+  /* Log to daily note (best-effort) */
   try {
     await ops.appendToDaily(vault, `- Created ${entityLink}`);
   } catch {
@@ -187,7 +189,7 @@ const command: Command = {
   name: 'create-entity',
   description: 'Create a typed note inside a project',
   async run(args: string[]): Promise<void> {
-    // Strip --json flag before positional assignment
+    /* Strip --json flag before positional assignment */
     let jsonOutput = false;
     const { vault: vaultArg, rest } = extractVaultFlag(args);
 

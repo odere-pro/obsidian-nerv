@@ -5,3 +5,5 @@ bin/
 .env
 .env.local
 .env.integration
+.DS_Store
+.nerv/vaults.json

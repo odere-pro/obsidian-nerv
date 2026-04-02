@@ -1,25 +1,29 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, resolve, sep } from 'node:path';
+import { basename, dirname, resolve, sep } from 'node:path';
 import { logError } from './logger';
 import { spawnCapture } from './shell';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Types
+ * --------------------------------------------------------------------------- */
 
 export interface VaultEntry {
-  name: string;
   path: string;
   isDefault?: boolean;
+}
+
+/** Derives the vault name from the last segment of its path. */
+export function vaultName(entry: Pick<VaultEntry, 'path'>): string {
+  return basename(entry.path);
 }
 
 export interface VaultRegistry {
   vaults: VaultEntry[];
 }
 
-// ---------------------------------------------------------------------------
-// Git root + registry path
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Git root + registry path
+ * --------------------------------------------------------------------------- */
 
 export async function findGitRoot(): Promise<string> {
   const { stdout, exitCode } = await spawnCapture(['git', 'rev-parse', '--show-toplevel']);
@@ -34,9 +38,9 @@ export async function registryPath(): Promise<string> {
   return resolve(gitRoot, '.nerv', 'vaults.json');
 }
 
-// ---------------------------------------------------------------------------
-// CRUD
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * CRUD
+ * --------------------------------------------------------------------------- */
 
 export async function readRegistry(): Promise<VaultRegistry> {
   const path = await registryPath();
@@ -62,10 +66,10 @@ export async function writeRegistry(r: VaultRegistry): Promise<void> {
   await writeFile(path, JSON.stringify(r, null, 2) + '\n', 'utf8');
 }
 
-export async function registerVault(name: string, vaultPath: string): Promise<void> {
+export async function registerVault(vaultPath: string): Promise<void> {
   const resolvedPath = resolve(vaultPath);
 
-  // Git-root boundary check (can be skipped in test environments)
+  /* Git-root boundary check (can be skipped in test environments) */
   if (process.env['NERV_SKIP_GIT_ROOT_CHECK'] !== '1') {
     const gitRoot = await findGitRoot();
     const inside = resolvedPath === gitRoot || resolvedPath.startsWith(gitRoot + sep);
@@ -75,11 +79,12 @@ export async function registerVault(name: string, vaultPath: string): Promise<vo
   }
 
   const registry = await readRegistry();
+  const name = basename(resolvedPath);
 
-  const existing = registry.vaults.find(v => v.name === name);
+  const existing = registry.vaults.find(v => basename(v.path) === name);
   if (existing) {
     if (existing.path === resolvedPath) {
-      // Idempotent — already registered at the same path
+      /* Idempotent — already registered at the same path */
       return;
     }
     logError(
@@ -89,7 +94,6 @@ export async function registerVault(name: string, vaultPath: string): Promise<vo
 
   const isFirstVault = registry.vaults.length === 0;
   registry.vaults.push({
-    name,
     path: resolvedPath,
     ...(isFirstVault ? { isDefault: true } : {}),
   });
@@ -99,7 +103,7 @@ export async function registerVault(name: string, vaultPath: string): Promise<vo
 
 export async function unregisterVault(name: string): Promise<void> {
   const registry = await readRegistry();
-  const idx = registry.vaults.findIndex(v => v.name === name);
+  const idx = registry.vaults.findIndex(v => basename(v.path) === name);
   if (idx === -1) {
     logError(`remove-vault: vault "${name}" is not registered`);
   }
@@ -109,7 +113,7 @@ export async function unregisterVault(name: string): Promise<void> {
 
 export async function lookupVault(name: string): Promise<VaultEntry> {
   const registry = await readRegistry();
-  const entry = registry.vaults.find(v => v.name === name);
+  const entry = registry.vaults.find(v => basename(v.path) === name);
   if (!entry) {
     logError(`No vault named "${name}" is registered. Run: nerv list-vaults`);
   }
@@ -123,7 +127,7 @@ export async function getDefaultVault(): Promise<VaultEntry | undefined> {
 
 export async function setDefaultVault(name: string): Promise<void> {
   const registry = await readRegistry();
-  const entry = registry.vaults.find(v => v.name === name);
+  const entry = registry.vaults.find(v => basename(v.path) === name);
   if (!entry) {
     logError(`No vault named "${name}" is registered. Run: nerv list-vaults`);
   }
@@ -134,9 +138,9 @@ export async function setDefaultVault(name: string): Promise<void> {
   await writeRegistry(registry);
 }
 
-// ---------------------------------------------------------------------------
-// Shared flag parser
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Shared flag parser
+ * --------------------------------------------------------------------------- */
 
 export function extractVaultFlag(args: string[]): { vault: string | undefined; rest: string[] } {
   const idx = args.indexOf('--vault');

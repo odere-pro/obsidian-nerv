@@ -1,8 +1,10 @@
-// quiz — Study skill: extract a shuffled note bundle for quiz generation.
-//
-// Returns a vault-grounded quiz bundle: instruction, spine, and shuffled notes
-// with title, kind, summary, first-500-chars of content, and typed connections.
-// Excludes draft-status notes.
+/**
+ * quiz — Study skill: extract a shuffled note bundle for quiz generation.
+ *
+ * Returns a vault-grounded quiz bundle: instruction, spine, and shuffled notes
+ * with title, kind, summary, first-500-chars of content, and typed connections.
+ * Excludes draft-status notes.
+ */
 
 import type { Command } from '../../cli';
 import { encodeForJs, parseJson } from '../../lib/json';

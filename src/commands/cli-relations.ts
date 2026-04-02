@@ -1,14 +1,16 @@
-// cli-relations — Reflex skill: enumerate typed connections and validate against ontology.
-//
-// Exports:
-//   - Edge, RelationResult (types)
-//   - extractEdges(notes, validTypes) — pure function, unit-testable without Obsidian
-//   - getRelations(vault, project) — programmatic API used by dependency-map
-//   - default Command — CLI entry point
-//
-// JSON schema (--json) is stable and matches existing Bash output for Auditor compatibility:
-//   {"project":"...","edges":[{"source":"...","target":"...","rel":"...","context":"..."}],
-//    "summary":{...},"unknownTypes":[...]}
+/**
+ * cli-relations — Reflex skill: enumerate typed connections and validate against ontology.
+ *
+ * Exports:
+ *   - Edge, RelationResult (types)
+ *   - extractEdges(notes, validTypes) — pure function, unit-testable without Obsidian
+ *   - getRelations(vault, project) — programmatic API used by dependency-map
+ *   - default Command — CLI entry point
+ *
+ * JSON schema (--json) is stable and matches existing Bash output for Auditor compatibility:
+ *   {"project":"...","edges":[{"source":"...","target":"...","rel":"...","context":"..."}],
+ *    "summary":{...},"unknownTypes":[...]}
+ */
 
 import type { Command } from '../cli';
 import { resolveVault } from '../lib/obsidian';
@@ -16,9 +18,9 @@ import { getVaultOps } from '../ports/provider';
 import { extractSection } from './cli-lint';
 import { extractVaultFlag } from '../lib/vault-registry';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Types
+ * --------------------------------------------------------------------------- */
 
 export interface Edge {
   source: string;
@@ -39,9 +41,9 @@ export interface RawRelNote {
   body: string;
 }
 
-// ---------------------------------------------------------------------------
-// Pure extraction logic
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Pure extraction logic
+ * --------------------------------------------------------------------------- */
 
 const CONN_RE = /^- ([a-z][a-z0-9-]*) :: \[\[([^\]]+)\]\](?:\s*—\s*(.*))?$/;
 
@@ -76,9 +78,9 @@ export function extractEdges(
   return { edges, summary, unknownTypes: [...unknownSet] };
 }
 
-// ---------------------------------------------------------------------------
-// VaultOps data fetch + ontology parsing in TypeScript
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * VaultOps data fetch + ontology parsing in TypeScript
+ * --------------------------------------------------------------------------- */
 
 function stripFrontmatter(content: string): string {
   return content.replace(/^---[\s\S]*?---\n?/, '');
@@ -103,9 +105,9 @@ function parseValidTypes(content: string): string[] {
   return types;
 }
 
-// ---------------------------------------------------------------------------
-// Programmatic API
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Programmatic API
+ * --------------------------------------------------------------------------- */
 
 /** Get typed relations for a project. Used by dependency-map. */
 export async function getRelations(vault: string, project: string): Promise<RelationResult> {
@@ -117,7 +119,7 @@ export async function getRelations(vault: string, project: string): Promise<Rela
     e => folder && (e.path.startsWith(folder + '/') || e.path === folder)
   );
 
-  // Load valid relationship types from _ontology files
+  /* Load valid relationship types from _ontology files */
   const ontologyFiles = folderFiles.filter(e =>
     (e.path.split('/').pop() ?? '').startsWith('_ontology')
   );
@@ -128,7 +130,7 @@ export async function getRelations(vault: string, project: string): Promise<Rela
   }
   const validTypes = new Set(allValidTypes);
 
-  // Read note files to extract connections
+  /* Read note files to extract connections */
   const noteFiles = folderFiles.filter(e => {
     const name = e.path.split('/').pop() ?? '';
     return (
@@ -151,9 +153,9 @@ export async function getRelations(vault: string, project: string): Promise<Rela
   return { project, ...result };
 }
 
-// ---------------------------------------------------------------------------
-// CLI Command
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * CLI Command
+ * --------------------------------------------------------------------------- */
 
 const command: Command = {
   name: 'cli-relations',

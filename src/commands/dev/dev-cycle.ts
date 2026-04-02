@@ -1,12 +1,14 @@
-// dev-cycle — Dev skill: run the full plugin development feedback cycle.
-//
-// Executes the 4-step feedback cycle:
-//   1. obsidian plugin:reload  — hot-reload the plugin
-//   2. obsidian dev:errors     — check for JS errors; stop if found
-//   3. obsidian dev:console    — show last 20 lines of console output
-//   4. obsidian dev:screenshot — capture viewport (only with --screenshot)
-//
-// <plugin-id> is the directory name under .obsidian/plugins/, NOT the display name.
+/**
+ * dev-cycle — Dev skill: run the full plugin development feedback cycle.
+ *
+ * Executes the 4-step feedback cycle:
+ *   1. obsidian plugin:reload  — hot-reload the plugin
+ *   2. obsidian dev:errors     — check for JS errors; stop if found
+ *   3. obsidian dev:console    — show last 20 lines of console output
+ *   4. obsidian dev:screenshot — capture viewport (only with --screenshot)
+ *
+ * <plugin-id> is the directory name under .obsidian/plugins/, NOT the display name.
+ */
 
 import type { Command } from '../../cli';
 import { resolveVault } from '../../lib/obsidian';
@@ -53,12 +55,12 @@ const command: Command = {
 
     const devOps = getDevOps();
 
-    // Step 1 — Reload
+    /* Step 1 — Reload */
     process.stdout.write(`[dev-cycle] Step 1/4: reloading plugin "${pluginId}"...\n`);
     await devOps.reloadPlugin(vault, pluginId);
     process.stdout.write(`[dev-cycle] Reload: OK\n`);
 
-    // Step 2 — Errors
+    /* Step 2 — Errors */
     process.stdout.write(`[dev-cycle] Step 2/4: checking for errors...\n`);
     const errorsOut = (await devOps.captureErrors(vault)).trim();
 
@@ -70,7 +72,7 @@ const command: Command = {
     }
     process.stdout.write(`[dev-cycle] Errors: none\n`);
 
-    // Step 3 — Console (last 20 lines)
+    /* Step 3 — Console (last 20 lines) */
     process.stdout.write(`[dev-cycle] Step 3/4: capturing console output...\n`);
     const consoleOut = (await devOps.captureConsole(vault)).trim();
 
@@ -81,7 +83,7 @@ const command: Command = {
       process.stdout.write(`[dev-cycle] Console: (no output)\n`);
     }
 
-    // Step 4 — Screenshot (only with --screenshot flag)
+    /* Step 4 — Screenshot (only with --screenshot flag) */
     if (screenshot) {
       process.stdout.write(`[dev-cycle] Step 4/4: capturing screenshot...\n`);
       const screenshotOut = (await devOps.captureScreenshot(vault)).trim();

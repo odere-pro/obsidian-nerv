@@ -1,29 +1,31 @@
-// get-knowledge-gap — Sensory skill: identify structural deficiencies in a project.
-//
-// Exports:
-//   - GapNote (input type for gap analysis functions)
-//   - StubEntry, DraftEntry, MissingFieldEntry, LowLinkEntry, UnresolvedLinkEntry (output types)
-//   - KnowledgeGapResult (full output type)
-//   - detectGaps(notes) — pure gap-analysis function, zero side effects
-//   - getKnowledgeGap(vault, slug) — programmatic API
-//   - default Command — CLI entry point
-//
-// Gap categories:
-//   stubs          — body word count < 100 (frontmatter excluded)
-//   noConnections  — notes with zero typed connections
-//   drafts         — notes whose status === 'draft'
-//   missingFields  — notes missing any required frontmatter field
-//   lowLinkCount   — ROOT or BRANCH with < 2 typed connections
-//   unresolvedLinks — notes containing broken wikilinks (pre-resolved by Obsidian in fetch)
+/**
+ * get-knowledge-gap — Sensory skill: identify structural deficiencies in a project.
+ *
+ * Exports:
+ *   - GapNote (input type for gap analysis functions)
+ *   - StubEntry, DraftEntry, MissingFieldEntry, LowLinkEntry, UnresolvedLinkEntry (output types)
+ *   - KnowledgeGapResult (full output type)
+ *   - detectGaps(notes) — pure gap-analysis function, zero side effects
+ *   - getKnowledgeGap(vault, slug) — programmatic API
+ *   - default Command — CLI entry point
+ *
+ * Gap categories:
+ *   stubs          — body word count < 100 (frontmatter excluded)
+ *   noConnections  — notes with zero typed connections
+ *   drafts         — notes whose status === 'draft'
+ *   missingFields  — notes missing any required frontmatter field
+ *   lowLinkCount   — ROOT or BRANCH with < 2 typed connections
+ *   unresolvedLinks — notes containing broken wikilinks (pre-resolved by Obsidian in fetch)
+ */
 
 import type { Command } from '../cli';
 import { encodeForJs, parseJson } from '../lib/json';
 import { obEval, resolveVault } from '../lib/obsidian';
 import { extractVaultFlag } from '../lib/vault-registry';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Types
+ * --------------------------------------------------------------------------- */
 
 /** Flat note representation used by the pure gap analysis functions. */
 export interface GapNote {
@@ -33,9 +35,12 @@ export interface GapNote {
   spine: string;
   status: string;
   frontmatter: Record<string, unknown>;
-  body: string; // body text with YAML frontmatter stripped
-  typedConnections: number; // count of typed "rel :: [[target]]" lines in ## Connections
-  brokenLinks: string[]; // wikilinks for which Obsidian returned no file (pre-resolved)
+  /** body text with YAML frontmatter stripped */
+  body: string;
+  /** count of typed "rel :: [[target]]" lines in ## Connections */
+  typedConnections: number;
+  /** wikilinks for which Obsidian returned no file (pre-resolved) */
+  brokenLinks: string[];
 }
 
 export interface StubEntry {
@@ -73,9 +78,9 @@ export interface KnowledgeGapResult {
   unresolvedLinks: UnresolvedLinkEntry[];
 }
 
-// ---------------------------------------------------------------------------
-// Pure gap analysis function
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Pure gap analysis function
+ * --------------------------------------------------------------------------- */
 
 const REQUIRED_FIELDS = ['title', 'type', 'kind', 'spine', 'status', 'created', 'aliases'];
 
@@ -94,23 +99,23 @@ export function detectGaps(notes: GapNote[]): KnowledgeGapResult {
   const unresolvedLinks: UnresolvedLinkEntry[] = [];
 
   for (const note of notes) {
-    // Stubs: body word count < 100
+    /* Stubs: body word count < 100 */
     const words = note.body.trim().split(/\s+/).filter(Boolean);
     if (words.length < 100) {
       stubs.push({ note: note.basename, words: words.length });
     }
 
-    // No typed connections
+    /* No typed connections */
     if (note.typedConnections === 0) {
       noConnections.push(note.basename);
     }
 
-    // Draft status
+    /* Draft status */
     if (note.status === 'draft') {
       drafts.push({ note: note.basename, kind: note.kind, spine: note.spine });
     }
 
-    // Missing required fields
+    /* Missing required fields */
     const missing = REQUIRED_FIELDS.filter(field => {
       const v = note.frontmatter[field];
       return v === undefined || v === null || v === '';
@@ -119,12 +124,12 @@ export function detectGaps(notes: GapNote[]): KnowledgeGapResult {
       missingFields.push({ note: note.basename, missing });
     }
 
-    // Low link count: ROOT or BRANCH with < 2 typed connections
+    /* Low link count: ROOT or BRANCH with < 2 typed connections */
     if ((note.type === 'ROOT' || note.type === 'BRANCH') && note.typedConnections < 2) {
       lowLinkCount.push({ note: note.basename, links: note.typedConnections });
     }
 
-    // Unresolved wikilinks
+    /* Unresolved wikilinks */
     if (note.brokenLinks.length > 0) {
       unresolvedLinks.push({ note: note.basename, broken: note.brokenLinks });
     }
@@ -133,9 +138,9 @@ export function detectGaps(notes: GapNote[]): KnowledgeGapResult {
   return { stubs, noConnections, drafts, missingFields, lowLinkCount, unresolvedLinks };
 }
 
-// ---------------------------------------------------------------------------
-// Obsidian data fetch
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Obsidian data fetch
+ * --------------------------------------------------------------------------- */
 
 function buildFetchExpr(slug: string): string {
   const jsSlug = encodeForJs(slug);
@@ -161,7 +166,7 @@ function buildFetchExpr(slug: string): string {
     var raw   = await app.vault.cachedRead(f);
     var body  = raw.replace(/^---[\\s\\S]*?---\\n?/, '');
 
-    // Count typed connections in ## Connections section
+    /* Count typed connections in ## Connections section */
     var sections = body.split(/\\n(?=## )/);
     var connSection = '';
     for (var s = 0; s < sections.length; s++) {
@@ -172,7 +177,7 @@ function buildFetchExpr(slug: string): string {
     }
     var typedConns = (connSection.match(/^- [a-z][a-z0-9-]* :: \\[\\[/gm) || []).length;
 
-    // Broken wikilinks via getFirstLinkpathDest
+    /* Broken wikilinks via getFirstLinkpathDest */
     var linkRe = /\\[\\[([^\\]|]+)(?:\\|[^\\]]+)?\\]\\]/g;
     var broken = [];
     var lm;
@@ -205,9 +210,9 @@ function buildFetchExpr(slug: string): string {
 })()`;
 }
 
-// ---------------------------------------------------------------------------
-// Programmatic API
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Programmatic API
+ * --------------------------------------------------------------------------- */
 
 export async function getKnowledgeGap(vault: string, slug: string): Promise<KnowledgeGapResult> {
   const raw = await obEval(vault, buildFetchExpr(slug)).catch(() => '[]');
@@ -215,9 +220,9 @@ export async function getKnowledgeGap(vault: string, slug: string): Promise<Know
   return detectGaps(notes);
 }
 
-// ---------------------------------------------------------------------------
-// CLI Command
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * CLI Command
+ * --------------------------------------------------------------------------- */
 
 const command: Command = {
   name: 'get-knowledge-gap',

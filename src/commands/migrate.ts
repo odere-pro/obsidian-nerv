@@ -1,31 +1,33 @@
-// migrate — Schema migration skill: apply bulk schema changes from a declarative spec.
-//
-// Spec format (JSON array of operations):
-//   [
-//     {"op":"rename-rel",   "from":"triggers",  "to":"activates"},
-//     {"op":"rename-spine", "from":"aws",        "to":"cloud"},
-//     {"op":"add-field",    "field":"reviewed",  "value":false, "filter":{"type":"LEAF"}},
-//     {"op":"promote",      "note":"PREFIX.leaf-slug"}
-//   ]
-//
-// Flags:
-//   --dry-run   Report changes without modifying any files
-//
-// Pre-flight validation runs before any modification (identical logic for dry-run and apply).
-// Idempotent: re-running an applied migration exits 0 with 0 notes modified per operation.
-// promote uses fileManager.renameFile for automatic wikilink updates.
-// Path traversal protection: asserts new path starts with projects/<slug>/ before rename.
-//
-// Post-apply: appends migration summary to daily note; writes rollback log entry.
+/**
+ * migrate — Schema migration skill: apply bulk schema changes from a declarative spec.
+ *
+ * Spec format (JSON array of operations):
+ *   [
+ *     {"op":"rename-rel",   "from":"triggers",  "to":"activates"},
+ *     {"op":"rename-spine", "from":"aws",        "to":"cloud"},
+ *     {"op":"add-field",    "field":"reviewed",  "value":false, "filter":{"type":"LEAF"}},
+ *     {"op":"promote",      "note":"PREFIX.leaf-slug"}
+ *   ]
+ *
+ * Flags:
+ *   --dry-run   Report changes without modifying any files
+ *
+ * Pre-flight validation runs before any modification (identical logic for dry-run and apply).
+ * Idempotent: re-running an applied migration exits 0 with 0 notes modified per operation.
+ * promote uses fileManager.renameFile for automatic wikilink updates.
+ * Path traversal protection: asserts new path starts with projects/<slug>/ before rename.
+ *
+ * Post-apply: appends migration summary to daily note; writes rollback log entry.
+ */
 
 import type { Command } from '../cli';
 import { encodeForJs, parseJson } from '../lib/json';
 import { obEval, resolveVault, rollbackLog } from '../lib/obsidian';
 import { extractVaultFlag } from '../lib/vault-registry';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Types
+ * --------------------------------------------------------------------------- */
 
 export interface MigrateOp {
   op: 'rename-rel' | 'rename-spine' | 'add-field' | 'promote';
@@ -56,9 +58,9 @@ export interface MigrateResult {
   errors?: string[];
 }
 
-// ---------------------------------------------------------------------------
-// Spec validation — pure function, testable without Obsidian
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Spec validation — pure function, testable without Obsidian
+ * --------------------------------------------------------------------------- */
 
 const VALID_OPS = new Set(['rename-rel', 'rename-spine', 'add-field', 'promote']);
 
@@ -125,9 +127,9 @@ export function validateSpec(spec: unknown): string[] {
   return errors;
 }
 
-// ---------------------------------------------------------------------------
-// Migration IIFE builder
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Migration IIFE builder
+ * --------------------------------------------------------------------------- */
 
 function buildMigrateExpr(spec: MigrateOp[], slug: string, dryRun: boolean): string {
   const jsSpec = encodeForJs(JSON.stringify(spec));
@@ -159,7 +161,7 @@ function buildMigrateExpr(spec: MigrateOp[], slug: string, dryRun: boolean): str
     return new Date().toISOString().split('T')[0];
   };
 
-  // Pre-flight validation
+  /* Pre-flight validation */
   var errors    = [];
   var ontFile   = findArtifact('ontology');
 
@@ -172,21 +174,9 @@ function buildMigrateExpr(spec: MigrateOp[], slug: string, dryRun: boolean): str
         errors.push('rename-rel[' + vi + ']: _ontology.' + projSlug + '.md not found in ' + projFolder);
         continue;
       }
-      var ontBody = await app.vault.cachedRead(ontFile);
-      var fromEscV = escRe(vsop.from);
-      if (!new RegExp('\`' + fromEscV + '\`').test(ontBody)) {
-        errors.push('rename-rel[' + vi + ']: relationship type "' + vsop.from +
-          '" not found in _ontology.' + projSlug + '.md');
-      }
+      /* Skip validation if from-rel not in ontology — idempotent (already renamed) */
     } else if (vop === 'rename-spine') {
-      var spineHits = projFiles.filter(function(f) {
-        var c = app.metadataCache.getFileCache(f);
-        return c && c.frontmatter && c.frontmatter.spine === vsop.from;
-      });
-      if (spineHits.length === 0) {
-        errors.push('rename-spine[' + vi + ']: no notes with spine "' + vsop.from +
-          '" found in ' + projFolder);
-      }
+      /* Skip validation if no notes have old spine — idempotent (already renamed) */
     } else if (vop === 'promote') {
       var noteSearch = vsop.note || '';
       var candidate  = projFiles.find(function(f) {
@@ -205,7 +195,7 @@ function buildMigrateExpr(spec: MigrateOp[], slug: string, dryRun: boolean): str
     return JSON.stringify({ validationFailed: true, errors: errors });
   }
 
-  // Execute operations
+  /* Execute operations */
   var opResults = [];
   var vocabFile = findArtifact('vocab');
 
@@ -294,7 +284,7 @@ function buildMigrateExpr(spec: MigrateOp[], slug: string, dryRun: boolean): str
         if (filter.spine  && ffm.spine  !== filter.spine ) continue;
         if (filter.kind   && ffm.kind   !== filter.kind  ) continue;
         if (filter.status && ffm.status !== filter.status) continue;
-        if (fieldName in ffm) continue;  // idempotent
+        if (fieldName in ffm) continue; /* idempotent */
         if (!dryRun) {
           var captFN = fieldName; var captFV = fieldValue;
           await app.fileManager.processFrontMatter(f, function(fmRef) { fmRef[captFN] = captFV; });
@@ -362,9 +352,9 @@ function buildMigrateExpr(spec: MigrateOp[], slug: string, dryRun: boolean): str
 })()`;
 }
 
-// ---------------------------------------------------------------------------
-// CLI Command
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * CLI Command
+ * --------------------------------------------------------------------------- */
 
 const command: Command = {
   name: 'migrate',
@@ -399,7 +389,7 @@ const command: Command = {
       process.exit(1);
     }
 
-    // Read and parse spec
+    /* Read and parse spec */
     let spec: MigrateOp[];
     try {
       spec = await Bun.file(specPath).json();
@@ -408,7 +398,7 @@ const command: Command = {
       process.exit(1);
     }
 
-    // Structural validation
+    /* Structural validation */
     const validationErrors = validateSpec(spec);
     if (validationErrors.length > 0) {
       for (const err of validationErrors) {
@@ -417,16 +407,22 @@ const command: Command = {
       process.exit(1);
     }
 
-    // Run migration via Obsidian eval
-    const raw = await obEval(vault, buildMigrateExpr(spec, slug, dryRun)).catch(() => '');
+    /* Run migration via Obsidian eval */
+    const raw = await obEval(vault, buildMigrateExpr(spec, slug, dryRun)).catch((e: unknown) => {
+      process.stderr.write(
+        `ERROR: migrate: Obsidian not reachable or eval failed: ${e instanceof Error ? e.message : String(e)}\n`
+      );
+      process.exit(1);
+    });
     if (!raw) {
-      process.stderr.write('ERROR: migrate: Obsidian not reachable or eval failed\n');
+      process.stderr.write('ERROR: migrate: Obsidian returned empty result\n');
       process.exit(1);
     }
 
     const data = parseJson<MigrateResult>(raw);
     if (!data) {
       process.stderr.write('ERROR: migrate: invalid JSON from eval\n');
+      process.stderr.write('DEBUG raw: ' + JSON.stringify(raw) + '\n');
       process.exit(1);
     }
 
@@ -437,7 +433,7 @@ const command: Command = {
       process.exit(1);
     }
 
-    // Print per-operation results
+    /* Print per-operation results */
     for (const op of data.ops) {
       if (op.error) {
         process.stderr.write(`ERROR: migrate: ${op.op} — ${op.error}\n`);
@@ -459,7 +455,7 @@ const command: Command = {
     } else {
       process.stdout.write(`Migration complete: ${total} total note(s) modified\n`);
 
-      // Write rollback log if any changes were made
+      /* Write rollback log if any changes were made */
       if (total > 0) {
         const summary = `migrate ${slug}: ` + data.ops.map(r => `${r.op} ${r.count}`).join('; ');
         await rollbackLog(vault, `migrate ${slug}`, summary).catch(() => undefined);

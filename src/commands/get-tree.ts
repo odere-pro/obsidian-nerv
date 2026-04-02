@@ -1,19 +1,21 @@
-// get-tree — Sensory skill: hierarchical project tree from parent/children relationships.
-//
-// Exports:
-//   - TreeNode, MissingNode, CycleNode, AnyTreeNode, TreeResult (types)
-//   - buildTree(nodes, maxDepth) — pure tree-construction function, zero side effects
-//   - getTree(vault, slug, maxDepth) — programmatic API
-//   - default Command — CLI entry point
+/**
+ * get-tree — Sensory skill: hierarchical project tree from parent/children relationships.
+ *
+ * Exports:
+ *   - TreeNode, MissingNode, CycleNode, AnyTreeNode, TreeResult (types)
+ *   - buildTree(nodes, maxDepth) — pure tree-construction function, zero side effects
+ *   - getTree(vault, slug, maxDepth) — programmatic API
+ *   - default Command — CLI entry point
+ */
 
 import type { Command } from '../cli';
 import { encodeForJs, parseJson } from '../lib/json';
 import { obEval, resolveVault } from '../lib/obsidian';
 import { extractVaultFlag } from '../lib/vault-registry';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Types
+ * --------------------------------------------------------------------------- */
 
 export interface TreeNode {
   path: string;
@@ -51,9 +53,9 @@ export interface FlatNote {
   children: string[];
 }
 
-// ---------------------------------------------------------------------------
-// Pure tree builder
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Pure tree builder
+ * --------------------------------------------------------------------------- */
 
 function resolveWikiLink(raw: string): string {
   const m = String(raw ?? '').match(/\[\[([^\]#|]+)/);
@@ -116,7 +118,7 @@ export function buildTree(notes: FlatNote[], maxDepth = 50): TreeResult {
   const tree: TreeNode[] = rootNotes.map(root => {
     const visited = new Set<string>([root.path]);
     const node = buildNodeRecursive(root, noteMap, visited, 0, maxDepth);
-    // Count all nodes in this subtree
+    /* Count all nodes in this subtree */
     const countNodes = (n: AnyTreeNode): number => {
       if ('missing' in n || 'cycle' in n) return 1;
       return 1 + n.subtree.reduce((s, c) => s + countNodes(c), 0);
@@ -128,9 +130,9 @@ export function buildTree(notes: FlatNote[], maxDepth = 50): TreeResult {
   return { folder, nodeCount, tree };
 }
 
-// ---------------------------------------------------------------------------
-// Obsidian data fetch
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Obsidian data fetch
+ * --------------------------------------------------------------------------- */
 
 function buildFetchExpr(slug: string): string {
   const jsSlug = encodeForJs(slug);
@@ -157,22 +159,22 @@ function buildFetchExpr(slug: string): string {
 })()`;
 }
 
-// ---------------------------------------------------------------------------
-// Programmatic API
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Programmatic API
+ * --------------------------------------------------------------------------- */
 
 export async function getTree(vault: string, slug: string, maxDepth = 50): Promise<TreeResult> {
   const raw = await obEval(vault, buildFetchExpr(slug)).catch(() => '[]');
   const notes = parseJson<FlatNote[]>(raw) ?? [];
 
   const result = buildTree(notes, maxDepth);
-  // Override folder to canonical form
+  /* Override folder to canonical form */
   return { ...result, folder: `projects/${slug}` };
 }
 
-// ---------------------------------------------------------------------------
-// CLI Command
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * CLI Command
+ * --------------------------------------------------------------------------- */
 
 const command: Command = {
   name: 'get-tree',

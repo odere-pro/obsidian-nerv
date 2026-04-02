@@ -1,5 +1,6 @@
 export interface DailyParams {
-  date: string; // YYYY-MM-DD or {{date}}
+  /** YYYY-MM-DD or `{{date}}` template token */
+  date: string;
 }
 
 export function renderDaily(params: DailyParams): string {

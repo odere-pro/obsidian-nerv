@@ -1,6 +1,6 @@
 # Skill Registry — Obsidian Nervous System
 
-Shared reference for all agents. Deploy to `~/.ontology-cli/agent/skills.md`.
+Shared reference for all agents.
 Each entry lists: name, CLI command, input parameters, output format, and the intent trigger that activates it.
 
 Rules for invocation:
@@ -42,11 +42,17 @@ Skills that create or modify vault content. Always run a Context Retrieval skill
 
 Skills that audit, lint, and keep the vault consistent. Run these on a schedule or before a review session.
 
-| Name          | Command              | Inputs                        | Output                                  | Intent trigger                                                                     |
-| ------------- | -------------------- | ----------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------- |
-| Lint vault    | `nerv cli-lint`      | `<vault> [<folder>] [--json]` | JSON (--json): `{violations[]}`         | User asks for a health check, lint, or audit of the vault                          |
-| Relations map | `nerv cli-relations` | `<vault> [<folder>] [--json]` | JSON (--json): `{relations[], summary}` | User asks to see all connections, relationship types, or connection counts         |
-| Sync top-K    | `nerv sync-topk`     | `<vault> <project_slug>`      | text: overflow log rows appended        | Autonomic — run after bulk create/import, or when connection count warnings appear |
+| Name          | Command              | Inputs                                | Output                                     | Intent trigger                                                                     |
+| ------------- | -------------------- | ------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------- |
+| Lint vault    | `nerv cli-lint`      | `<vault> [<folder>] [--json]`         | JSON (--json): `{violations[]}`            | User asks for a health check, lint, or audit of the vault                          |
+| Orphan check  | `nerv cli-orphans`   | `<vault> [--json] [--project <slug>]` | JSON (--json): `{orphans[]}`               | User asks to find broken parent links, orphaned or unreferenced notes              |
+| Relations map | `nerv cli-relations` | `<vault> [<folder>] [--json]`         | JSON (--json): `{relations[], summary}`    | User asks to see all connections, relationship types, or connection counts         |
+| Sync ontology | `nerv sync-ontology` | `<vault> <project_slug> [--json]`     | JSON: `{entities, edges, missingInverses}` | Autonomic — run after adding relationship types or to detect missing inverses      |
+| Sync vocab    | `nerv sync-vocab`    | `<vault> <project_slug>`              | text: vocabulary table updated             | Autonomic — run after bulk entity creation to update domain vocabulary index       |
+| Sync top-K    | `nerv sync-topk`     | `<vault> <project_slug>`              | text: overflow log rows appended           | Autonomic — run after bulk create/import, or when connection count warnings appear |
+| Weekly review | `nerv weekly-review` | `<vault> [<project_slug>] [--json]`   | JSON (--json): `{findings[], summary}`     | User asks for a review, audit summary, or weekly health report                     |
+| Morning       | `nerv morning`       | `<vault>`                             | text: daily briefing output                | User asks for a morning briefing, daily startup, or inbox status                   |
+| Migrate       | `nerv migrate`       | `<vault> [--dry-run]`                 | text: migration steps applied              | User asks to run vault migrations or upgrade vault schema                          |
 
 ---
 
@@ -59,7 +65,6 @@ Skills specific to the `study` vault.
 | Coverage report    | `nerv study/coverage` | `<vault> <project_slug>`                 | JSON: `{project, domains[], overall}`                       | User asks about coverage, progress by domain, or certification readiness |
 | Quiz prep          | `nerv study/quiz`     | `<vault> <project_slug> <spine> <count>` | JSON: `{instruction, spine, notes[]}`                       | User asks to be quizzed, tested, or wants practice questions             |
 | Progress dashboard | `nerv study/progress` | `<vault> <project_slug>`                 | JSON: `{project, notes, completion, knowledge, thisWeek[]}` | User asks for a progress report, dashboard, or weekly stats              |
-| Weekly review      | `nerv weekly-review`  | `<vault> [<project_slug>] --json`        | JSON: `{findings[], summary}`                               | User asks for a review, audit summary, or weekly wrap-up                 |
 
 ---
 
@@ -76,13 +81,37 @@ Skills specific to the `dev-projectA` vault.
 
 ---
 
+## Canvas
+
+Skills that generate JSON Canvas 1.0 visualizations from vault data.
+
+| Name              | Command                    | Inputs                                 | Output                 | Intent trigger                                                  |
+| ----------------- | -------------------------- | -------------------------------------- | ---------------------- | --------------------------------------------------------------- |
+| Tree canvas       | `nerv canvas/tree`         | `<vault> <project_slug> [--depth <N>]` | JSON Canvas 1.0 output | User asks to visualize project hierarchy or tree as a canvas    |
+| Relations canvas  | `nerv canvas/relations`    | `<vault> <project_slug>`               | JSON Canvas 1.0 output | User asks to visualize connections or relationships as a canvas |
+| Dependency canvas | `nerv canvas/dependencies` | `<vault> <project_slug>`               | JSON Canvas 1.0 output | User asks to visualize dependency graph as a canvas             |
+
+---
+
+## Web Ingest
+
+Skills that import web content into the vault as structured entities.
+
+| Name         | Command                   | Inputs                                            | Output                                | Intent trigger                                                     |
+| ------------ | ------------------------- | ------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------ |
+| Ingest URL   | `nerv web-ingest/add`     | `<vault> <project> <url> [<parent>]`              | JSON: `{ingested, path, title, url}`  | User asks to save, import, or ingest a web page or article         |
+| Batch ingest | `nerv web-ingest/batch`   | `<vault> <project> <file>`                        | JSON: `{imported, skipped, errors[]}` | User asks to bulk-import a list of URLs from a file                |
+| RSS monitor  | `nerv web-ingest/monitor` | `<vault> <project> <feed_url> [--interval <min>]` | JSON: `{checked, newArticles[]}`      | User asks to monitor an RSS feed or set up recurring web ingestion |
+
+---
+
 ## Obsidian CLI — Direct Commands
 
 ### When to Use
 
-Prefer direct commands for single-step operations. Use shell skills (which call `obsidian eval`) for multi-step atomic operations.
+Prefer direct commands for single-step operations. Use nerv skills (which call `obEval` via the VaultOps adapter) for multi-step atomic operations.
 
-Shell skills handle complex logic that requires two or more steps to execute atomically (e.g. read frontmatter _then_ write it back, or append a connection _then_ append the inverse). Direct commands are one-liners for reads, simple writes, and queries — they have no rollback on partial failure.
+Nerv skills handle complex logic that requires two or more steps to execute atomically (e.g. read frontmatter _then_ write it back, or append a connection _then_ append the inverse). Direct commands are one-liners for reads, simple writes, and queries — they have no rollback on partial failure.
 
 ### Summary
 

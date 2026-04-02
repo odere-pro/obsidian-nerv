@@ -1,5 +1,4 @@
 // Ports assertions from cli/core/tests/test-context.sh.
-// Requires: OBSIDIAN_RUNNING=1 environment variable.
 //
 // Assertions covered:
 //   1. Output is valid JSON
@@ -17,29 +16,28 @@
 import { describe, expect, test } from 'bun:test';
 import { contextSearch } from '../../../src/commands/context';
 
-const VAULT = process.env.TEST_VAULT ?? 'study';
-const RUNNING = process.env.OBSIDIAN_RUNNING === '1';
+const VAULT_NAME = process.env.NERV_TEST_VAULT ?? 'test';
 
 describe('context integration', () => {
-  test.skipIf(!RUNNING)('output is valid JSON with query, vault, results keys', async () => {
-    const result = await contextSearch(VAULT, 'test', 3);
+  test('output is valid JSON with query, vault, results keys', async () => {
+    const result = await contextSearch(VAULT_NAME, 'test', 3);
     expect(typeof result.query).toBe('string');
     expect(typeof result.vault).toBe('string');
     expect(Array.isArray(result.results)).toBe(true);
   });
 
-  test.skipIf(!RUNNING)('query field matches input', async () => {
-    const result = await contextSearch(VAULT, 'knowledge graph', 5);
+  test('query field matches input', async () => {
+    const result = await contextSearch(VAULT_NAME, 'knowledge graph', 5);
     expect(result.query).toBe('knowledge graph');
   });
 
-  test.skipIf(!RUNNING)('results is an array', async () => {
-    const result = await contextSearch(VAULT, 'anything', 5);
+  test('results is an array', async () => {
+    const result = await contextSearch(VAULT_NAME, 'anything', 5);
     expect(Array.isArray(result.results)).toBe(true);
   });
 
-  test.skipIf(!RUNNING)('each result has required schema fields', async () => {
-    const result = await contextSearch(VAULT, 'note', 5);
+  test('each result has required schema fields', async () => {
+    const result = await contextSearch(VAULT_NAME, 'note', 5);
     for (const r of result.results) {
       expect(typeof r.path).toBe('string');
       expect(typeof r.title).toBe('string');
@@ -57,8 +55,8 @@ describe('context integration', () => {
     }
   });
 
-  test.skipIf(!RUNNING)('connections array entries have rel, target, context fields', async () => {
-    const result = await contextSearch(VAULT, 'note', 10);
+  test('connections array entries have rel, target, context fields', async () => {
+    const result = await contextSearch(VAULT_NAME, 'note', 10);
     for (const r of result.results) {
       for (const conn of r.connections) {
         expect(typeof conn.rel).toBe('string');
@@ -68,19 +66,19 @@ describe('context integration', () => {
     }
   });
 
-  test.skipIf(!RUNNING)('limit parameter restricts result count', async () => {
-    const result = await contextSearch(VAULT, 'note', 2);
+  test('limit parameter restricts result count', async () => {
+    const result = await contextSearch(VAULT_NAME, 'note', 2);
     expect(result.results.length).toBeLessThanOrEqual(2);
   });
 
-  test.skipIf(!RUNNING)('no-match query returns empty results (not an error)', async () => {
-    const result = await contextSearch(VAULT, 'zzzz_absolutely_no_match_xyzabc_9999', 5);
+  test('no-match query returns empty results (not an error)', async () => {
+    const result = await contextSearch(VAULT_NAME, 'zzzz_absolutely_no_match_xyzabc_9999', 5);
     expect(Array.isArray(result.results)).toBe(true);
     expect(result.results).toHaveLength(0);
   });
 
-  test.skipIf(!RUNNING)('breadcrumb field is present and non-empty for matched notes', async () => {
-    const result = await contextSearch(VAULT, 'note', 5);
+  test('breadcrumb field is present and non-empty for matched notes', async () => {
+    const result = await contextSearch(VAULT_NAME, 'note', 5);
     if (result.results.length > 0) {
       // At least the note's own basename should appear in breadcrumb
       for (const r of result.results) {
@@ -89,22 +87,22 @@ describe('context integration', () => {
     }
   });
 
-  test.skipIf(!RUNNING)('vault name in output matches resolved vault', async () => {
-    const result = await contextSearch(VAULT, 'test', 3);
+  test('vault name in output matches resolved vault', async () => {
+    const result = await contextSearch(VAULT_NAME, 'test', 3);
     expect(result.vault).toBeTruthy();
     expect(typeof result.vault).toBe('string');
   });
 
-  test.skipIf(!RUNNING)('content field is capped at 2000 characters', async () => {
-    const result = await contextSearch(VAULT, 'note', 5);
+  test('content field is capped at 2000 characters', async () => {
+    const result = await contextSearch(VAULT_NAME, 'note', 5);
     for (const r of result.results) {
       expect(r.content.length).toBeLessThanOrEqual(2000);
     }
   });
 
-  test.skipIf(!RUNNING)('performance: returns in < 5 seconds', async () => {
+  test('performance: returns in < 5 seconds', async () => {
     const start = Date.now();
-    await contextSearch(VAULT, 'note', 5);
+    await contextSearch(VAULT_NAME, 'note', 5);
     const elapsed = Date.now() - start;
     expect(elapsed).toBeLessThan(5000);
   });

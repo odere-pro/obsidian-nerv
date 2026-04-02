@@ -1,6 +1,8 @@
-// Obsidian vault .obsidian/ configuration JSON files.
-// Each config lives as a real .json file in src/configuration/.
-// init-vault imports them via Bun and writes them into the vault.
+/**
+ * Obsidian vault `.obsidian/` configuration JSON files.
+ * Each config lives as a real `.json` file in `src/configuration/`.
+ * `init-vault` imports them via Bun and writes them into the vault.
+ */
 
 import appConfig from './app.json';
 import bookmarksConfig from './bookmarks.json';

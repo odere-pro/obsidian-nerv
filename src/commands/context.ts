@@ -1,28 +1,30 @@
-// context — Primary sensory skill: relevance-scored vault retrieval.
-//
-// Exports:
-//   - ScoringNote (input type for scoreNote)
-//   - ContextResult, ContextOutput (output types)
-//   - scoreNote(query, note) — pure scoring function, zero side effects
-//   - contextSearch(vault, query, limit) — programmatic API used by explain-topic
-//   - default Command — CLI entry point
-//
-// Scoring weights (per term):
-//   title match        +10
-//   alias match        +8  (first matching alias only)
-//   kind match         +5
-//   spine match        +4
-//   tag match          +3  (first matching tag only)
-//   body term freq     +1 per occurrence, capped at +5
+/**
+ * Primary sensory skill: relevance-scored vault retrieval.
+ *
+ * Exports:
+ * - `ScoringNote` — input type for scoreNote
+ * - `ContextResult`, `ContextOutput` — output types
+ * - `scoreNote(query, note)` — pure scoring function, zero side effects
+ * - `contextSearch(vault, query, limit)` — programmatic API used by explain-topic
+ * - default `Command` — CLI entry point
+ *
+ * Scoring weights (per term):
+ * - title match: +10
+ * - alias match: +8 (first matching alias only)
+ * - kind match: +5
+ * - spine match: +4
+ * - tag match: +3 (first matching tag only)
+ * - body term freq: +1 per occurrence, capped at +5
+ */
 
 import type { Command } from '../cli';
 import { parseJson } from '../lib/json';
 import { obEval, resolveVault } from '../lib/obsidian';
 import { extractVaultFlag } from '../lib/vault-registry';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Types
+ * --------------------------------------------------------------------------- */
 
 /** Minimal note data required by the pure scoreNote function. */
 export interface ScoringNote {
@@ -60,9 +62,9 @@ export interface ContextOutput {
   results: ContextResult[];
 }
 
-// ---------------------------------------------------------------------------
-// Pure scoring function
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Pure scoring function
+ * --------------------------------------------------------------------------- */
 
 function normalizeTerms(query: string): string[] {
   return query
@@ -125,9 +127,9 @@ export function scoreNote(query: string, note: ScoringNote): number {
   return score;
 }
 
-// ---------------------------------------------------------------------------
-// Section parsing helpers (used in result assembly)
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Section parsing helpers (used in result assembly)
+ * --------------------------------------------------------------------------- */
 
 function extractSection(body: string, heading: string): string {
   const parts = body.split(/\n(?=## )/);
@@ -149,9 +151,9 @@ function parseConnectionSection(body: string): ConnectionEntry[] {
   return result;
 }
 
-// ---------------------------------------------------------------------------
-// Breadcrumb builder — pure, operates on the fetched note map
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Breadcrumb builder — pure, operates on the fetched note map
+ * --------------------------------------------------------------------------- */
 
 function buildBreadcrumb(
   basename: string,
@@ -191,9 +193,9 @@ function buildBreadcrumb(
   return crumbs.join(' > ');
 }
 
-// ---------------------------------------------------------------------------
-// Obsidian data fetch
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Obsidian data fetch
+ * --------------------------------------------------------------------------- */
 
 interface RawVaultNote {
   path: string;
@@ -222,9 +224,9 @@ function buildFetchExpr(): string {
 })()`;
 }
 
-// ---------------------------------------------------------------------------
-// Programmatic API
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Programmatic API
+ * --------------------------------------------------------------------------- */
 
 /** Search vault for notes matching query, ranked by relevance score. */
 export async function contextSearch(
@@ -277,9 +279,9 @@ export async function contextSearch(
   return { query, vault, results };
 }
 
-// ---------------------------------------------------------------------------
-// CLI Command
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * CLI Command
+ * --------------------------------------------------------------------------- */
 
 const command: Command = {
   name: 'context',

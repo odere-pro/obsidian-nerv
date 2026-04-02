@@ -7,9 +7,8 @@
     "build": "bun build --compile src/cli.ts --outfile=bin/nerv",
     "dev": "bun run src/index.ts",
     "start": "bun run src/index.ts",
-    "test": "bun test",
-    "test:unit": "bun test src/",
-    "test:integration": "bun test tests/integration/ --env-file=.env.integration",
+    "test:unit": "bun test tests/unit/",
+    "test:integration": "bun test --preload ./tests/integration/setup.ts --env-file .env.integration tests/integration/; NERV_TEST_EXIT=$?; bun --env-file .env.integration ./tests/integration/teardown.ts; exit $NERV_TEST_EXIT",
     "lint": "eslint --no-error-on-unmatched-pattern",
     "lint:fix": "eslint --fix --no-error-on-unmatched-pattern",
     "prettier": "prettier --check \"**/*.{ts,json,md,yml}\"",
@@ -44,7 +43,10 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "prettier": "^3.8.1",
-    "typescript": "~5.9.3",
+    "typescript": "~6.0.2",
     "typescript-eslint": "^8.57.2"
+  },
+  "overrides": {
+    "brace-expansion": "^5.0.5"
   }
 }

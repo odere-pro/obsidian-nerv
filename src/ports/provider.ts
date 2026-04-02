@@ -1,5 +1,7 @@
-// Dependency injection provider for port interfaces.
-// Commands import getVaultOps() / getDevOps() — never a concrete adapter.
+/**
+ * Dependency injection provider for port interfaces.
+ * Commands import getVaultOps() / getDevOps() — never a concrete adapter.
+ */
 
 import { ObsidianCliAdapter } from '../adapters/obsidian-cli';
 import { ObsidianDevAdapter } from '../adapters/obsidian-dev';

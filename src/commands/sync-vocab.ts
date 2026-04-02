@@ -1,11 +1,13 @@
-// sync-vocab — Autonomic skill: rebuild _vocab.<project>.md from note metadata.
-//
-// Exports:
-//   - VocabNote, VocabResult (types)
-//   - buildVocabContent(notes, slug) — pure function, unit-testable without Obsidian
-//   - default Command — CLI entry point
-//
-// Idempotent: full regeneration on every run. Updates `updated:` frontmatter date.
+/**
+ * sync-vocab — Autonomic skill: rebuild _vocab.<project>.md from note metadata.
+ *
+ * Exports:
+ *   - VocabNote, VocabResult (types)
+ *   - buildVocabContent(notes, slug) — pure function, unit-testable without Obsidian
+ *   - default Command — CLI entry point
+ *
+ * Idempotent: full regeneration on every run. Updates `updated:` frontmatter date.
+ */
 
 import type { Command } from '../cli';
 import { logError } from '../lib/logger';
@@ -13,9 +15,9 @@ import { resolveVault } from '../lib/obsidian';
 import { getVaultOps } from '../ports/provider';
 import { extractVaultFlag } from '../lib/vault-registry';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Types
+ * --------------------------------------------------------------------------- */
 
 export interface VocabNote {
   basename: string;
@@ -31,9 +33,9 @@ export interface VocabResult {
   orphanCount: number;
 }
 
-// ---------------------------------------------------------------------------
-// Pure content builder
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Pure content builder
+ * --------------------------------------------------------------------------- */
 
 const TYPE_ORDER: Record<string, number> = { ROOT: 0, BRANCH: 1, LEAF: 2 };
 
@@ -84,9 +86,9 @@ export function buildVocabContent(notes: VocabNote[], slug: string): string {
   return lines.join('\n');
 }
 
-// ---------------------------------------------------------------------------
-// VaultOps data fetch
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * VaultOps data fetch
+ * --------------------------------------------------------------------------- */
 
 const EXCLUDED_PREFIXES = ['_vocab', '_topk', '_ontology', 'tpl-'];
 
@@ -114,9 +116,9 @@ function fetchVocabNotes(
     });
 }
 
-// ---------------------------------------------------------------------------
-// Programmatic API
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Programmatic API
+ * --------------------------------------------------------------------------- */
 
 /** Rebuild _vocab file for a project. Used by weekly-review. */
 export async function syncVocab(vault: string, slug: string): Promise<VocabResult> {
@@ -144,9 +146,9 @@ export async function syncVocab(vault: string, slug: string): Promise<VocabResul
   return { noteCount: notes.length, entryCount, orphanCount };
 }
 
-// ---------------------------------------------------------------------------
-// CLI Command
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * CLI Command
+ * --------------------------------------------------------------------------- */
 
 const command: Command = {
   name: 'sync-vocab',

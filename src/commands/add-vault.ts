@@ -1,15 +1,16 @@
-//
-// add-vault — CLI command that wraps init-vault with registry integration.
-//
-// Re-exports all named exports from init-vault so existing imports keep working.
-// Adds: --vault flag, git-root boundary guard, vault registry write.
+/**
+ * add-vault — CLI command that wraps init-vault with registry integration.
+ *
+ * Re-exports all named exports from init-vault so existing imports keep working.
+ * Adds: --vault flag, git-root boundary guard, vault registry write.
+ */
 
 import { resolve, sep } from 'node:path';
 import type { Command } from '../cli';
 import { extractVaultFlag, findGitRoot, registerVault } from '../lib/vault-registry';
 import { deployAgentFiles, ensureZprofilePath, initVault } from './init-vault';
 
-// Re-export everything from init-vault for consumers that import from add-vault
+/* Re-export everything from init-vault for consumers that import from add-vault */
 export {
   buildVaultFileMap,
   deployAgentFiles,
@@ -20,9 +21,9 @@ export {
 } from './init-vault';
 export type { InitVaultParams, InitVaultResult } from './init-vault';
 
-// ---------------------------------------------------------------------------
-// CLI adapter
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * CLI adapter
+ * --------------------------------------------------------------------------- */
 
 const HELP =
   'Usage: nerv add-vault --vault <name> [--path <path>]\n  --vault  Vault name (required)\n  --path   Vault root directory (default: ./docs/vaults)\n';
@@ -38,16 +39,17 @@ const command: Command = {
 
     const { vault: name, rest } = extractVaultFlag(args);
     const pathIdx = rest.indexOf('--path');
-    const rawPath = pathIdx !== -1 ? rest[pathIdx + 1] : './docs/vaults';
 
     if (!name) {
       process.stderr.write(`add-vault: --vault <name> is required\n${HELP}`);
       process.exit(1);
     }
 
+    const rawPath = pathIdx !== -1 ? rest[pathIdx + 1] : `./docs/vaults/${name}`;
+
     const vaultPath = resolve(rawPath.replace(/^~/, Bun.env.HOME ?? ''));
 
-    // Git-root boundary guard
+    /* Git-root boundary guard */
     if (process.env['NERV_SKIP_GIT_ROOT_CHECK'] !== '1') {
       const gitRoot = await findGitRoot();
       const inside = vaultPath === gitRoot || vaultPath.startsWith(gitRoot + sep);
@@ -63,7 +65,7 @@ const command: Command = {
     await deployAgentFiles(name, vaultPath);
     await ensureZprofilePath();
 
-    await registerVault(name, vaultPath);
+    await registerVault(vaultPath);
     process.stdout.write(`==> Registered vault '${name}' in .nerv/vaults.json\n`);
   },
 };

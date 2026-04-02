@@ -1,9 +1,8 @@
-//
-// Polls an RSS/Atom feed URL for new articles and ingests each one.
-// State (last-checked timestamp + seen article URLs) is persisted in
-// `_inbox/_web-ingest-state.json` inside the vault via VaultOps.
-//
-// CLI: nerv web-ingest/monitor [--vault <name>] <project> <feed-url> [--interval 3600] [--once] [--max-articles 10]
+/* Polls an RSS/Atom feed URL for new articles and ingests each one. */
+/* State (last-checked timestamp + seen article URLs) is persisted in */
+/* `_inbox/_web-ingest-state.json` inside the vault via VaultOps. */
+
+/* CLI: nerv web-ingest/monitor [--vault <name>] <project> <feed-url> [--interval 3600] [--once] [--max-articles 10] */
 
 import type { Command } from '../../cli';
 import { resolveVault } from '../../lib/obsidian';
@@ -12,9 +11,9 @@ import type { VaultOps } from '../../ports/vault-ops';
 import { ingestUrl } from './add';
 import { extractVaultFlag } from '../../lib/vault-registry';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Types
+ * --------------------------------------------------------------------------- */
 
 export interface FeedArticle {
   title: string;
@@ -23,13 +22,14 @@ export interface FeedArticle {
 }
 
 export interface MonitorState {
-  lastChecked: string; // ISO timestamp
+  /** ISO timestamp */
+  lastChecked: string;
   seenUrls: string[];
 }
 
-// ---------------------------------------------------------------------------
-// RSS / Atom parsing
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * RSS / Atom parsing
+ * --------------------------------------------------------------------------- */
 
 /**
  * Extract articles from an RSS 2.0 or Atom feed string.
@@ -38,11 +38,11 @@ export interface MonitorState {
 export function parseFeed(xml: string): FeedArticle[] {
   const articles: FeedArticle[] = [];
 
-  // Detect Atom vs RSS by presence of <entry> elements
+  /* Detect Atom vs RSS by presence of <entry> elements */
   const isAtom = xml.includes('<entry');
 
   if (isAtom) {
-    // Atom feed: <entry>…</entry>
+    /* Atom feed: <entry>…</entry> */
     const entryRe = /<entry[^>]*>([\s\S]*?)<\/entry>/gi;
     let m: RegExpExecArray | null;
     while ((m = entryRe.exec(xml)) !== null) {
@@ -50,10 +50,10 @@ export function parseFeed(xml: string): FeedArticle[] {
       const title = extractTag(block, 'title') ?? '';
       const url = extractAttr(block, 'link', 'href') ?? extractTag(block, 'id') ?? '';
       const pubDate = extractTag(block, 'updated') ?? extractTag(block, 'published');
-      if (url) articles.push({ title, url, pubDate });
+      if (url) articles.push({ title, url, pubDate: pubDate || '' });
     }
   } else {
-    // RSS 2.0 feed: <item>…</item>
+    /* RSS 2.0 feed: <item>…</item> */
     const itemRe = /<item[^>]*>([\s\S]*?)<\/item>/gi;
     let m: RegExpExecArray | null;
     while ((m = itemRe.exec(xml)) !== null) {
@@ -61,7 +61,7 @@ export function parseFeed(xml: string): FeedArticle[] {
       const title = extractTag(block, 'title') ?? '';
       const url = extractTag(block, 'link') ?? extractTag(block, 'guid') ?? '';
       const pubDate = extractTag(block, 'pubDate') ?? extractTag(block, 'dc:date');
-      if (url) articles.push({ title, url, pubDate });
+      if (url) articles.push({ title, url, pubDate: pubDate || '' });
     }
   }
 
@@ -69,12 +69,12 @@ export function parseFeed(xml: string): FeedArticle[] {
 }
 
 function extractTag(xml: string, tag: string): string | undefined {
-  // Escape special regex chars in tag name (e.g. dc:date has a colon)
+  /* Escape special regex chars in tag name (e.g. dc:date has a colon) */
   const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const re = new RegExp(`<${escapedTag}[^>]*>([\\s\\S]*?)<\\/${escapedTag}>`, 'i');
   const m = re.exec(xml);
   if (!m) return undefined;
-  // Strip CDATA wrapper if present
+  /* Strip CDATA wrapper if present */
   const raw = m[1].trim();
   const cdata = /^<!\[CDATA\[([\s\S]*?)\]\]>$/.exec(raw);
   return cdata ? cdata[1].trim() : raw;
@@ -88,9 +88,9 @@ function extractAttr(xml: string, tag: string, attr: string): string | undefined
   return m ? m[1].trim() : undefined;
 }
 
-// ---------------------------------------------------------------------------
-// State management — stored in vault's _inbox/_web-ingest-state.json
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * State management — stored in vault's _inbox/_web-ingest-state.json
+ * --------------------------------------------------------------------------- */
 
 const STATE_PATH = '_inbox/_web-ingest-state.json';
 
@@ -121,12 +121,13 @@ export async function saveState(vault: string, state: MonitorState, ops?: VaultO
   }
 }
 
-// ---------------------------------------------------------------------------
-// Core poll loop
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Core poll loop
+ * --------------------------------------------------------------------------- */
 
 export interface MonitorOptions {
-  interval: number; // seconds
+  /** seconds */
+  interval: number;
   once: boolean;
   maxArticles: number;
   parent?: string;
@@ -160,7 +161,7 @@ export async function runMonitor(
       if (processed >= opts.maxArticles) break;
       if (state.seenUrls.includes(article.url)) continue;
 
-      // Filter by publication date if available
+      /* Filter by publication date if available */
       if (article.pubDate) {
         const pub = new Date(article.pubDate);
         if (!isNaN(pub.getTime()) && pub <= lastChecked) continue;
@@ -197,7 +198,7 @@ export async function runMonitor(
     return;
   }
 
-  // Daemon loop — exit via Ctrl+C
+  /* Daemon loop — exit via Ctrl+C */
   process.stdout.write(`INFO: monitor started — feed: ${feedUrl}, interval: ${opts.interval}s\n`);
 
   await poll();
@@ -209,7 +210,7 @@ export async function runMonitor(
     });
   }, opts.interval * 1000);
 
-  // Keep process alive; clean up on SIGINT
+  /* Keep process alive; clean up on SIGINT */
   process.on('SIGINT', () => {
     clearInterval(timer);
     process.stdout.write('\nINFO: monitor stopped\n');
@@ -217,9 +218,9 @@ export async function runMonitor(
   });
 }
 
-// ---------------------------------------------------------------------------
-// CLI command
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * CLI command
+ * --------------------------------------------------------------------------- */
 
 const command: Command = {
   name: 'web-ingest/monitor',
@@ -259,7 +260,12 @@ const command: Command = {
     const project = positional[0];
     const feedUrl = positional[1];
 
-    await runMonitor(vault, project, feedUrl, { interval, once, maxArticles, parent });
+    await runMonitor(vault, project, feedUrl, {
+      interval,
+      once,
+      maxArticles,
+      parent: parent || '',
+    });
   },
 };
 

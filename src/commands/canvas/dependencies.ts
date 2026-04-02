@@ -1,19 +1,21 @@
-// canvas/dependencies — Generate a JSON Canvas DAG for depends-on edges.
-//
-// Filters to depends-on edges only from getRelations().
-// Lays out nodes using topological ordering: sources on left, sinks on right.
-// Outputs projects/<slug>/<slug>.dependencies.canvas conforming to JSON Canvas 1.0 spec.
-//
-// Node coloring:
-//   no dependencies (pure sink)  → "3" Yellow
-//   has dependencies (has deps)  → "2" Orange
-//   is depended-on (pure source) → "1" Red
-//
-// Exports:
-//   - CanvasResult (re-export from lib/canvas)
-//   - buildDependenciesCanvas(edges) — pure function
-//   - generateDependenciesCanvas(vault, project) — programmatic API
-//   - default Command — CLI entry point
+/**
+ * canvas/dependencies — Generate a JSON Canvas DAG for depends-on edges.
+ *
+ * Filters to depends-on edges only from getRelations().
+ * Lays out nodes using topological ordering: sources on left, sinks on right.
+ * Outputs projects/<slug>/<slug>.dependencies.canvas conforming to JSON Canvas 1.0 spec.
+ *
+ * Node coloring:
+ *   no dependencies (pure sink)  → "3" Yellow
+ *   has dependencies (has deps)  → "2" Orange
+ *   is depended-on (pure source) → "1" Red
+ *
+ * Exports:
+ *   - CanvasResult (re-export from lib/canvas)
+ *   - buildDependenciesCanvas(edges) — pure function
+ *   - generateDependenciesCanvas(vault, project) — programmatic API
+ *   - default Command — CLI entry point
+ */
 
 import type { Command } from '../../cli';
 import {
@@ -35,9 +37,9 @@ import { extractVaultFlag } from '../../lib/vault-registry';
 
 export type { CanvasResult };
 
-// ---------------------------------------------------------------------------
-// Topological sort (Kahn's algorithm)
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Topological sort (Kahn's algorithm)
+ * --------------------------------------------------------------------------- */
 
 /**
  * Assign a topological level (column) to each node.
@@ -81,7 +83,7 @@ export function topologicalLevels(
     }
   }
 
-  // Nodes that never entered the queue (cycle participants) get fallback level
+  /* Nodes that never entered the queue (cycle participants) get fallback level */
   let maxLevel = 0;
   for (const l of levels.values()) maxLevel = Math.max(maxLevel, l);
 
@@ -92,19 +94,19 @@ export function topologicalLevels(
   return levels;
 }
 
-// ---------------------------------------------------------------------------
-// Node color based on in/out degree
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Node color based on in/out degree
+ * --------------------------------------------------------------------------- */
 
 function dependencyColor(hasOutgoing: boolean, hasIncoming: boolean): string {
-  if (hasIncoming && !hasOutgoing) return '1'; // depended-on, pure source → Red
-  if (hasOutgoing) return '2'; // has dependencies → Orange
-  return '3'; // isolated / no deps → Yellow
+  if (hasIncoming && !hasOutgoing) return '1'; /* depended-on, pure source → Red */
+  if (hasOutgoing) return '2'; /* has dependencies → Orange */
+  return '3'; /* isolated / no deps → Yellow */
 }
 
-// ---------------------------------------------------------------------------
-// Pure canvas builder
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Pure canvas builder
+ * --------------------------------------------------------------------------- */
 
 export interface DependencyEdgeInput {
   source: string;
@@ -116,7 +118,7 @@ export interface DependencyEdgeInput {
  * Positions nodes by topological level (sources left, sinks right).
  */
 export function buildDependenciesCanvas(edges: DependencyEdgeInput[]): CanvasData {
-  // Collect all unique node names
+  /* Collect all unique node names */
   const nameSet = new Set<string>();
   for (const e of edges) {
     nameSet.add(e.source);
@@ -126,7 +128,7 @@ export function buildDependenciesCanvas(edges: DependencyEdgeInput[]): CanvasDat
 
   if (names.length === 0) return { nodes: [], edges: [] };
 
-  // Compute in/out degree for coloring
+  /* Compute in/out degree for coloring */
   const outgoing = new Set<string>();
   const incoming = new Set<string>();
   for (const e of edges) {
@@ -134,16 +136,16 @@ export function buildDependenciesCanvas(edges: DependencyEdgeInput[]): CanvasDat
     incoming.add(e.target);
   }
 
-  // Topological levels for x-axis placement
+  /* Topological levels for x-axis placement */
   const levels = topologicalLevels(names, edges);
 
-  // Count nodes per level for y-axis placement
+  /* Count nodes per level for y-axis placement */
   const levelCounts = new Map<number, number>();
   for (const l of levels.values()) {
     levelCounts.set(l, (levelCounts.get(l) ?? 0) + 1);
   }
 
-  // Assign y positions by level
+  /* Assign y positions by level */
   const levelYCounter = new Map<number, number>();
   const nodeMap = new Map<string, CanvasNode>();
 
@@ -186,9 +188,9 @@ export function buildDependenciesCanvas(edges: DependencyEdgeInput[]): CanvasDat
   return { nodes: [...nodeMap.values()], edges: canvasEdges };
 }
 
-// ---------------------------------------------------------------------------
-// Canvas write helper (via obEval)
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Canvas write helper (via obEval)
+ * --------------------------------------------------------------------------- */
 
 function buildWriteExpr(filePath: string, content: string): string {
   const jsPath = encodeForJs(filePath);
@@ -210,9 +212,9 @@ function buildWriteExpr(filePath: string, content: string): string {
 })()`;
 }
 
-// ---------------------------------------------------------------------------
-// Programmatic API
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Programmatic API
+ * --------------------------------------------------------------------------- */
 
 export async function generateDependenciesCanvas(
   vault: string,
@@ -251,9 +253,9 @@ export async function generateDependenciesCanvas(
   return { ok: true, data: canvas, outputPath };
 }
 
-// ---------------------------------------------------------------------------
-// CLI Command
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * CLI Command
+ * --------------------------------------------------------------------------- */
 
 const command: Command = {
   name: 'canvas/dependencies',

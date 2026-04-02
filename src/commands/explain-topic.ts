@@ -1,21 +1,23 @@
-// explain-topic — Sensory skill: assemble a teaching bundle for a queried topic.
-//
-// Composes context.scoreNote and get-entity.resolveEntity as direct module imports
-// (no subprocess calls). VaultOps fetches all vault data; TypeScript does
-// scoring, matching, sibling resolution, and connected-note assembly.
-//
-// Exports:
-//   - ExplainResult (output type)
-//   - explainTopic(vault, query, ops?) — programmatic API
-//   - default Command — CLI entry point
-//
-// Output schema:
-//   {
-//     "primary":   {<EntityOutput>},
-//     "parent":    {"title":"...","summary":"..."} | null,
-//     "siblings":  [{"title":"...","summary":"..."}],
-//     "connected": [{"title":"...","summary":"...","kind":"...","rel":"..."}]
-//   }
+/**
+ * explain-topic — Sensory skill: assemble a teaching bundle for a queried topic.
+ *
+ * Composes context.scoreNote and get-entity.resolveEntity as direct module imports
+ * (no subprocess calls). VaultOps fetches all vault data; TypeScript does
+ * scoring, matching, sibling resolution, and connected-note assembly.
+ *
+ * Exports:
+ *   - ExplainResult (output type)
+ *   - explainTopic(vault, query, ops?) — programmatic API
+ *   - default Command — CLI entry point
+ *
+ * Output schema:
+ *   {
+ *     "primary":   {<EntityOutput>},
+ *     "parent":    {"title":"...","summary":"..."} | null,
+ *     "siblings":  [{"title":"...","summary":"..."}],
+ *     "connected": [{"title":"...","summary":"...","kind":"...","rel":"..."}]
+ *   }
+ */
 
 import type { Command } from '../cli';
 import { resolveVault } from '../lib/obsidian';
@@ -26,9 +28,9 @@ import type { EntityNote, EntityOutput } from './get-entity';
 import { resolveEntity } from './get-entity';
 import { extractVaultFlag } from '../lib/vault-registry';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Types
+ * --------------------------------------------------------------------------- */
 
 export interface ParentSummary {
   title: string;
@@ -54,9 +56,9 @@ export interface ExplainResult {
   connected: ConnectedEntry[];
 }
 
-// ---------------------------------------------------------------------------
-// Section parser helpers
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Section parser helpers
+ * --------------------------------------------------------------------------- */
 
 function extractSummary(rawBody: string): string {
   const body = rawBody.replace(/^---[\s\S]*?---\n?/, '');
@@ -105,9 +107,9 @@ function resolveWikiLink(raw: string): string {
   return m ? m[1].trim() : String(raw ?? '').trim();
 }
 
-// ---------------------------------------------------------------------------
-// Wikilink extraction helpers — derive backlinks/outgoing from content
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Wikilink extraction helpers — derive backlinks/outgoing from content
+ * --------------------------------------------------------------------------- */
 
 function extractOutgoingLinks(
   rawBody: string
@@ -152,9 +154,9 @@ function buildBacklinks(
   return backlinks;
 }
 
-// ---------------------------------------------------------------------------
-// Vault data fetch via VaultOps
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Vault data fetch via VaultOps
+ * --------------------------------------------------------------------------- */
 
 async function fetchAllNotes(vault: string, ops: VaultOps): Promise<EntityNote[]> {
   const entries = await ops.listFiles(vault);
@@ -162,19 +164,21 @@ async function fetchAllNotes(vault: string, ops: VaultOps): Promise<EntityNote[]
 
   for (const entry of entries) {
     const file = await ops.readFile(vault, entry.path);
-    const basename = entry.path.replace(/.*\//, '').replace(/\.md$/, '');
+    const basename = entry.path
+      .replace(/.*\//, '')
+      .replace(/\.md$/, ''); /* strip dir prefix + extension */
     const outgoing = extractOutgoingLinks(file.content);
     notes.push({
       path: entry.path,
       basename,
       frontmatter: file.frontmatter,
       rawBody: file.content,
-      backlinks: [], // populated in a second pass
+      backlinks: [] /* populated in a second pass */,
       outgoing,
     });
   }
 
-  // Second pass: build backlinks from outgoing links
+  /* Second pass: build backlinks from outgoing links */
   for (const note of notes) {
     note.backlinks = buildBacklinks(notes, note.basename);
   }
@@ -182,9 +186,9 @@ async function fetchAllNotes(vault: string, ops: VaultOps): Promise<EntityNote[]
   return notes;
 }
 
-// ---------------------------------------------------------------------------
-// Programmatic API
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Programmatic API
+ * --------------------------------------------------------------------------- */
 
 export async function explainTopic(
   vault: string,
@@ -194,7 +198,7 @@ export async function explainTopic(
   const vaultOps = ops ?? getVaultOps();
   const notes = await fetchAllNotes(vault, vaultOps).catch(() => [] as EntityNote[]);
 
-  // Step 1: Find highest-scoring note via scoreNote (same algorithm as context)
+  /* Step 1: Find highest-scoring note via scoreNote (same algorithm as context) */
   let bestNote: EntityNote | null = null;
   let bestScore = 0;
   for (const note of notes) {
@@ -210,13 +214,13 @@ export async function explainTopic(
   }
 
   if (!bestNote || bestScore === 0) {
-    // Fall back to resolveEntity for exact/alias/slug/title/fuzzy match
+    /* Fall back to resolveEntity for exact/alias/slug/title/fuzzy match */
     const match = resolveEntity(query, notes);
     if (!match) return null;
     bestNote = match.note;
   }
 
-  // Step 2: Build primary entity output
+  /* Step 2: Build primary entity output */
   const primary: EntityOutput = {
     path: bestNote.path,
     matchType: 'exact',
@@ -231,11 +235,11 @@ export async function explainTopic(
   const parentName = resolveWikiLink(parentVal);
   const isRoot = String(fm['type'] ?? '') === 'ROOT';
 
-  // Step 3: Build basename → note map for sibling + connected lookups
+  /* Step 3: Build basename → note map for sibling + connected lookups */
   const noteMap = new Map<string, EntityNote>();
   for (const n of notes) noteMap.set(n.basename, n);
 
-  // Step 4: Parent
+  /* Step 4: Parent */
   let parent: ParentSummary | null = null;
   if (!isRoot && parentName) {
     const parentNote = noteMap.get(parentName);
@@ -247,7 +251,7 @@ export async function explainTopic(
     }
   }
 
-  // Step 5: Siblings — notes sharing same parent (excluding primary)
+  /* Step 5: Siblings — notes sharing same parent (excluding primary) */
   const siblings: SiblingSummary[] = [];
   if (parentName) {
     for (const n of notes) {
@@ -262,12 +266,12 @@ export async function explainTopic(
     }
   }
 
-  // Step 6: Connected — resolve typed connection targets from primary's ## Connections
+  /* Step 6: Connected — resolve typed connection targets from primary's ## Connections */
   const connections = parseConnections(bestNote.rawBody);
   const connected: ConnectedEntry[] = [];
   for (const conn of connections) {
     const target = conn.target;
-    // Try to find by basename or path match
+    /* Try to find by basename or path match */
     let destNote: EntityNote | undefined;
     for (const n of notes) {
       if (n.basename === target || n.path === target) {
@@ -287,9 +291,9 @@ export async function explainTopic(
   return { primary, parent, siblings, connected };
 }
 
-// ---------------------------------------------------------------------------
-// CLI Command
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * CLI Command
+ * --------------------------------------------------------------------------- */
 
 const command: Command = {
   name: 'explain-topic',

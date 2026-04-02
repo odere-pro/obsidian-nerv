@@ -1,7 +1,9 @@
-//
-// TypeScript port of cli/core/add-connection.sh.
-// Writes a bidirectional typed connection between two notes, looking up the
-// inverse relationship type from the project's _ontology file.
+/**
+ * TypeScript port of cli/core/add-connection.sh.
+ *
+ * Writes a bidirectional typed connection between two notes, looking up the
+ * inverse relationship type from the project's _ontology file.
+ */
 
 import type { Command } from '../cli';
 import { logError, logWarn } from '../lib/logger';
@@ -77,7 +79,7 @@ export async function addConnection(
     };
   }
 
-  // Derive project slug from source path (projects/<slug>/...)
+  /* Derive project slug from source path (projects/<slug>/...) */
   const slugMatch = /^projects\/([^/]+)\//.exec(sourcePath);
   if (!slugMatch) {
     return {
@@ -91,7 +93,7 @@ export async function addConnection(
 
   const ops = getVaultOps();
 
-  // Look up inverse type and symmetric flag from the ontology file
+  /* Look up inverse type and symmetric flag from the ontology file */
   let inverseType = '';
   let symmetric = false;
 
@@ -120,7 +122,7 @@ export async function addConnection(
     logWarn(`add-connection: unknown relationship type "${relType}" — inverse will not be written`);
   }
 
-  // Verify source and target exist
+  /* Verify source and target exist */
   const sourceExists = await ops.fileExists(vault, sourcePath).catch(() => false);
   if (!sourceExists) {
     return {
@@ -142,7 +144,7 @@ export async function addConnection(
   const sourceBasename = basenameOf(sourcePath);
   const targetBasename = basenameOf(targetPath);
 
-  // Write forward connection
+  /* Write forward connection */
   const sourceFile = await ops.readFile(vault, sourcePath);
   let forwardWritten: boolean | 'skipped';
 
@@ -172,7 +174,7 @@ export async function addConnection(
     forwardWritten = true;
   }
 
-  // Write inverse connection
+  /* Write inverse connection */
   let inverseWritten: boolean | 'skipped' = false;
   let inverseError = '';
 

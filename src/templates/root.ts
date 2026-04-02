@@ -5,8 +5,10 @@ export interface RootParams {
   kind: string;
   spine: string;
   status: EntityStatus;
-  created: string; // YYYY-MM-DD
-  modified: string; // YYYY-MM-DD
+  /** YYYY-MM-DD */
+  created: string;
+  /** YYYY-MM-DD */
+  modified: string;
 }
 
 export function renderRoot(params: RootParams): string {

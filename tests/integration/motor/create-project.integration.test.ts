@@ -1,16 +1,13 @@
 //
 // Ports assertions from cli/core/tests/test-create-project.sh.
-// Requires OBSIDIAN_RUNNING=1 to execute; skips the full suite otherwise.
-//
-// Run: OBSIDIAN_RUNNING=1 bun test tests/integration/motor/create-project.integration.test
+// Run: bun test tests/integration/motor/create-project.integration.test
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { createProject } from '../../../src/commands/create-project';
 import { encodeForJs } from '../../../src/lib/json';
 import { obEval } from '../../../src/lib/obsidian';
 
-const RUNNING = process.env.OBSIDIAN_RUNNING === '1';
-const VAULT = process.env.TEST_VAULT ?? 'study';
+const VAULT_NAME = process.env.NERV_TEST_VAULT ?? 'test';
 
 const TEST_SLUG = 'testcp-ts';
 const TEST_TITLE = 'Test Create Project TS';
@@ -28,7 +25,7 @@ const BASE_PATH = `${PROJ_DIR}/${TEST_SLUG}.base`;
 // ---------------------------------------------------------------------------
 async function fileExists(path: string): Promise<boolean> {
   const result = await obEval(
-    VAULT,
+    VAULT_NAME,
     `app.vault.getAbstractFileByPath(${encodeForJs(path)}) ? 'yes' : 'no'`
   ).catch(() => 'no');
   return result === 'yes';
@@ -36,14 +33,14 @@ async function fileExists(path: string): Promise<boolean> {
 
 async function readFile(path: string): Promise<string> {
   return obEval(
-    VAULT,
+    VAULT_NAME,
     `(async () => { const f = app.vault.getAbstractFileByPath(${encodeForJs(path)}); return f ? await app.vault.cachedRead(f) : ''; })()`
   ).catch(() => '');
 }
 
 async function cleanup(): Promise<void> {
   await obEval(
-    VAULT,
+    VAULT_NAME,
     `(async () => { const f = app.vault.getAbstractFileByPath(${encodeForJs(PROJ_DIR)}); if (f) await app.vault.trash(f, false); })()`
   ).catch(() => undefined);
 }
@@ -52,18 +49,13 @@ async function cleanup(): Promise<void> {
 // Suite
 // ---------------------------------------------------------------------------
 describe('create-project integration', () => {
-  if (!RUNNING) {
-    test.skip('OBSIDIAN_RUNNING=1 not set — skipping integration suite', () => {});
-    return;
-  }
-
   beforeAll(async () => {
     await cleanup();
-    await createProject({ vault: VAULT, slug: TEST_SLUG, title: TEST_TITLE });
+    await createProject({ vault: VAULT_NAME, slug: TEST_SLUG, title: TEST_TITLE });
   });
 
   afterAll(async () => {
-    await cleanup();
+    // await cleanup();
   });
 
   // ---------------------------------------------------------------------------
@@ -143,7 +135,7 @@ describe('create-project integration', () => {
       return true;
     };
     try {
-      await createProject({ vault: VAULT, slug: TEST_SLUG, title: TEST_TITLE });
+      await createProject({ vault: VAULT_NAME, slug: TEST_SLUG, title: TEST_TITLE });
     } finally {
       process.stdout.write = orig;
     }

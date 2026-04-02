@@ -1,0 +1,90 @@
+direction: down
+
+lint: "nerv cli-lint" {
+  style.fill: "#ffcdd2"
+  style.font-size: 16
+
+  rules: "11 Validation Rules" {
+    style.fill: "#ef9a9a"
+
+    structure: Structure Rules {
+      style.fill: "#e57373"
+      style.font-color: "#ffffff"
+      r1: "missing-field\n7 required: title, type,\nkind, spine, status,\ncreated, aliases"
+      r2: "root-has-parent\nROOT must have\nempty parent"
+      r3: "missing-parent\nBRANCH/LEAF must\nhave a parent"
+      r4: "empty-children\nBRANCH must have\nnon-empty children[]"
+    }
+
+    connections: Connection Rules {
+      style.fill: "#e57373"
+      style.font-color: "#ffffff"
+      r8: "untyped-connection\nlinks must use\n- rel :: [[target]]"
+      r9: "connection-limit\nmax 7 typed\nconnections per note"
+    }
+
+    hygiene: Hygiene Rules {
+      style.fill: "#e57373"
+      style.font-color: "#ffffff"
+      r5: "spine-in-body\nspine tag must be\nin frontmatter only"
+      r6: "legacy-flag-tag\nuse > [!flag]\nnot #flag/"
+      r7: "legacy-status-tag\nuse frontmatter\nnot #status/"
+      r10: "missing-breadcrumb\nBRANCH/LEAF needs\n## Breadcrumb section"
+      r11: "flag-limit\nmax 3 callout\nflags per note"
+    }
+  }
+}
+
+topk: "nerv sync-topk" {
+  style.fill: "#fff9c4"
+  style.font-size: 16
+
+  limits: "Enforced Limits" {
+    style.fill: "#fff176"
+
+    l1: "Connections\nper note\n≤ 7" {style.fill: "#ffee58"}
+    l2: "Callout flags\nper note\n≤ 3" {style.fill: "#ffee58"}
+    l3: "BRANCH\nchildren\n≤ 7" {style.fill: "#ffee58"}
+    l4: "LEAF\nchildren\n≤ 5" {style.fill: "#ffee58"}
+  }
+
+  overflow: "_topk.<slug>.md" {
+    style.fill: "#ffe082"
+    log: "Overflow Log (max 200 rows)\n| Date | Note | Field | Count | Threshold |"
+  }
+
+  limits.l1 -> overflow.log: "violation" {style.stroke: "#f57f17"}
+  limits.l2 -> overflow.log: "violation" {style.stroke: "#f57f17"}
+  limits.l3 -> overflow.log: "violation" {style.stroke: "#f57f17"}
+  limits.l4 -> overflow.log: "violation" {style.stroke: "#f57f17"}
+}
+
+review: "nerv weekly-review" {
+  style.fill: "#c8e6c9"
+  style.font-size: 16
+
+  pipeline: "Orchestration Pipeline" {
+    style.fill: "#a5d6a7"
+
+    s1: "1. cli-lint\nfrontmatter\nvalidation" {style.fill: "#81c784"}
+    s2: "2. cli-orphans\nbroken parent\nlinks" {style.fill: "#81c784"}
+    s3: "3. cli-relations\nunknown rel\ntypes" {style.fill: "#81c784"}
+    s4: "4. sync-ontology\nmissing\ninverses" {style.fill: "#81c784"}
+    s5: "5. sync-vocab\nterm index\nupdate" {style.fill: "#81c784"}
+    s6: "6. sync-topk\noverflow\ndetection" {style.fill: "#81c784"}
+    s7: "7. unresolved\nbroken\nwikilinks" {style.fill: "#81c784"}
+
+    s1 -> s2 -> s3 -> s4 -> s5 -> s6 -> s7
+  }
+
+  output: "JSON summary\n→ appended to daily note" {
+    style.fill: "#66bb6a"
+    style.font-color: "#ffffff"
+  }
+
+  pipeline.s7 -> output
+}
+
+# Cross-references
+lint -> review.pipeline.s1: "called by" {style.stroke-dash: 3}
+topk -> review.pipeline.s6: "called by" {style.stroke-dash: 3}

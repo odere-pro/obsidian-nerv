@@ -1,7 +1,8 @@
-//
-// TypeScript port of cli/core/import-json.sh.
-// Reads a JSON array via Bun.file — zero Python dependency.
-// Calls createEntity() directly (no subprocess) for each entry.
+/**
+ * import-json — TypeScript port of cli/core/import-json.sh.
+ * Reads a JSON array via Bun.file — zero Python dependency.
+ * Calls createEntity() directly (no subprocess) for each entry.
+ */
 
 import type { Command } from '../cli';
 import { logError } from '../lib/logger';
@@ -76,11 +77,11 @@ export async function importJson(params: {
       title: entry.name,
       parentSlug,
       kind,
-      spine: spine || undefined,
+      spine,
     });
 
     if (!result.ok) {
-      // Non-fatal: report and skip
+      /* Non-fatal: report and skip */
       process.stderr.write(`WARN: failed to create "${entry.name}": ${result.error}\n`);
       skipped++;
       continue;
@@ -91,7 +92,7 @@ export async function importJson(params: {
       continue;
     }
 
-    // Apply extra frontmatter fields (everything beyond standard schema)
+    /* Apply extra frontmatter fields (everything beyond standard schema) */
     const extras: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(entry)) {
       if (!STANDARD_FIELDS.has(k)) extras[k] = v;
@@ -133,7 +134,7 @@ const command: Command = {
       );
     }
 
-    // Read JSON using Bun.file — zero Python dependency
+    /* Read JSON using Bun.file — zero Python dependency */
     let entries: ImportEntry[];
     try {
       const raw = (await Bun.file(jsonFile).json()) as unknown;
@@ -147,7 +148,7 @@ const command: Command = {
       process.exit(1);
     }
 
-    // Verify the project exists
+    /* Verify the project exists */
     const ops = getVaultOps();
     const projDir = `projects/${projectSlug}`;
     const projExists = await ops.fileExists(vault, projDir).catch(() => false);

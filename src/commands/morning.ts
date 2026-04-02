@@ -1,13 +1,15 @@
-// morning — Orchestration skill: daily startup sequence.
-//
-// Executes 4 steps in sequence using VaultOps port for all vault operations:
-//   1. openDaily           — open today's daily note
-//   2. listFiles + count   — count inbox backlog, append to daily
-//   3. listRecentFiles     — list 10 most recently modified files
-//   4. listUnresolved      — list unresolved wikilinks
-//
-// Install cron entry for weekday 08:00:
-//   0 8 * * 1-5 ~/.ontology-cli/bin/nerv morning [--vault <name>]
+/**
+ * morning — Orchestration skill: daily startup sequence.
+ *
+ * Executes 4 steps in sequence using VaultOps port for all vault operations:
+ *   1. openDaily           — open today's daily note
+ *   2. listFiles + count   — count inbox backlog, append to daily
+ *   3. listRecentFiles     — list 10 most recently modified files
+ *   4. listUnresolved      — list unresolved wikilinks
+ *
+ * Install cron entry for weekday 08:00:
+ *   0 8 * * 1-5 ~/.ontology-cli/bin/nerv morning [--vault <name>]
+ */
 
 import type { Command } from '../cli';
 import { resolveVault } from '../lib/obsidian';
@@ -15,16 +17,16 @@ import { getVaultOps } from '../ports/provider';
 import type { VaultOps } from '../ports/vault-ops';
 import { extractVaultFlag } from '../lib/vault-registry';
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Constants
+ * --------------------------------------------------------------------------- */
 
 /** Cron expression for weekday 08:00 morning startup. */
 export const CRON_ENTRY = '0 8 * * 1-5 ~/.ontology-cli/bin/nerv morning [--vault <name>]';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Types
+ * --------------------------------------------------------------------------- */
 
 export interface MorningResult {
   inboxCount: number;
@@ -32,16 +34,16 @@ export interface MorningResult {
   unresolvedCount: number;
 }
 
-// ---------------------------------------------------------------------------
-// Core — accepts VaultOps for unit testing
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Core — accepts VaultOps for unit testing
+ * --------------------------------------------------------------------------- */
 
 export async function runMorning(vault: string, ops: VaultOps): Promise<MorningResult> {
-  // Step 1: open today's daily note
+  /* Step 1: open today's daily note */
   await ops.openDaily(vault).catch(() => undefined);
   process.stdout.write('[morning] daily note opened\n');
 
-  // Step 2: count inbox backlog and append to daily note
+  /* Step 2: count inbox backlog and append to daily note */
   let inboxCount = 0;
   try {
     const entries = await ops.listFiles(vault);
@@ -53,7 +55,7 @@ export async function runMorning(vault: string, ops: VaultOps): Promise<MorningR
   await ops.appendToDaily(vault, `- Inbox backlog: ${inboxCount} note(s)`).catch(() => undefined);
   process.stdout.write(`[morning] inbox backlog: ${inboxCount} note(s)\n`);
 
-  // Step 3: recently modified files (last 10)
+  /* Step 3: recently modified files (last 10) */
   let recentFiles: string[] = [];
   try {
     recentFiles = await ops.listRecentFiles(vault, 10, 'modified');
@@ -64,7 +66,7 @@ export async function runMorning(vault: string, ops: VaultOps): Promise<MorningR
     /* graceful skip */
   }
 
-  // Step 4: unresolved wikilinks
+  /* Step 4: unresolved wikilinks */
   let unresolvedCount = 0;
   try {
     const unresolved = await ops.listUnresolved(vault);
@@ -81,9 +83,9 @@ export async function runMorning(vault: string, ops: VaultOps): Promise<MorningR
   return { inboxCount, recentFiles, unresolvedCount };
 }
 
-// ---------------------------------------------------------------------------
-// CLI Command
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * CLI Command
+ * --------------------------------------------------------------------------- */
 
 const command: Command = {
   name: 'morning',

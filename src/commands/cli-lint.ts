@@ -1,19 +1,21 @@
-// cli-lint — Reflex skill: validate frontmatter and structure of vault notes.
-//
-// Exports:
-//   - NoteData, ConnectionLine, Violation, ViolationRule (types)
-//   - VIOLATION_RULES (the 11 pure rule functions, unit-testable without Obsidian)
-//   - lintProject(vault, folder?) — programmatic API used by weekly-review
-//   - default Command — CLI entry point for the dispatcher
+/**
+ * cli-lint — Reflex skill: validate frontmatter and structure of vault notes.
+ *
+ * Exports:
+ *   - NoteData, ConnectionLine, Violation, ViolationRule (types)
+ *   - VIOLATION_RULES (the 11 pure rule functions, unit-testable without Obsidian)
+ *   - lintProject(vault, folder?) — programmatic API used by weekly-review
+ *   - default Command — CLI entry point for the dispatcher
+ */
 
 import type { Command } from '../cli';
 import { resolveVault } from '../lib/obsidian';
 import { getVaultOps } from '../ports/provider';
 import { extractVaultFlag } from '../lib/vault-registry';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Types
+ * --------------------------------------------------------------------------- */
 
 export interface ConnectionLine {
   rel: string;
@@ -26,7 +28,8 @@ export interface ConnectionLine {
 export interface NoteData {
   path: string;
   frontmatter: Record<string, unknown>;
-  body: string; // body text with YAML frontmatter stripped
+  /** body text with YAML frontmatter stripped */
+  body: string;
   connections: ConnectionLine[];
   backlinks: string[];
 }
@@ -47,9 +50,9 @@ export interface LintResult {
   noteCount: number;
 }
 
-// ---------------------------------------------------------------------------
-// Body parsing helpers
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Body parsing helpers
+ * --------------------------------------------------------------------------- */
 
 /** Extract the body of a named ## section from note body text. */
 export function extractSection(body: string, heading: string): string {
@@ -81,9 +84,9 @@ export function parseConnections(body: string): ConnectionLine[] {
   return result;
 }
 
-// ---------------------------------------------------------------------------
-// The 11 violation rules — pure functions on NoteData
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * The 11 violation rules — pure functions on NoteData
+ * --------------------------------------------------------------------------- */
 
 const REQUIRED_FIELDS = ['title', 'type', 'kind', 'spine', 'status', 'created', 'aliases'];
 
@@ -238,9 +241,9 @@ export const VIOLATION_RULES: ViolationRule[] = [
   rulesFlagLimit,
 ];
 
-// ---------------------------------------------------------------------------
-// VaultOps data fetch
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * VaultOps data fetch
+ * --------------------------------------------------------------------------- */
 
 const EXCLUDED_PREFIXES = ['tpl-', '_vocab', '_topk', '_ontology'];
 
@@ -248,9 +251,9 @@ function stripFrontmatter(content: string): string {
   return content.replace(/^---[\s\S]*?---\n?/, '');
 }
 
-// ---------------------------------------------------------------------------
-// Programmatic API
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * Programmatic API
+ * --------------------------------------------------------------------------- */
 
 /** Lint all notes in the vault (or a folder) and return structured results. */
 export async function lintProject(vault: string, folder = ''): Promise<LintResult> {
@@ -287,9 +290,9 @@ export async function lintProject(vault: string, folder = ''): Promise<LintResul
   return { vault, folder, issues, count: issues.length, noteCount: notes.length };
 }
 
-// ---------------------------------------------------------------------------
-// CLI Command
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+ * CLI Command
+ * --------------------------------------------------------------------------- */
 
 const command: Command = {
   name: 'cli-lint',

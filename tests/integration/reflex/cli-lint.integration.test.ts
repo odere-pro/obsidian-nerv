@@ -1,6 +1,4 @@
 // Ports assertions from cli/core/tests/test-cli-lint.sh.
-// Requires: OBSIDIAN_RUNNING=1 environment variable.
-//
 // Creates deliberately malformed notes in the vault, runs lintProject(),
 // verifies each of the 11 rules fires, then cleans up.
 
@@ -9,9 +7,8 @@ import { lintProject } from '../../../src/commands/cli-lint';
 import { encodeForJs } from '../../../src/lib/json';
 import { obEval } from '../../../src/lib/obsidian';
 
-const VAULT = process.env.TEST_VAULT ?? 'study';
+const VAULT_NAME = process.env.NERV_TEST_VAULT ?? 'test';
 const LINT_DIR = 'projects/_lint-test-ts';
-const RUNNING = process.env.OBSIDIAN_RUNNING === '1';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -22,7 +19,7 @@ async function createNote(path: string, content: string): Promise<void> {
   const jsContent = encodeForJs(content);
   const jsDir = encodeForJs(LINT_DIR);
   await obEval(
-    VAULT,
+    VAULT_NAME,
     `(async () => {
   const dir = ${jsDir};
   const folder = app.vault.getAbstractFileByPath(dir);
@@ -36,7 +33,7 @@ async function createNote(path: string, content: string): Promise<void> {
 async function cleanup(): Promise<void> {
   const jsDir = encodeForJs(LINT_DIR);
   await obEval(
-    VAULT,
+    VAULT_NAME,
     `(async () => {
   const f = app.vault.getAbstractFileByPath(${jsDir});
   if (f) await app.vault.trash(f, false);
@@ -49,7 +46,6 @@ async function cleanup(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 beforeAll(async () => {
-  if (!RUNNING) return;
   await cleanup();
 
   // 1. Missing required field (no 'kind')
@@ -363,7 +359,7 @@ created: 2025-01-01
 });
 
 afterAll(async () => {
-  if (!RUNNING) return;
+  if (process.env.NERV_SKIP_CLEANUP === '1') return;
   await cleanup();
 });
 
@@ -372,8 +368,8 @@ afterAll(async () => {
 // ---------------------------------------------------------------------------
 
 describe('cli-lint integration', () => {
-  test.skipIf(!RUNNING)('lintProject returns a valid LintResult structure', async () => {
-    const result = await lintProject(VAULT, LINT_DIR);
+  test('lintProject returns a valid LintResult structure', async () => {
+    const result = await lintProject(VAULT_NAME, LINT_DIR);
     expect(result).toHaveProperty('vault');
     expect(result).toHaveProperty('folder');
     expect(result).toHaveProperty('issues');
@@ -397,33 +393,33 @@ describe('cli-lint integration', () => {
   ];
 
   for (const rule of expectedRules) {
-    test.skipIf(!RUNNING)(`detects rule: ${rule}`, async () => {
-      const result = await lintProject(VAULT, LINT_DIR);
+    test(`detects rule: ${rule}`, async () => {
+      const result = await lintProject(VAULT_NAME, LINT_DIR);
       const found = result.issues.some(i => i.rule === rule);
       expect(found).toBe(true);
     });
   }
 
-  test.skipIf(!RUNNING)('clean note produces zero issues', async () => {
-    const result = await lintProject(VAULT, LINT_DIR);
+  test('clean note produces zero issues', async () => {
+    const result = await lintProject(VAULT_NAME, LINT_DIR);
     const cleanIssues = result.issues.filter(i => i.note.endsWith('clean-note.md'));
     expect(cleanIssues).toHaveLength(0);
   });
 
-  test.skipIf(!RUNNING)('tpl-* files are excluded from lint', async () => {
-    const result = await lintProject(VAULT, LINT_DIR);
+  test('tpl-* files are excluded from lint', async () => {
+    const result = await lintProject(VAULT_NAME, LINT_DIR);
     const tplIssues = result.issues.filter(i => i.note.includes('tpl-'));
     expect(tplIssues).toHaveLength(0);
   });
 
-  test.skipIf(!RUNNING)('_ontology* files are excluded from lint', async () => {
-    const result = await lintProject(VAULT, LINT_DIR);
+  test('_ontology* files are excluded from lint', async () => {
+    const result = await lintProject(VAULT_NAME, LINT_DIR);
     const ontoIssues = result.issues.filter(i => i.note.includes('_ontology'));
     expect(ontoIssues).toHaveLength(0);
   });
 
-  test.skipIf(!RUNNING)('--json schema has vault, folder, issues, count keys', async () => {
-    const result = await lintProject(VAULT, LINT_DIR);
+  test('--json schema has vault, folder, issues, count keys', async () => {
+    const result = await lintProject(VAULT_NAME, LINT_DIR);
     expect(typeof result.vault).toBe('string');
     expect(typeof result.folder).toBe('string');
     expect(typeof result.count).toBe('number');

@@ -1,8 +1,10 @@
-// adr — Dev skill: create an Architecture Decision Record as a LEAF note.
-//
-// Creates a LEAF note with kind: decision, decision-date: YYYY-MM-DD,
-// decision-status: proposed; body contains ### Context, ### Decision, ### Consequences.
-// Delegates entity creation to createEntity().
+/**
+ * adr — Dev skill: create an Architecture Decision Record as a LEAF note.
+ *
+ * Creates a LEAF note with kind: decision, decision-date: YYYY-MM-DD,
+ * decision-status: proposed; body contains ### Context, ### Decision, ### Consequences.
+ * Delegates entity creation to createEntity().
+ */
 
 import type { Command } from '../../cli';
 import { resolveVault } from '../../lib/obsidian';
@@ -100,7 +102,7 @@ export async function createAdr(params: AdrParams): Promise<CommandResult<AdrDat
   const notePath = entityResult.data.path;
   const ops = getVaultOps();
 
-  // Patch frontmatter: add decision-date and decision-status
+  /* Patch frontmatter: add decision-date and decision-status */
   try {
     await ops.updateFrontmatter(vault, notePath, {
       'decision-date': today,
@@ -114,7 +116,7 @@ export async function createAdr(params: AdrParams): Promise<CommandResult<AdrDat
     };
   }
 
-  // Patch ## Content with ADR subsections
+  /* Patch ## Content with ADR subsections */
   try {
     const file = await ops.readFile(vault, notePath);
     const patched = patchAdrContent(file.content);

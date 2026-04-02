@@ -1,7 +1,8 @@
 import type { BaseEntityParams } from './leaf';
 
 export interface BranchParams extends BaseEntityParams {
-  parent: string; // wiki link e.g. [[PROJ.ROOT - Title]]
+  /** Wiki link, e.g. `[[PROJ.ROOT - Title]]` */
+  parent: string;
 }
 
 export function renderBranch(params: BranchParams): string {

@@ -28,7 +28,7 @@ const command: Command = {
       process.exit(1);
     }
 
-    // Read entry before removal to capture path and default status
+    /* Read entry before removal to capture path and default status */
     const entry = await lookupVault(name);
     const wasDefault = entry.isDefault === true;
 

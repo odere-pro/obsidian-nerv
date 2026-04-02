@@ -1,7 +1,9 @@
-// dependency-map — Dev skill: filter relationship graph to depends-on edges.
-//
-// Calls getRelations(), filters to depends-on edges only.
-// Outputs JSON (default) or GraphViz DOT format.
+/**
+ * dependency-map — Dev skill: filter relationship graph to depends-on edges.
+ *
+ * Calls getRelations(), filters to depends-on edges only.
+ * Outputs JSON (default) or GraphViz DOT format.
+ */
 
 import type { Command } from '../../cli';
 import { resolveVault } from '../../lib/obsidian';
