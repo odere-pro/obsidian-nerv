@@ -69,7 +69,8 @@ export const ENTITY_REQUIRED_FIELDS = [
 ] as const;
 
 /* ---------------------------------------------------------------------------
- * Domain interface
+ * Domain interface — kept as a plain interface for serialisation compatibility.
+ * Use NoteEntityModel for operations that need invariant checks and behaviour.
  * --------------------------------------------------------------------------- */
 
 export interface NoteEntity {
@@ -87,4 +88,80 @@ export interface NoteEntity {
   /** ISO date string */
   modified: string;
   tags: string[];
+}
+
+/* ---------------------------------------------------------------------------
+ * Rich domain model — immutable entity with invariant enforcement.
+ * --------------------------------------------------------------------------- */
+
+/**
+ * Immutable domain model wrapping NoteEntity with invariant enforcement.
+ *
+ * Invariants:
+ *   - ROOT must not have a parent
+ *   - BRANCH / LEAF must have a parent
+ *   - BRANCH must have at least one child
+ */
+export class NoteEntityModel {
+  readonly title: string;
+  readonly type: EntityType;
+  readonly kind: EntityKind;
+  readonly spine: string;
+  readonly status: EntityStatus;
+  readonly parent: string | null;
+  readonly children: readonly string[];
+
+  constructor(entity: NoteEntity) {
+    this.title = entity.title;
+    this.type = entity.type;
+    this.kind = entity.kind;
+    this.spine = entity.spine;
+    this.status = entity.status;
+    this.parent = entity.parent;
+    this.children = [...entity.children];
+  }
+
+  /** Validate structural invariants. Returns a list of violation messages. */
+  validate(): string[] {
+    const issues: string[] = [];
+
+    if (EntityTypes.isRoot(this.type) && this.parent !== null && this.parent !== '') {
+      issues.push('ROOT entity must not have a parent');
+    }
+
+    if (EntityTypes.requiresParent(this.type) && (!this.parent || this.parent.trim() === '')) {
+      issues.push(`${this.type} entity must have a non-empty parent`);
+    }
+
+    return issues;
+  }
+
+  /** Return a new model with an additional child link. */
+  addChild(childLink: string): NoteEntityModel {
+    if (this.children.includes(childLink)) return this;
+    return new NoteEntityModel({
+      title: this.title,
+      type: this.type,
+      kind: this.kind,
+      spine: this.spine,
+      status: this.status,
+      parent: this.parent,
+      children: [...this.children, childLink],
+      aliases: [],
+      attachments: [],
+      created: '',
+      modified: '',
+      tags: [],
+    });
+  }
+
+  /** Return true if the entity is a ROOT. */
+  isRoot(): boolean {
+    return EntityTypes.isRoot(this.type);
+  }
+
+  /** Return true if the entity requires a parent (BRANCH or LEAF). */
+  requiresParent(): boolean {
+    return EntityTypes.requiresParent(this.type);
+  }
 }
