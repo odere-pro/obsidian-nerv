@@ -13,6 +13,7 @@ import { resolveVault } from '../../lib/obsidian';
 import { getVaultOps } from '../../ports/provider';
 import type { VaultOps } from '../../ports/vault-ops';
 import type { CommandResult } from '../../types/result';
+import { Slug } from '../../types/slug';
 import { createEntity } from '../create-entity';
 import { extractVaultFlag } from '../../lib/vault-registry';
 
@@ -21,7 +22,6 @@ import { extractVaultFlag } from '../../lib/vault-registry';
  * --------------------------------------------------------------------------- */
 
 const URL_RE = /^https?:\/\/.+/;
-const SLUG_RE = /^[a-z0-9-]+$/;
 
 /* ---------------------------------------------------------------------------
  * Types
@@ -215,7 +215,7 @@ export async function ingestUrl(
 
   /* 4. Generate slug from URL */
   const rawSlug = generateUrlSlug(url);
-  if (!SLUG_RE.test(rawSlug)) {
+  if (!Slug.PATTERN.test(rawSlug)) {
     return {
       ok: false,
       data: { ingested: false, path: '', title, url, wordCount: 0, tokenEstimate: 0 },

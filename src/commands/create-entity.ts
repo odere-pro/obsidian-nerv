@@ -10,12 +10,11 @@ import { logError } from '../lib/logger';
 import { resolveVault, rollbackLog } from '../lib/obsidian';
 import { getVaultOps } from '../ports/provider';
 import { renderBranch, renderLeaf, renderRoot } from '../templates/index';
+import { EntityTypes } from '../types/entity';
 import type { EntityType } from '../types/entity';
 import type { CommandResult } from '../types/result';
+import { Slug } from '../types/slug';
 import { extractVaultFlag } from '../lib/vault-registry';
-
-const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
-const VALID_TYPES: EntityType[] = ['LEAF', 'BRANCH', 'ROOT'];
 
 export interface CreateEntityParams {
   vault: string;
@@ -52,7 +51,7 @@ export async function createEntity(
   const { vault, project, type, slug, title, parentSlug, kind } = params;
   let { spine } = params;
 
-  if (!VALID_TYPES.includes(type)) {
+  if (!EntityTypes.ALL.includes(type)) {
     return {
       ok: false,
       data: { created: false, path: '', title },
@@ -60,7 +59,7 @@ export async function createEntity(
     };
   }
 
-  if (!SLUG_RE.test(project)) {
+  if (!Slug.PATTERN.test(project)) {
     return {
       ok: false,
       data: { created: false, path: '', title },
@@ -68,7 +67,7 @@ export async function createEntity(
     };
   }
 
-  if (!SLUG_RE.test(slug)) {
+  if (!Slug.PATTERN.test(slug)) {
     return {
       ok: false,
       data: { created: false, path: '', title },
@@ -210,24 +209,23 @@ const command: Command = {
 
     const vault = await resolveVault(vaultArg);
     const project = positional[0];
-    const type = positional[1].toUpperCase() as EntityType;
     const slug = positional[2];
     const title = positional[3];
     const parentSlug = positional[4];
     const kind = positional[5];
     const spine = positional[6];
 
-    if (!VALID_TYPES.includes(type)) {
+    let type: EntityType;
+    try {
+      type = EntityTypes.parse(positional[1]);
+    } catch {
+      const msg = `TYPE must be LEAF, BRANCH, or ROOT (got: ${positional[1]})`;
       if (jsonOutput) {
-        process.stdout.write(
-          JSON.stringify({
-            created: false,
-            error: `TYPE must be LEAF, BRANCH, or ROOT (got: ${type})`,
-          }) + '\n'
-        );
+        process.stdout.write(JSON.stringify({ created: false, error: msg }) + '\n');
       } else {
-        logError(`create-entity: TYPE must be LEAF, BRANCH, or ROOT (got: ${type})`);
+        logError(`create-entity: ${msg}`);
       }
+      return;
     }
 
     const result = await createEntity({

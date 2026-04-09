@@ -17,6 +17,7 @@
 import type { Command } from '../cli';
 import { dailyAppend, resolveVault } from '../lib/obsidian';
 import { spawnCapture } from '../lib/shell';
+import { Slug } from '../types/slug';
 import { lintProject } from './cli-lint';
 import { findOrphans } from './cli-orphans';
 import { getRelations } from './cli-relations';
@@ -208,7 +209,7 @@ const command: Command = {
     const vault = await resolveVault(vaultArg);
     const slug = positional[0];
 
-    if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
+    if (!Slug.PATTERN.test(slug)) {
       process.stderr.write(
         `ERROR: weekly-review: project slug must be lowercase alphanumeric with hyphens (got: ${slug})\n`
       );

@@ -11,6 +11,7 @@
 import type { Command } from '../cli';
 import { resolveVault } from '../lib/obsidian';
 import { getVaultOps } from '../ports/provider';
+import { ENTITY_REQUIRED_FIELDS } from '../types/entity';
 import { extractVaultFlag } from '../lib/vault-registry';
 
 /* ---------------------------------------------------------------------------
@@ -88,7 +89,7 @@ export function parseConnections(body: string): ConnectionLine[] {
  * The 11 violation rules — pure functions on NoteData
  * --------------------------------------------------------------------------- */
 
-const REQUIRED_FIELDS = ['title', 'type', 'kind', 'spine', 'status', 'created', 'aliases'];
+const REQUIRED_FIELDS: readonly string[] = ENTITY_REQUIRED_FIELDS;
 
 function fm(note: NoteData, key: string): string {
   const v = note.frontmatter[key];
