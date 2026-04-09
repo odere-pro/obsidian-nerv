@@ -8,12 +8,9 @@
  *   - default Command — CLI entry point for the dispatcher
  */
 
-import type { Command } from '../cli';
 import { extractSection, stripFrontmatter } from '../lib/markdown';
-import { resolveVault } from '../lib/obsidian';
 import { getVaultOps } from '../ports/provider';
 import { ENTITY_REQUIRED_FIELDS } from '../types/entity';
-import { extractVaultFlag } from '../lib/vault-registry';
 
 /* ---------------------------------------------------------------------------
  * Types
@@ -284,33 +281,25 @@ export async function lintProject(vault: string, folder = ''): Promise<LintResul
  * CLI Command
  * --------------------------------------------------------------------------- */
 
-const command: Command = {
-  name: 'cli-lint',
-  description: 'Validate frontmatter and structure of vault notes',
+import { BaseCommand, type CommandContext } from './base-command';
 
-  async run(args: string[]): Promise<void> {
-    let jsonOutput = false;
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
+class CliLintCommand extends BaseCommand {
+  readonly name = 'cli-lint';
+  readonly description = 'Validate frontmatter and structure of vault notes';
+  readonly usage = 'nerv cli-lint [--vault <name>] [<folder>] [--json]';
+  readonly minPositional = 0;
 
-    const positional: string[] = [];
-    for (const a of rest) {
-      if (a === '--json') jsonOutput = true;
-      else positional.push(a);
-    }
+  protected async execute(ctx: CommandContext): Promise<void> {
+    const folder = ctx.positional[0] ?? '';
+    const result = await lintProject(ctx.vault, folder);
 
-    const vault = await resolveVault(vaultArg);
-    const folder = positional[0] ?? '';
-    const result = await lintProject(vault, folder);
-
-    if (jsonOutput) {
-      process.stdout.write(
-        JSON.stringify({
-          vault: result.vault,
-          folder: result.folder,
-          issues: result.issues,
-          count: result.count,
-        }) + '\n'
-      );
+    if (ctx.jsonOutput) {
+      ctx.out.success({
+        vault: result.vault,
+        folder: result.folder,
+        issues: result.issues,
+        count: result.count,
+      });
     } else {
       for (const iss of result.issues) {
         process.stdout.write(`⚠ ${iss.note}: [${iss.rule}] ${iss.detail}\n`);
@@ -319,7 +308,7 @@ const command: Command = {
         `Lint complete. ${result.count} issue(s) in ${result.noteCount} note(s).\n`
       );
     }
-  },
-};
+  }
+}
 
-export default command;
+export default new CliLintCommand();
