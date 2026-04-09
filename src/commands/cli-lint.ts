@@ -9,6 +9,7 @@
  */
 
 import type { Command } from '../cli';
+import { extractSection, stripFrontmatter } from '../lib/markdown';
 import { resolveVault } from '../lib/obsidian';
 import { getVaultOps } from '../ports/provider';
 import { ENTITY_REQUIRED_FIELDS } from '../types/entity';
@@ -51,20 +52,12 @@ export interface LintResult {
   noteCount: number;
 }
 
+/* Re-export from shared module for backward compatibility */
+export { extractSection } from '../lib/markdown';
+
 /* ---------------------------------------------------------------------------
  * Body parsing helpers
  * --------------------------------------------------------------------------- */
-
-/** Extract the body of a named ## section from note body text. */
-export function extractSection(body: string, heading: string): string {
-  const sections = body.split(/\n(?=## )/);
-  for (const sec of sections) {
-    if (new RegExp(`^## ${heading}\\b`).test(sec)) {
-      return sec.replace(new RegExp(`^## ${heading}\\n?`), '');
-    }
-  }
-  return '';
-}
 
 /** Parse typed and untyped connection lines from the ## Connections section body. */
 export function parseConnections(body: string): ConnectionLine[] {
@@ -247,10 +240,6 @@ export const VIOLATION_RULES: ViolationRule[] = [
  * --------------------------------------------------------------------------- */
 
 const EXCLUDED_PREFIXES = ['tpl-', '_vocab', '_topk', '_ontology'];
-
-function stripFrontmatter(content: string): string {
-  return content.replace(/^---[\s\S]*?---\n?/, '');
-}
 
 /* ---------------------------------------------------------------------------
  * Programmatic API

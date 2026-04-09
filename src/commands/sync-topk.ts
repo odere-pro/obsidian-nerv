@@ -16,6 +16,7 @@
 
 import type { Command } from '../cli';
 import { logError } from '../lib/logger';
+import { stripFrontmatter } from '../lib/markdown';
 import { resolveVault } from '../lib/obsidian';
 import { getVaultOps } from '../ports/provider';
 import { extractVaultFlag } from '../lib/vault-registry';
@@ -83,10 +84,6 @@ const EXCLUDED_PREFIXES = ['_ontology', '_vocab', '_topk', 'tpl-'];
 
 const CONN_RE = /^- [a-z][\w-]* :: \[\[/gm;
 const FLAG_RE = /^> \[!flag\b/gm;
-
-function stripFrontmatter(content: string): string {
-  return content.replace(/^---[\s\S]*?---\n?/, '');
-}
 
 async function runSync(
   vault: string,

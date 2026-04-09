@@ -13,9 +13,9 @@
  */
 
 import type { Command } from '../cli';
+import { extractSection, stripFrontmatter } from '../lib/markdown';
 import { resolveVault } from '../lib/obsidian';
 import { getVaultOps } from '../ports/provider';
-import { extractSection } from './cli-lint';
 import { extractVaultFlag } from '../lib/vault-registry';
 
 /* ---------------------------------------------------------------------------
@@ -81,10 +81,6 @@ export function extractEdges(
 /* ---------------------------------------------------------------------------
  * VaultOps data fetch + ontology parsing in TypeScript
  * --------------------------------------------------------------------------- */
-
-function stripFrontmatter(content: string): string {
-  return content.replace(/^---[\s\S]*?---\n?/, '');
-}
 
 /** Parse valid relationship types from an _ontology file's ## Relationship Types table. */
 function parseValidTypes(content: string): string[] {
