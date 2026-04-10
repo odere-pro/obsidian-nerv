@@ -1,4 +1,5 @@
 import type { EntityStatus } from '../types/entity';
+import { renderEntityBody, renderEntityFrontmatter } from './frontmatter';
 
 export interface RootParams {
   title: string;
@@ -12,27 +13,15 @@ export interface RootParams {
 }
 
 export function renderRoot(params: RootParams): string {
-  return `---
-title: "${params.title}"
-aliases: []
-type: ROOT
-kind: ${params.kind}
-spine: ${params.spine}
-status: ${params.status}
-parent: ""
-children: []
-attachments: []
-created: ${params.created}
-modified: ${params.modified}
-tags: []
----
-
-## Summary
-
-## Map
-
-## Connections
-
-## Flags
-`;
+  const fm = renderEntityFrontmatter({
+    title: params.title,
+    type: 'ROOT',
+    kind: params.kind,
+    spine: params.spine,
+    status: params.status,
+    parent: '',
+    created: params.created,
+    modified: params.modified,
+  });
+  return `${fm}\n\n${renderEntityBody('ROOT')}\n`;
 }

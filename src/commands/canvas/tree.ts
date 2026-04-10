@@ -24,6 +24,7 @@ import {
   NODE_W,
 } from '../../lib/canvas';
 import { buildWriteExpr } from '../../lib/canvas-codegen';
+import { encodeForJs } from '../../lib/json';
 import { parseJson } from '../../lib/json';
 import { obEval, resolveVault } from '../../lib/obsidian';
 import { buildTree, type FlatNote, type TreeNode } from '../get-tree';

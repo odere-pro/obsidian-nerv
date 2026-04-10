@@ -1,3 +1,5 @@
+import { renderProjectFrontmatter, renderVaultFrontmatter } from './frontmatter';
+
 export interface TopkParams {
   project: string;
   /** YYYY-MM-DD */
@@ -5,11 +7,12 @@ export interface TopkParams {
 }
 
 export function renderTopk(params: TopkParams): string {
-  return `---
-type: TOPK
-project: ${params.project}
-updated: ${params.updated}
----
+  const fm = renderProjectFrontmatter({
+    type: 'TOPK',
+    project: params.project,
+    updated: params.updated,
+  });
+  return `${fm}
 
 ## Limits
 
@@ -44,14 +47,13 @@ export interface VaultTopkParams {
 }
 
 export function renderVaultTopk(params: VaultTopkParams): string {
-  return `---
-title: "${params.title} Top-K"
-type: TOPK
-spine: ""
-status: active
-created: ${params.created}
-modified: ${params.modified}
----
+  const fm = renderVaultFrontmatter({
+    title: `${params.title} Top-K`,
+    type: 'TOPK',
+    created: params.created,
+    modified: params.modified,
+  });
+  return `${fm}
 
 # Top-K Limits
 

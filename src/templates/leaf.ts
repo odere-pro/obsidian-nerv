@@ -1,4 +1,5 @@
 import type { EntityStatus } from '../types/entity';
+import { renderEntityBody, renderEntityFrontmatter } from './frontmatter';
 
 export interface BaseEntityParams {
   title: string;
@@ -19,29 +20,15 @@ export interface LeafParams extends BaseEntityParams {
 }
 
 export function renderLeaf(params: LeafParams): string {
-  return `---
-title: "${params.title}"
-aliases: []
-type: LEAF
-kind: ${params.kind}
-spine: ${params.spine}
-status: ${params.status}
-parent: "${params.parent}"
-children: []
-attachments: []
-created: ${params.created}
-modified: ${params.modified}
-tags: []
----
-
-## Breadcrumb
-
-## Summary
-
-## Content
-
-## Connections
-
-## Flags
-`;
+  const fm = renderEntityFrontmatter({
+    title: params.title,
+    type: 'LEAF',
+    kind: params.kind,
+    spine: params.spine,
+    status: params.status,
+    parent: params.parent,
+    created: params.created,
+    modified: params.modified,
+  });
+  return `${fm}\n\n${renderEntityBody('LEAF')}\n`;
 }
