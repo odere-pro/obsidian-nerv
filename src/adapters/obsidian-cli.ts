@@ -8,7 +8,7 @@
 import { encodeForJs, parseJson } from '../lib/json';
 import { logError } from '../lib/logger';
 import { dailyAppend, obEval } from '../lib/obsidian';
-import { spawnCapture } from '../lib/shell';
+import { retrySpawn } from '../lib/shell';
 import type { ListFilesFilter, VaultFile, VaultFileEntry, VaultOps } from '../ports/vault-ops';
 
 const e = encodeForJs;
@@ -84,11 +84,11 @@ export class ObsidianCliAdapter implements VaultOps {
   }
 
   async openDaily(vault: string): Promise<void> {
-    await spawnCapture(['obsidian', `vault=${vault}`, 'daily']);
+    await retrySpawn(['obsidian', `vault=${vault}`, 'daily']);
   }
 
   async listRecentFiles(vault: string, limit: number, sort?: string): Promise<string[]> {
-    const { stdout } = await spawnCapture([
+    const { stdout } = await retrySpawn([
       'obsidian',
       `vault=${vault}`,
       'files',
@@ -103,7 +103,7 @@ export class ObsidianCliAdapter implements VaultOps {
   }
 
   async listUnresolved(vault: string): Promise<string[]> {
-    const { stdout } = await spawnCapture(['obsidian', `vault=${vault}`, 'unresolved']);
+    const { stdout } = await retrySpawn(['obsidian', `vault=${vault}`, 'unresolved']);
     return stdout
       .trim()
       .split('\n')

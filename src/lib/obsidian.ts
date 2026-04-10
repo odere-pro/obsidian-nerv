@@ -9,7 +9,7 @@ import { join, resolve } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { encodeForJs } from './json';
 import { logError } from './logger';
-import { spawnCapture } from './shell';
+import { retrySpawn, spawnCapture } from './shell';
 import { type VaultEntry, getDefaultVault, lookupVault, vaultName } from './vault-registry';
 
 /** Max safe inline expression length for Obsidian CLI's IPC mechanism. */
@@ -248,7 +248,9 @@ export async function obEval(vault: string, expr: string): Promise<string> {
 
   let result: { stdout: string; exitCode: number; stderr: string };
   try {
-    result = await spawnCapture(['obsidian', `vault=${vault}`, 'eval', `code=${codeArg}`]);
+    result = await retrySpawn(['obsidian', `vault=${vault}`, 'eval', `code=${codeArg}`], {
+      timeoutMs: 60_000,
+    });
   } finally {
     if (tmpFile) await unlink(tmpFile).catch(() => {});
   }
@@ -269,7 +271,7 @@ export async function obEval(vault: string, expr: string): Promise<string> {
  * @param content - Text to append (single line; newlines are allowed).
  */
 export async function dailyAppend(vault: string, content: string): Promise<void> {
-  const { exitCode, stderr } = await spawnCapture([
+  const { exitCode, stderr } = await retrySpawn([
     'obsidian',
     `vault=${vault}`,
     'daily:append',

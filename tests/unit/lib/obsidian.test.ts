@@ -19,10 +19,44 @@ const mockSpawnCapture = mock(
   })
 );
 
-mock.module('../../../src/lib/shell', () => ({
-  spawnCapture: mockSpawnCapture,
-  ShellTimeoutError: class ShellTimeoutError extends Error {},
-}));
+mock.module('../../../src/lib/shell', () => {
+  class ShellTimeoutError extends Error {
+    name = 'ShellTimeoutError';
+  }
+
+  async function retrySpawn(
+    cmd: [string, ...string[]],
+    opts: { maxAttempts?: number; baseDelayMs?: number; timeoutMs?: number } = {}
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    const maxAttempts = opts.maxAttempts ?? 3;
+    const baseDelayMs = opts.baseDelayMs ?? 500;
+    let lastResult: { stdout: string; stderr: string; exitCode: number } | undefined;
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const result = await mockSpawnCapture(cmd);
+        if (result.exitCode === 0) return result;
+        lastResult = result;
+        return result;
+      } catch (err) {
+        lastError = err;
+      }
+      if (attempt < maxAttempts) {
+        const delay = baseDelayMs * Math.pow(2, attempt - 1);
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+    if (lastResult) return lastResult;
+    throw lastError;
+  }
+
+  return {
+    spawnCapture: mockSpawnCapture,
+    retrySpawn,
+    ShellTimeoutError,
+  };
+});
 
 // Import vault-registry so we can mock it for resolveVault tests
 import * as vaultRegistry from '../../../src/lib/vault-registry';
