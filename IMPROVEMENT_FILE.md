@@ -107,31 +107,15 @@
 
 ## Bottlenecks
 
-### ~~1. N+1 IPC Problem~~ — RESOLVED
-
-~~Every vault operation = one shell subprocess. Commands that scan the vault looped sequentially.~~
-
-**Fixed:** Added `readFiles(vault, paths[])` batch method to `VaultOps` port, `ObsidianCliAdapter`, and `MockVaultOps`. Refactored 4 commands (`cli-lint`, `cli-relations`, `explain-topic`, `sync-topk`) to use batch reads. A 1K-file lint now uses 2 IPC calls (list + batch read) instead of ~1,001.
-
-**Key files:** `src/ports/vault-ops.ts` (batch method on `FileReadOps`), `src/adapters/obsidian-cli.ts:30-40`
-
-### ~~2. No Batching in Adapter~~ — RESOLVED
-
-**Fixed:** `readFiles()` added to `FileReadOps` interface and both adapters. Single `obEval` call reads N files.
-
-### ~~3. No Caching Across Commands~~ — RESOLVED
-
-**Fixed:** `VaultSnapshot` caching decorator (`src/lib/vault-snapshot.ts`) wraps `VaultOps` and caches `listFiles()` and `readFile()`/`readFiles()` results. Write operations pass through and invalidate cache. Integrated into `weekly-review.ts` — all 6 sub-commands now share one cached snapshot instead of each calling `listFiles()` independently.
-
-### 4. Sequential Async Loops — PARTIALLY RESOLVED
+### 1. Sequential Async Loops — PARTIALLY RESOLVED
 
 Batch reads replaced the worst N+1 loops (4 commands), but no `Promise.allSettled()` or concurrency control exists for remaining parallel opportunities. Creating one entity still requires 3-4 sequential IPC calls.
 
-### 5. `listFiles()` Loads Everything — OPEN
+### 2. `listFiles()` Loads Everything — OPEN
 
 Single call returns **all markdown files + all frontmatter** as one JSON blob. For a 10K-file vault, this is 10-50MB per invocation. No pagination, filtering, or streaming.
 
-### 6. Fixed 30s Timeout, No Retry — OPEN
+### 3. Fixed 30s Timeout, No Retry — OPEN
 
 `src/lib/shell.ts` has a hard 30s timeout with no retry/backoff. Large vaults or slow Obsidian instances fail without recovery.
 
@@ -139,43 +123,21 @@ Single call returns **all markdown files + all frontmatter** as one JSON blob. F
 
 ## Architectural Debt
 
-### ~~1. Inconsistent Command Hierarchy~~ — RESOLVED
-
-**Fixed:** All 28+ non-vault-management commands now extend `BaseCommand` (Template Method). Vault management commands (`add-vault`, `list-vaults`, `current-vault`, `switch-vault`, `remove-vault`) are intentionally excluded since they don't use standard vault resolution. Unified arg parsing, `--vault`/`--json` flag handling, and vault resolution across the entire codebase.
-
-### 2. Service Locator, Not DI — OPEN
+### 1. Service Locator, Not DI — OPEN
 
 `src/ports/provider.ts` is global mutable state (`let vaultOps = ...`). No scoping, lifecycle management, or async initialization. Tests must remember to call `setVaultOps()`.
 
 **Mitigation:** Sub-commands now accept an optional `injectedOps` parameter, allowing `weekly-review` to pass a shared `VaultSnapshot`. This provides workflow-scoped DI without a full container.
 
-### ~~3. Stringly-Typed Domain~~ — PARTIALLY RESOLVED
+### 2. Stringly-Typed Domain — PARTIALLY RESOLVED
 
-**Fixed:**
+`Connection.rel` is still `string` at runtime (not `RelationType`) — runtime code doesn't use the value object yet. `Connection.target` is still `string` — not validated as `Slug` at the type level.
 
-- `RelationType` value object (`src/types/relation-type.ts`) with validation, builtin registry (19 entries), inverse/symmetry metadata
-- `EntityKinds` validation companion (`src/types/entity.ts`) with `parse()`, `isValid()`, pattern enforcement
-- `NoteEntityModel` enriched with `removeChild()`, `updateStatus()`, `withModified()`, `toEntity()`
-
-**Remaining:**
-
-- `Connection.rel` is still `string` at runtime (not `RelationType`) — runtime code doesn't use the value object yet
-- `Connection.target` is still `string` — not validated as `Slug` at the type level
-
-### ~~4. Template Duplication~~ — RESOLVED
-
-**Fixed:** Shared frontmatter builders in `src/templates/frontmatter.ts`:
-
-- `renderEntityFrontmatter()` — used by leaf, branch, root templates
-- `renderProjectFrontmatter()` — used by ontology, vocab, topk templates
-- `renderVaultFrontmatter()` — used by vault-level templates
-- `renderEntityBody()` — shared body section registry
-
-### 5. Hardcoded Command Registry — OPEN
+### 3. Hardcoded Command Registry — OPEN
 
 `src/cli.ts` maintains a manual `COMMANDS` array. Adding a command requires editing two files. No auto-discovery. Low severity since command count is manageable.
 
-### 6. Mock Drift Risk — OPEN
+### 4. Mock Drift Risk — OPEN
 
 `MockVaultOps` implements all methods, some as no-ops. Contract tests exist but mock behavior can silently diverge (e.g., `listUnresolved()` always returns `[]`). No spy tracking for call counts or argument capture.
 
