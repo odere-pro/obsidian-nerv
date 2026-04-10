@@ -10,7 +10,7 @@
  *   - default Command — CLI entry point
  *
  * Gap categories:
- *   stubs          — body word count < 100 (frontmatter excluded)
+ *   stubs          — body word count < STUB_WORD_THRESHOLD (frontmatter excluded)
  *   noConnections  — notes with zero typed connections
  *   drafts         — notes whose status === 'draft'
  *   missingFields  — notes missing any required frontmatter field
@@ -18,11 +18,11 @@
  *   unresolvedLinks — notes containing broken wikilinks (pre-resolved by Obsidian in fetch)
  */
 
-import type { Command } from '../cli';
+import { STUB_WORD_THRESHOLD } from '../constants/limits';
 import { encodeForJs, parseJson } from '../lib/json';
-import { obEval, resolveVault } from '../lib/obsidian';
+import { obEval } from '../lib/obsidian';
 import { ENTITY_REQUIRED_FIELDS } from '../types/entity';
-import { extractVaultFlag } from '../lib/vault-registry';
+import { BaseCommand, type CommandContext } from './base-command';
 
 /* ---------------------------------------------------------------------------
  * Types
@@ -100,9 +100,9 @@ export function detectGaps(notes: GapNote[]): KnowledgeGapResult {
   const unresolvedLinks: UnresolvedLinkEntry[] = [];
 
   for (const note of notes) {
-    /* Stubs: body word count < 100 */
+    /* Stubs: body word count < STUB_WORD_THRESHOLD */
     const words = note.body.trim().split(/\s+/).filter(Boolean);
-    if (words.length < 100) {
+    if (words.length < STUB_WORD_THRESHOLD) {
       stubs.push({ note: note.basename, words: words.length });
     }
 
@@ -225,20 +225,15 @@ export async function getKnowledgeGap(vault: string, slug: string): Promise<Know
  * CLI Command
  * --------------------------------------------------------------------------- */
 
-const command: Command = {
-  name: 'get-knowledge-gap',
-  description: 'Identify structural deficiencies (stubs, gaps, broken links) in a project',
+class GetKnowledgeGapCommand extends BaseCommand {
+  readonly name = 'get-knowledge-gap';
+  readonly description =
+    'Identify structural deficiencies (stubs, gaps, broken links) in a project';
+  readonly usage = 'nerv get-knowledge-gap [--vault <name>] <project_slug>';
+  readonly minPositional = 1;
 
-  async run(args: string[]): Promise<void> {
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
-
-    if (rest.length < 1) {
-      process.stderr.write('Usage: nerv get-knowledge-gap [--vault <name>] <project_slug>\n');
-      process.exit(1);
-    }
-
-    const vault = await resolveVault(vaultArg);
-    const slug = rest[0];
+  protected async execute(ctx: CommandContext): Promise<void> {
+    const slug = ctx.positional[0];
 
     if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
       process.stderr.write(
@@ -247,9 +242,9 @@ const command: Command = {
       process.exit(1);
     }
 
-    const result = await getKnowledgeGap(vault, slug);
+    const result = await getKnowledgeGap(ctx.vault, slug);
     process.stdout.write(JSON.stringify(result) + '\n');
-  },
-};
+  }
+}
 
-export default command;
+export default new GetKnowledgeGapCommand();

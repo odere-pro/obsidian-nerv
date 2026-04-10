@@ -1,3 +1,5 @@
+import { renderProjectFrontmatter, renderVaultFrontmatter } from './frontmatter';
+
 export interface VocabParams {
   project: string;
   /** YYYY-MM-DD */
@@ -5,11 +7,12 @@ export interface VocabParams {
 }
 
 export function renderVocab(params: VocabParams): string {
-  return `---
-type: VOCAB
-project: ${params.project}
-updated: ${params.updated}
----
+  const fm = renderProjectFrontmatter({
+    type: 'VOCAB',
+    project: params.project,
+    updated: params.updated,
+  });
+  return `${fm}
 
 ## L0 — Spine Roots
 
@@ -37,14 +40,13 @@ export interface VaultVocabParams {
 }
 
 export function renderVaultVocab(params: VaultVocabParams): string {
-  return `---
-title: "${params.title} Vocabulary"
-type: VOCAB
-spine: ""
-status: active
-created: ${params.created}
-modified: ${params.modified}
----
+  const fm = renderVaultFrontmatter({
+    title: `${params.title} Vocabulary`,
+    type: 'VOCAB',
+    created: params.created,
+    modified: params.modified,
+  });
+  return `${fm}
 
 # Vocabulary
 

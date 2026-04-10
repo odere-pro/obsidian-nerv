@@ -39,6 +39,16 @@ export class ObsidianCliAdapter implements VaultOps {
     return { path, ...parsed };
   }
 
+  async readFiles(vault: string, paths: string[]): Promise<VaultFile[]> {
+    if (paths.length === 0) return [];
+    const pathsJson = JSON.stringify(paths);
+    const raw = await obEval(
+      vault,
+      `(async () => { const paths = ${pathsJson}; const out = []; for (const p of paths) { const f = app.vault.getAbstractFileByPath(p); out.push({path: p, content: await app.vault.cachedRead(f), frontmatter: app.metadataCache.getFileCache(f)?.frontmatter ?? {}}); } return JSON.stringify(out); })()`
+    );
+    return parseJson<VaultFile[]>(raw) ?? [];
+  }
+
   async createFile(vault: string, path: string, content: string): Promise<void> {
     await obEval(
       vault,

@@ -3,9 +3,9 @@
  * Scaffolds 5 project files using typed templates.
  */
 
-import type { Command } from '../cli';
+import { BaseCommand, type CommandContext } from './base-command';
 import { logError } from '../lib/logger';
-import { resolveVault, rollbackLog } from '../lib/obsidian';
+import { rollbackLog } from '../lib/obsidian';
 import { getVaultOps } from '../ports/provider';
 import {
   renderBase,
@@ -15,7 +15,6 @@ import {
   renderVocab,
 } from '../templates/index';
 import { Slug } from '../types/slug';
-import { extractVaultFlag } from '../lib/vault-registry';
 
 export interface CreateProjectParams {
   vault: string;
@@ -126,23 +125,19 @@ export async function createProject(params: CreateProjectParams): Promise<void> 
   );
 }
 
-const command: Command = {
-  name: 'create-project',
-  description: 'Scaffold a new project (5 files) inside a vault',
-  async run(args: string[]): Promise<void> {
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
+class CreateProjectCommand extends BaseCommand {
+  readonly name = 'create-project';
+  readonly description = 'Scaffold a new project (5 files) inside a vault';
+  readonly usage = 'nerv create-project [--vault <name>] <slug> "<Title>"';
+  readonly minPositional = 2;
 
-    if (rest.length < 2) {
-      process.stderr.write('Usage: nerv create-project [--vault <name>] <slug> "<Title>"\n');
-      process.exit(1);
-    }
-    const vault = await resolveVault(vaultArg);
-    const slug = rest[0];
-    const title = rest[1];
-    await createProject({ vault, slug, title }).catch((e: unknown) => {
+  protected async execute(ctx: CommandContext): Promise<void> {
+    const slug = ctx.positional[0];
+    const title = ctx.positional[1];
+    await createProject({ vault: ctx.vault, slug, title }).catch((e: unknown) => {
       logError(e instanceof Error ? e.message : String(e));
     });
-  },
-};
+  }
+}
 
-export default command;
+export default new CreateProjectCommand();

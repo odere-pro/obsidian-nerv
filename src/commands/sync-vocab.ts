@@ -9,11 +9,11 @@
  * Idempotent: full regeneration on every run. Updates `updated:` frontmatter date.
  */
 
-import type { Command } from '../cli';
+import { CHILDREN_LIMIT, isEntityNote } from '../constants/limits';
 import { logError } from '../lib/logger';
-import { resolveVault } from '../lib/obsidian';
 import { getVaultOps } from '../ports/provider';
-import { extractVaultFlag } from '../lib/vault-registry';
+import type { VaultOps } from '../ports/vault-ops';
+import { BaseCommand, type CommandContext } from './base-command';
 
 /* ---------------------------------------------------------------------------
  * Types
@@ -70,7 +70,7 @@ export function buildVocabContent(notes: VocabNote[], slug: string): string {
       currentSpine = e.spine;
     }
     let overflow = '';
-    if (e.type === 'BRANCH' && e.childrenCount > 7)
+    if (e.type === 'BRANCH' && e.childrenCount > CHILDREN_LIMIT)
       overflow = ` ⚠ overflow (children: ${e.childrenCount})`;
     if (e.type === 'LEAF' && e.childrenCount > 5)
       overflow = ` ⚠ overflow (children: ${e.childrenCount})`;
@@ -90,8 +90,6 @@ export function buildVocabContent(notes: VocabNote[], slug: string): string {
  * VaultOps data fetch
  * --------------------------------------------------------------------------- */
 
-const EXCLUDED_PREFIXES = ['_vocab', '_topk', '_ontology', 'tpl-'];
-
 function fetchVocabNotes(
   entries: { path: string; frontmatter: Record<string, unknown> }[],
   slug: string
@@ -101,7 +99,7 @@ function fetchVocabNotes(
     .filter(e => {
       if (!e.path.startsWith(projDir + '/')) return false;
       const name = e.path.split('/').pop() ?? '';
-      return !EXCLUDED_PREFIXES.some(p => name.startsWith(p));
+      return isEntityNote(name);
     })
     .map(e => {
       const fm = e.frontmatter;
@@ -121,8 +119,12 @@ function fetchVocabNotes(
  * --------------------------------------------------------------------------- */
 
 /** Rebuild _vocab file for a project. Used by weekly-review. */
-export async function syncVocab(vault: string, slug: string): Promise<VocabResult> {
-  const ops = getVaultOps();
+export async function syncVocab(
+  vault: string,
+  slug: string,
+  injectedOps?: VaultOps
+): Promise<VocabResult> {
+  const ops = injectedOps ?? getVaultOps();
   const allFiles = await ops.listFiles(vault);
   const notes = fetchVocabNotes(allFiles, slug);
   if (notes.length === 0) throw new Error('sync-vocab: no notes found or vault not reachable');
@@ -150,20 +152,14 @@ export async function syncVocab(vault: string, slug: string): Promise<VocabResul
  * CLI Command
  * --------------------------------------------------------------------------- */
 
-const command: Command = {
-  name: 'sync-vocab',
-  description: 'Rebuild _vocab.<project>.md from note metadata',
+class SyncVocabCommand extends BaseCommand {
+  readonly name = 'sync-vocab';
+  readonly description = 'Rebuild _vocab.<project>.md from note metadata';
+  readonly usage = 'nerv sync-vocab [--vault <name>] <project_slug>';
+  readonly minPositional = 1;
 
-  async run(args: string[]): Promise<void> {
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
-
-    if (rest.length < 1) {
-      process.stderr.write('Usage: nerv sync-vocab [--vault <name>] <project_slug>\n');
-      process.exit(1);
-    }
-
-    const vault = await resolveVault(vaultArg);
-    const slug = rest[0];
+  protected async execute(ctx: CommandContext): Promise<void> {
+    const slug = ctx.positional[0];
 
     if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
       logError(
@@ -172,7 +168,7 @@ const command: Command = {
     }
 
     try {
-      const result = await syncVocab(vault, slug);
+      const result = await syncVocab(ctx.vault, slug);
       process.stdout.write(
         `sync-vocab: ${result.noteCount} note(s) scanned, ${result.entryCount} vocab entries, ${result.orphanCount} orphan(s) written to _vocab.${slug}.md\n`
       );
@@ -180,7 +176,7 @@ const command: Command = {
       process.stderr.write(`ERROR: ${err instanceof Error ? err.message : String(err)}\n`);
       process.exit(1);
     }
-  },
-};
+  }
+}
 
-export default command;
+export default new SyncVocabCommand();

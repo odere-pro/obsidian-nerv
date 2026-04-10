@@ -16,10 +16,10 @@
  *   5. fuzzy    — basename or normalized basename contains query as substring
  */
 
-import type { Command } from '../cli';
+import { BaseCommand, type CommandContext } from './base-command';
 import { parseJson } from '../lib/json';
-import { obEval, resolveVault } from '../lib/obsidian';
-import { extractVaultFlag } from '../lib/vault-registry';
+import { parseSections } from '../lib/markdown';
+import { obEval } from '../lib/obsidian';
 
 /* ---------------------------------------------------------------------------
  * Types
@@ -143,23 +143,6 @@ export function resolveEntity(query: string, notes: EntityNote[]): MatchResult |
 }
 
 /* ---------------------------------------------------------------------------
- * Section parser
- * --------------------------------------------------------------------------- */
-
-function parseSections(rawBody: string): Record<string, string> {
-  const body = rawBody.replace(/^---[\s\S]*?---\n?/, '');
-  const parts = body.split(/\n(?=## )/);
-  const sections: Record<string, string> = {};
-  for (const part of parts) {
-    const m = part.match(/^## (.+)\n?([\s\S]*)/);
-    if (m) {
-      sections[m[1].trim()] = (m[2] ?? '').trim().substring(0, 3000);
-    }
-  }
-  return sections;
-}
-
-/* ---------------------------------------------------------------------------
  * Obsidian data fetch
  * --------------------------------------------------------------------------- */
 
@@ -255,21 +238,15 @@ export async function getEntity(vault: string, query: string): Promise<EntityOut
  * CLI Command
  * --------------------------------------------------------------------------- */
 
-const command: Command = {
-  name: 'get-entity',
-  description: 'Deep single-note retrieval with 5-level match resolution',
+class GetEntityCommand extends BaseCommand {
+  readonly name = 'get-entity';
+  readonly description = 'Deep single-note retrieval with 5-level match resolution';
+  readonly usage = 'nerv get-entity [--vault <name>] "<search-term>"';
+  readonly minPositional = 1;
 
-  async run(args: string[]): Promise<void> {
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
-
-    if (rest.length < 1) {
-      process.stderr.write('Usage: nerv get-entity [--vault <name>] "<search-term>"\n');
-      process.exit(1);
-    }
-
-    const vault = await resolveVault(vaultArg);
-    const query = rest[0];
-    const result = await getEntity(vault, query);
+  protected async execute(ctx: CommandContext): Promise<void> {
+    const query = ctx.positional[0];
+    const result = await getEntity(ctx.vault, query);
 
     if (!result) {
       process.stdout.write(JSON.stringify({ found: false, query }) + '\n');
@@ -277,7 +254,7 @@ const command: Command = {
     }
 
     process.stdout.write(JSON.stringify(result) + '\n');
-  },
-};
+  }
+}
 
-export default command;
+export default new GetEntityCommand();

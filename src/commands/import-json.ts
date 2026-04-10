@@ -4,15 +4,13 @@
  * Calls createEntity() directly (no subprocess) for each entry.
  */
 
-import type { Command } from '../cli';
 import { logError } from '../lib/logger';
-import { resolveVault } from '../lib/obsidian';
 import { getVaultOps } from '../ports/provider';
 import { EntityTypes } from '../types/entity';
 import type { EntityType } from '../types/entity';
 import { Slug } from '../types/slug';
 import { createEntity } from './create-entity';
-import { extractVaultFlag } from '../lib/vault-registry';
+import { BaseCommand, type CommandContext } from './base-command';
 const STANDARD_FIELDS = new Set(['name', 'type', 'kind', 'spine', 'parent']);
 
 interface ImportEntry {
@@ -120,20 +118,15 @@ export async function importJson(params: {
   return { created, skipped };
 }
 
-const command: Command = {
-  name: 'import-json',
-  description: 'Bulk-create notes from a JSON array file',
-  async run(args: string[]): Promise<void> {
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
+class ImportJsonCommand extends BaseCommand {
+  readonly name = 'import-json';
+  readonly description = 'Bulk-create notes from a JSON array file';
+  readonly usage = 'nerv import-json [--vault <name>] <project_slug> <json_file>';
+  readonly minPositional = 2;
 
-    if (rest.length < 2) {
-      process.stderr.write('Usage: nerv import-json [--vault <name>] <project_slug> <json_file>\n');
-      process.exit(1);
-    }
-
-    const vault = await resolveVault(vaultArg);
-    const projectSlug = rest[0];
-    const jsonFile = rest[1];
+  protected async execute(ctx: CommandContext): Promise<void> {
+    const projectSlug = ctx.positional[0];
+    const jsonFile = ctx.positional[1];
 
     if (!Slug.PATTERN.test(projectSlug)) {
       logError(
@@ -156,20 +149,19 @@ const command: Command = {
     }
 
     /* Verify the project exists */
-    const ops = getVaultOps();
     const projDir = `projects/${projectSlug}`;
-    const projExists = await ops.fileExists(vault, projDir).catch(() => false);
+    const projExists = await ctx.ops.fileExists(ctx.vault, projDir).catch(() => false);
 
     if (!projExists) {
       logError(
-        `import-json: project '${projectSlug}' not found in vault ${vault}. Run create-project first.`
+        `import-json: project '${projectSlug}' not found in vault ${ctx.vault}. Run create-project first.`
       );
     }
 
-    const { created, skipped } = await importJson({ vault, projectSlug, entries });
+    const { created, skipped } = await importJson({ vault: ctx.vault, projectSlug, entries });
 
     process.stdout.write(`Created: ${created}, Skipped: ${skipped}\n`);
-  },
-};
+  }
+}
 
-export default command;
+export default new ImportJsonCommand();

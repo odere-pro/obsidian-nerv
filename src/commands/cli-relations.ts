@@ -12,8 +12,10 @@
  *    "summary":{...},"unknownTypes":[...]}
  */
 
+import { isEntityNote } from '../constants/limits';
 import { extractSection, stripFrontmatter } from '../lib/markdown';
 import { getVaultOps } from '../ports/provider';
+import type { VaultOps } from '../ports/vault-ops';
 
 /* ---------------------------------------------------------------------------
  * Types
@@ -103,8 +105,12 @@ function parseValidTypes(content: string): string[] {
  * --------------------------------------------------------------------------- */
 
 /** Get typed relations for a project. Used by dependency-map. */
-export async function getRelations(vault: string, project: string): Promise<RelationResult> {
-  const ops = getVaultOps();
+export async function getRelations(
+  vault: string,
+  project: string,
+  injectedOps?: VaultOps
+): Promise<RelationResult> {
+  const ops = injectedOps ?? getVaultOps();
   const folder = project.includes('/') ? project : `projects/${project}`;
 
   const allFiles = await ops.listFiles(vault).catch(() => []);
@@ -116,9 +122,12 @@ export async function getRelations(vault: string, project: string): Promise<Rela
   const ontologyFiles = folderFiles.filter(e =>
     (e.path.split('/').pop() ?? '').startsWith('_ontology')
   );
+  const ontologyData = await ops.readFiles(
+    vault,
+    ontologyFiles.map(e => e.path)
+  );
   const allValidTypes: string[] = [];
-  for (const of_ of ontologyFiles) {
-    const file = await ops.readFile(vault, of_.path);
+  for (const file of ontologyData) {
     allValidTypes.push(...parseValidTypes(file.content));
   }
   const validTypes = new Set(allValidTypes);
@@ -126,19 +135,18 @@ export async function getRelations(vault: string, project: string): Promise<Rela
   /* Read note files to extract connections */
   const noteFiles = folderFiles.filter(e => {
     const name = e.path.split('/').pop() ?? '';
-    return (
-      !name.startsWith('_vocab') &&
-      !name.startsWith('_topk') &&
-      !name.startsWith('_ontology') &&
-      !name.startsWith('tpl-')
-    );
+    return isEntityNote(name);
   });
 
+  const noteData = await ops.readFiles(
+    vault,
+    noteFiles.map(e => e.path)
+  );
   const notes: RawRelNote[] = [];
-  for (const entry of noteFiles) {
-    const file = await ops.readFile(vault, entry.path);
+  for (let i = 0; i < noteFiles.length; i++) {
+    const file = noteData[i];
     const body = stripFrontmatter(file.content);
-    const basename = (entry.path.split('/').pop() ?? '').replace(/\.md$/, '');
+    const basename = (noteFiles[i].path.split('/').pop() ?? '').replace(/\.md$/, '');
     notes.push({ basename, body });
   }
 

@@ -19,14 +19,20 @@
  *   }
  */
 
-import type { Command } from '../cli';
-import { resolveVault } from '../lib/obsidian';
+import {
+  buildBacklinks,
+  extractOutgoingLinks,
+  extractSummary,
+  parseConnections,
+  resolveWikiLink,
+} from '../lib/explain-parsers';
+import { parseSections } from '../lib/markdown';
 import { getVaultOps } from '../ports/provider';
 import type { VaultOps } from '../ports/vault-ops';
+import { BaseCommand, type CommandContext } from './base-command';
 import { scoreNote } from './context';
 import type { EntityNote, EntityOutput } from './get-entity';
 import { resolveEntity } from './get-entity';
-import { extractVaultFlag } from '../lib/vault-registry';
 
 /* ---------------------------------------------------------------------------
  * Types
@@ -57,123 +63,27 @@ export interface ExplainResult {
 }
 
 /* ---------------------------------------------------------------------------
- * Section parser helpers
- * --------------------------------------------------------------------------- */
-
-function extractSummary(rawBody: string): string {
-  const body = rawBody.replace(/^---[\s\S]*?---\n?/, '');
-  const parts = body.split(/\n(?=## )/);
-  for (const part of parts) {
-    const m = part.match(/^## Summary\s*\n([\s\S]*)/);
-    if (m) return (m[1] ?? '').trim().substring(0, 500);
-  }
-  return '';
-}
-
-function parseSections(rawBody: string): Record<string, string> {
-  const body = rawBody.replace(/^---[\s\S]*?---\n?/, '');
-  const parts = body.split(/\n(?=## )/);
-  const sections: Record<string, string> = {};
-  for (const part of parts) {
-    const m = part.match(/^## (.+)\n?([\s\S]*)/);
-    if (m) sections[m[1].trim()] = (m[2] ?? '').trim().substring(0, 3000);
-  }
-  return sections;
-}
-
-function parseConnections(
-  rawBody: string
-): Array<{ rel: string; target: string; context: string }> {
-  const body = rawBody.replace(/^---[\s\S]*?---\n?/, '');
-  const parts = body.split(/\n(?=## )/);
-  let connSection = '';
-  for (const part of parts) {
-    if (/^## Connections\b/.test(part)) {
-      connSection = part.replace(/^## Connections\n?/, '');
-      break;
-    }
-  }
-  const re = /^- ([a-z][\w-]*) :: \[\[([^\]]+)\]\](.*)?$/;
-  const result: Array<{ rel: string; target: string; context: string }> = [];
-  for (const line of connSection.split('\n')) {
-    const m = line.trim().match(re);
-    if (m) result.push({ rel: m[1], target: m[2], context: (m[3] ?? '').trim() });
-  }
-  return result;
-}
-
-function resolveWikiLink(raw: string): string {
-  const m = String(raw ?? '').match(/\[\[([^\]#|]+)/);
-  return m ? m[1].trim() : String(raw ?? '').trim();
-}
-
-/* ---------------------------------------------------------------------------
- * Wikilink extraction helpers — derive backlinks/outgoing from content
- * --------------------------------------------------------------------------- */
-
-function extractOutgoingLinks(
-  rawBody: string
-): Array<{ path: string; title: string; display: string }> {
-  const re = /\[\[([^\]#|]+)(?:\|([^\]]*))?\]\]/g;
-  const links: Array<{ path: string; title: string; display: string }> = [];
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(rawBody)) !== null) {
-    const target = m[1].trim();
-    const display = m[2]?.trim() ?? target;
-    links.push({ path: '', title: target, display });
-  }
-  return links;
-}
-
-function buildBacklinks(
-  notes: EntityNote[],
-  targetBasename: string
-): Array<{ path: string; title: string; type: string; kind: string; spine: string }> {
-  const backlinks: Array<{
-    path: string;
-    title: string;
-    type: string;
-    kind: string;
-    spine: string;
-  }> = [];
-  for (const n of notes) {
-    if (n.basename === targetBasename) continue;
-    for (const link of n.outgoing) {
-      if (link.title === targetBasename || link.display === targetBasename) {
-        backlinks.push({
-          path: n.path,
-          title: String(n.frontmatter['title'] ?? n.basename),
-          type: String(n.frontmatter['type'] ?? ''),
-          kind: String(n.frontmatter['kind'] ?? ''),
-          spine: String(n.frontmatter['spine'] ?? ''),
-        });
-        break;
-      }
-    }
-  }
-  return backlinks;
-}
-
-/* ---------------------------------------------------------------------------
  * Vault data fetch via VaultOps
  * --------------------------------------------------------------------------- */
 
 async function fetchAllNotes(vault: string, ops: VaultOps): Promise<EntityNote[]> {
   const entries = await ops.listFiles(vault);
   const notes: EntityNote[] = [];
+  const files = await ops.readFiles(
+    vault,
+    entries.map(e => e.path)
+  );
 
-  for (const entry of entries) {
-    const file = await ops.readFile(vault, entry.path);
-    const basename = entry.path
-      .replace(/.*\//, '')
-      .replace(/\.md$/, ''); /* strip dir prefix + extension */
+  for (let i = 0; i < entries.length; i++) {
+    const file = files[i];
+    const basename = entries[i].path.replace(/.*\//, '').replace(/\.md$/, '');
     const outgoing = extractOutgoingLinks(file.content);
     notes.push({
-      path: entry.path,
+      path: entries[i].path,
       basename,
       frontmatter: file.frontmatter,
       rawBody: file.content,
-      backlinks: [] /* populated in a second pass */,
+      backlinks: [],
       outgoing,
     });
   }
@@ -271,7 +181,6 @@ export async function explainTopic(
   const connected: ConnectedEntry[] = [];
   for (const conn of connections) {
     const target = conn.target;
-    /* Try to find by basename or path match */
     let destNote: EntityNote | undefined;
     for (const n of notes) {
       if (n.basename === target || n.path === target) {
@@ -295,21 +204,15 @@ export async function explainTopic(
  * CLI Command
  * --------------------------------------------------------------------------- */
 
-const command: Command = {
-  name: 'explain-topic',
-  description: 'Assemble a teaching bundle for a queried topic',
+class ExplainTopicCommand extends BaseCommand {
+  readonly name = 'explain-topic';
+  readonly description = 'Assemble a teaching bundle for a queried topic';
+  readonly usage = 'nerv explain-topic [--vault <name>] "<query>"';
+  readonly minPositional = 1;
 
-  async run(args: string[]): Promise<void> {
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
-
-    if (rest.length < 1) {
-      process.stderr.write('Usage: nerv explain-topic [--vault <name>] "<query>"\n');
-      process.exit(1);
-    }
-
-    const vault = await resolveVault(vaultArg);
-    const query = rest[0];
-    const result = await explainTopic(vault, query);
+  protected async execute(ctx: CommandContext): Promise<void> {
+    const query = ctx.positional[0];
+    const result = await explainTopic(ctx.vault, query);
 
     if (!result) {
       process.stderr.write(`ERROR: explain-topic: no matching note found for query: ${query}\n`);
@@ -317,7 +220,7 @@ const command: Command = {
     }
 
     process.stdout.write(JSON.stringify(result) + '\n');
-  },
-};
+  }
+}
 
-export default command;
+export default new ExplainTopicCommand();

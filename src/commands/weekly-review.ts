@@ -14,8 +14,11 @@
  * Exits 0 on all success; exits 1 with failing command name on stderr.
  */
 
-import type { Command } from '../cli';
-import { dailyAppend, resolveVault } from '../lib/obsidian';
+import { logWarn } from '../lib/logger';
+import { BaseCommand, type CommandContext } from './base-command';
+import { dailyAppend } from '../lib/obsidian';
+import { VaultSnapshot } from '../lib/vault-snapshot';
+import { getVaultOps } from '../ports/provider';
 import { spawnCapture } from '../lib/shell';
 import { Slug } from '../types/slug';
 import { lintProject } from './cli-lint';
@@ -24,7 +27,6 @@ import { getRelations } from './cli-relations';
 import { syncOntology } from './sync-ontology';
 import { syncTopk } from './sync-topk';
 import { syncVocab } from './sync-vocab';
-import { extractVaultFlag } from '../lib/vault-registry';
 
 /* ---------------------------------------------------------------------------
  * Types
@@ -49,6 +51,9 @@ export interface WeeklyReviewDeps {
   dailyAppend: typeof dailyAppend;
 }
 
+/* Note: Sub-command functions accept an optional VaultOps parameter.
+ * weekly-review passes a shared VaultSnapshot to avoid redundant IPC. */
+
 /* ---------------------------------------------------------------------------
  * Core orchestration — injectable deps for unit testing
  * --------------------------------------------------------------------------- */
@@ -61,6 +66,7 @@ export async function runWeeklyReview(
 ): Promise<{ result: WeeklyReviewResult; failedCmd: string; topkViolations: number }> {
   const folder = `projects/${slug}`;
   const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 16);
+  const snapshot = new VaultSnapshot(getVaultOps());
 
   let lintIssues = 0;
   let orphanIssues = 0;
@@ -72,7 +78,7 @@ export async function runWeeklyReview(
 
   /* Step 1: lintProject */
   try {
-    const r = await deps.lintProject(vault, folder);
+    const r = await deps.lintProject(vault, folder, snapshot);
     lintIssues = r.count;
   } catch {
     if (!failedCmd) failedCmd = 'cli-lint';
@@ -80,7 +86,7 @@ export async function runWeeklyReview(
 
   /* Step 2: findOrphans */
   try {
-    const r = await deps.findOrphans(vault, folder);
+    const r = await deps.findOrphans(vault, folder, snapshot);
     orphanIssues = r.count;
   } catch {
     if (!failedCmd) failedCmd = 'cli-orphans';
@@ -88,7 +94,7 @@ export async function runWeeklyReview(
 
   /* Step 3: getRelations */
   try {
-    const r = await deps.getRelations(vault, slug);
+    const r = await deps.getRelations(vault, slug, snapshot);
     relUnknown = r.unknownTypes.length;
   } catch {
     if (!failedCmd) failedCmd = 'cli-relations';
@@ -96,7 +102,7 @@ export async function runWeeklyReview(
 
   /* Step 4: syncOntology */
   try {
-    const r = await deps.syncOntology(vault, slug);
+    const r = await deps.syncOntology(vault, slug, snapshot);
     ontMissing = r.missingInverses.length;
   } catch {
     if (!failedCmd) failedCmd = 'sync-ontology';
@@ -104,14 +110,14 @@ export async function runWeeklyReview(
 
   /* Step 5: syncVocab */
   try {
-    await deps.syncVocab(vault, slug);
+    await deps.syncVocab(vault, slug, snapshot);
   } catch {
     if (!failedCmd) failedCmd = 'sync-vocab';
   }
 
   /* Step 6: syncTopk */
   try {
-    const r = await deps.syncTopk(vault, slug);
+    const r = await deps.syncTopk(vault, slug, snapshot);
     topkViolations = r.appended;
   } catch {
     if (!failedCmd) failedCmd = 'sync-topk';
@@ -161,7 +167,9 @@ export async function runWeeklyReview(
       `- Review complete: ${timestamp}`,
     ].join('\n');
 
-    await deps.dailyAppend(vault, summary).catch(() => undefined);
+    await deps.dailyAppend(vault, summary).catch(() => {
+      logWarn('weekly-review: failed to append summary to daily');
+    });
   }
 
   return { result, failedCmd, topkViolations };
@@ -186,28 +194,15 @@ const REAL_DEPS: WeeklyReviewDeps = {
  * CLI Command
  * --------------------------------------------------------------------------- */
 
-const command: Command = {
-  name: 'weekly-review',
-  description:
-    'Run full vault health review sequence (lint → orphans → relations → ontology → vocab → topk → unresolved)',
+class WeeklyReviewCommand extends BaseCommand {
+  readonly name = 'weekly-review';
+  readonly description =
+    'Run full vault health review sequence (lint → orphans → relations → ontology → vocab → topk → unresolved)';
+  readonly usage = 'nerv weekly-review [--vault <name>] <project_slug> [--json]';
+  readonly minPositional = 1;
 
-  async run(args: string[]): Promise<void> {
-    let jsonOutput = false;
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
-
-    const positional: string[] = [];
-    for (const a of rest) {
-      if (a === '--json') jsonOutput = true;
-      else positional.push(a);
-    }
-
-    if (positional.length < 1) {
-      process.stderr.write('Usage: nerv weekly-review [--vault <name>] <project_slug> [--json]\n');
-      process.exit(1);
-    }
-
-    const vault = await resolveVault(vaultArg);
-    const slug = positional[0];
+  protected async execute(ctx: CommandContext): Promise<void> {
+    const slug = ctx.positional[0];
 
     if (!Slug.PATTERN.test(slug)) {
       process.stderr.write(
@@ -216,9 +211,9 @@ const command: Command = {
       process.exit(1);
     }
 
-    const { result, failedCmd } = await runWeeklyReview(vault, slug, jsonOutput, REAL_DEPS);
+    const { result, failedCmd } = await runWeeklyReview(ctx.vault, slug, ctx.jsonOutput, REAL_DEPS);
 
-    if (jsonOutput) {
+    if (ctx.jsonOutput) {
       process.stdout.write(JSON.stringify(result) + '\n');
     }
 
@@ -226,7 +221,7 @@ const command: Command = {
       process.stderr.write(`ERROR: weekly-review: sub-command failed: ${failedCmd}\n`);
       process.exit(1);
     }
-  },
-};
+  }
+}
 
-export default command;
+export default new WeeklyReviewCommand();

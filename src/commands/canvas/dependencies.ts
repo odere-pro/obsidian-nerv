@@ -17,7 +17,6 @@
  *   - default Command — CLI entry point
  */
 
-import type { Command } from '../../cli';
 import {
   type CanvasData,
   type CanvasEdge,
@@ -30,10 +29,10 @@ import {
   NODE_H,
   NODE_W,
 } from '../../lib/canvas';
-import { encodeForJs } from '../../lib/json';
-import { obEval, resolveVault } from '../../lib/obsidian';
+import { buildWriteExpr } from '../../lib/canvas-codegen';
+import { logWarn } from '../../lib/logger';
+import { obEval } from '../../lib/obsidian';
 import { getRelations } from '../cli-relations';
-import { extractVaultFlag } from '../../lib/vault-registry';
 
 export type { CanvasResult };
 
@@ -189,30 +188,6 @@ export function buildDependenciesCanvas(edges: DependencyEdgeInput[]): CanvasDat
 }
 
 /* ---------------------------------------------------------------------------
- * Canvas write helper (via obEval)
- * --------------------------------------------------------------------------- */
-
-function buildWriteExpr(filePath: string, content: string): string {
-  const jsPath = encodeForJs(filePath);
-  const jsContent = encodeForJs(content);
-  return `(async () => {
-  var path = ${jsPath};
-  var content = ${jsContent};
-  var existing = app.vault.getAbstractFileByPath(path);
-  if (existing) {
-    await app.vault.modify(existing, content);
-  } else {
-    var parts = path.split('/');
-    parts.pop();
-    var dir = parts.join('/');
-    var dirFile = app.vault.getAbstractFileByPath(dir);
-    if (!dirFile) await app.vault.createFolder(dir);
-    await app.vault.create(path, content);
-  }
-})()`;
-}
-
-/* ---------------------------------------------------------------------------
  * Programmatic API
  * --------------------------------------------------------------------------- */
 
@@ -248,7 +223,9 @@ export async function generateDependenciesCanvas(
   const outputPath = `projects/${project}/${project}.dependencies.canvas`;
   const content = JSON.stringify(canvas, null, 2);
 
-  await obEval(vault, buildWriteExpr(outputPath, content)).catch(() => undefined);
+  await obEval(vault, buildWriteExpr(outputPath, content)).catch(() => {
+    logWarn('canvas/dependencies: failed to write canvas file via obEval');
+  });
 
   return { ok: true, data: canvas, outputPath };
 }
@@ -257,20 +234,16 @@ export async function generateDependenciesCanvas(
  * CLI Command
  * --------------------------------------------------------------------------- */
 
-const command: Command = {
-  name: 'canvas/dependencies',
-  description: 'Generate a JSON Canvas DAG of depends-on edges for a project',
+import { BaseCommand, type CommandContext } from '../base-command';
 
-  async run(args: string[]): Promise<void> {
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
+class CanvasDependenciesCommand extends BaseCommand {
+  readonly name = 'canvas/dependencies';
+  readonly description = 'Generate a JSON Canvas DAG of depends-on edges for a project';
+  readonly usage = 'nerv canvas/dependencies [--vault <name>] <project_slug>';
+  readonly minPositional = 1;
 
-    if (rest.length < 1) {
-      process.stderr.write('Usage: nerv canvas/dependencies [--vault <name>] <project_slug>\n');
-      process.exit(1);
-    }
-
-    const vault = await resolveVault(vaultArg);
-    const project = rest[0];
+  protected async execute(ctx: CommandContext): Promise<void> {
+    const project = ctx.positional[0];
 
     if (!/^[a-z0-9][a-z0-9-]*$/.test(project)) {
       process.stderr.write(
@@ -279,7 +252,7 @@ const command: Command = {
       process.exit(1);
     }
 
-    const result = await generateDependenciesCanvas(vault, project);
+    const result = await generateDependenciesCanvas(ctx.vault, project);
 
     if (!result.ok) {
       process.stderr.write(`ERROR: ${result.error}\n`);
@@ -289,7 +262,7 @@ const command: Command = {
     process.stdout.write(
       `canvas:dependencies written to ${result.outputPath} (${result.data.nodes.length} nodes, ${result.data.edges.length} edges)\n`
     );
-  },
-};
+  }
+}
 
-export default command;
+export default new CanvasDependenciesCommand();

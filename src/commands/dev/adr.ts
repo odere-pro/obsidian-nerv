@@ -6,12 +6,10 @@
  * Delegates entity creation to createEntity().
  */
 
-import type { Command } from '../../cli';
-import { resolveVault } from '../../lib/obsidian';
+import { BaseCommand, type CommandContext } from '../base-command';
 import type { CommandResult } from '../../types/result';
 import { Slug } from '../../types/slug';
 import { createEntity } from '../create-entity';
-import { extractVaultFlag } from '../../lib/vault-registry';
 import { getVaultOps } from '../../ports/provider';
 
 export function generateAdrSlug(title: string): string {
@@ -136,26 +134,18 @@ export async function createAdr(params: AdrParams): Promise<CommandResult<AdrDat
   };
 }
 
-const command: Command = {
-  name: 'dev/adr',
-  description: 'Create an Architecture Decision Record as a LEAF note',
+class AdrCommand extends BaseCommand {
+  readonly name = 'dev/adr';
+  readonly description = 'Create an Architecture Decision Record as a LEAF note';
+  readonly usage = 'nerv dev/adr [--vault <name>] <project_slug> "<title>" [<parent_slug>]';
+  readonly minPositional = 2;
 
-  async run(args: string[]): Promise<void> {
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
+  protected async execute(ctx: CommandContext): Promise<void> {
+    const project = ctx.positional[0];
+    const title = ctx.positional[1];
+    const parentSlug = ctx.positional[2];
 
-    if (rest.length < 2) {
-      process.stderr.write(
-        'Usage: nerv dev/adr [--vault <name>] <project_slug> "<title>" [<parent_slug>]\n'
-      );
-      process.exit(1);
-    }
-
-    const vault = await resolveVault(vaultArg);
-    const project = rest[0];
-    const title = rest[1];
-    const parentSlug = rest[2];
-
-    const result = await createAdr({ vault, project, title, parentSlug });
+    const result = await createAdr({ vault: ctx.vault, project, title, parentSlug });
 
     if (!result.ok) {
       process.stderr.write(`ERROR: ${result.error}\n`);
@@ -165,7 +155,7 @@ const command: Command = {
     process.stdout.write(`ADR created: ${result.data.path}\n`);
     process.stdout.write(`  decision-date:   ${result.data.decisionDate}\n`);
     process.stdout.write(`  decision-status: ${result.data.decisionStatus}\n`);
-  },
-};
+  }
+}
 
-export default command;
+export default new AdrCommand();

@@ -10,24 +10,23 @@
  * <plugin-id> is the directory name under .obsidian/plugins/, NOT the display name.
  */
 
-import type { Command } from '../../cli';
-import { resolveVault } from '../../lib/obsidian';
-import { extractVaultFlag } from '../../lib/vault-registry';
+import { BaseCommand, type CommandContext } from '../base-command';
 import { getDevOps } from '../../ports/provider';
 
 const PLUGIN_ID_RE = /^[a-zA-Z0-9_-]+$/;
 
-const command: Command = {
-  name: 'dev/dev-cycle',
-  description:
-    'Run the 4-step plugin development feedback cycle (reload → errors → console → screenshot)',
+class DevCycleCommand extends BaseCommand {
+  readonly name = 'dev/dev-cycle';
+  readonly description =
+    'Run the 4-step plugin development feedback cycle (reload \u2192 errors \u2192 console \u2192 screenshot)';
+  readonly usage = 'nerv dev/dev-cycle [--vault <name>] <plugin-id> [--screenshot]';
+  readonly minPositional = 1;
 
-  async run(args: string[]): Promise<void> {
+  protected async execute(ctx: CommandContext): Promise<void> {
     let screenshot = false;
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
-
     const positional: string[] = [];
-    for (const a of rest) {
+
+    for (const a of ctx.positional) {
       if (a === '--screenshot') {
         screenshot = true;
       } else {
@@ -36,13 +35,10 @@ const command: Command = {
     }
 
     if (positional.length < 1) {
-      process.stderr.write(
-        'Usage: nerv dev/dev-cycle [--vault <name>] <plugin-id> [--screenshot]\n'
-      );
+      process.stderr.write(`Usage: ${this.usage}\n`);
       process.exit(1);
     }
 
-    const vault = await resolveVault(vaultArg);
     const pluginId = positional[0];
 
     if (!PLUGIN_ID_RE.test(pluginId)) {
@@ -57,12 +53,12 @@ const command: Command = {
 
     /* Step 1 — Reload */
     process.stdout.write(`[dev-cycle] Step 1/4: reloading plugin "${pluginId}"...\n`);
-    await devOps.reloadPlugin(vault, pluginId);
+    await devOps.reloadPlugin(ctx.vault, pluginId);
     process.stdout.write(`[dev-cycle] Reload: OK\n`);
 
     /* Step 2 — Errors */
     process.stdout.write(`[dev-cycle] Step 2/4: checking for errors...\n`);
-    const errorsOut = (await devOps.captureErrors(vault)).trim();
+    const errorsOut = (await devOps.captureErrors(ctx.vault)).trim();
 
     if (errorsOut) {
       process.stdout.write(`[dev-cycle] ERRORS FOUND — stopping cycle:\n`);
@@ -74,7 +70,7 @@ const command: Command = {
 
     /* Step 3 — Console (last 20 lines) */
     process.stdout.write(`[dev-cycle] Step 3/4: capturing console output...\n`);
-    const consoleOut = (await devOps.captureConsole(vault)).trim();
+    const consoleOut = (await devOps.captureConsole(ctx.vault)).trim();
 
     if (consoleOut) {
       const lines = consoleOut.split('\n').slice(-20);
@@ -86,7 +82,7 @@ const command: Command = {
     /* Step 4 — Screenshot (only with --screenshot flag) */
     if (screenshot) {
       process.stdout.write(`[dev-cycle] Step 4/4: capturing screenshot...\n`);
-      const screenshotOut = (await devOps.captureScreenshot(vault)).trim();
+      const screenshotOut = (await devOps.captureScreenshot(ctx.vault)).trim();
       if (screenshotOut) {
         process.stdout.write(`[dev-cycle] Screenshot saved: ${screenshotOut}\n`);
       } else {
@@ -99,7 +95,7 @@ const command: Command = {
     }
 
     process.stdout.write(`\n[dev-cycle] Cycle complete for plugin "${pluginId}"\n`);
-  },
-};
+  }
+}
 
-export default command;
+export default new DevCycleCommand();

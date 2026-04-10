@@ -5,14 +5,13 @@
  * inverse relationship type from the project's _ontology file.
  */
 
-import type { Command } from '../cli';
+import { CONNECTION_LIMIT } from '../constants/limits';
 import { logError, logWarn } from '../lib/logger';
-import { resolveVault } from '../lib/obsidian';
+import { SLUG_PATTERN } from '../lib/markdown';
 import { getVaultOps } from '../ports/provider';
-import { extractVaultFlag } from '../lib/vault-registry';
+import { BaseCommand, type CommandContext } from './base-command';
 
-const REL_TYPE_RE = /^[a-z][a-z0-9-]*$/;
-const CONNECTION_LIMIT = 7;
+const REL_TYPE_RE = SLUG_PATTERN;
 
 export interface AddConnectionParams {
   vault: string;
@@ -60,6 +59,41 @@ function appendToConnections(body: string, line: string): { content: string; err
   const before = body.substring(0, insertAt).trimEnd();
   const after = body.substring(insertAt);
   return { content: `${before}\n${line}\n${after}`, error: '' };
+}
+
+type WriteResult = { written: boolean | 'skipped'; error: string };
+
+/**
+ * Read a note, check for duplicate/limit, append a connection line, and write back.
+ * Returns the outcome without throwing.
+ */
+async function writeConnection(
+  ops: ReturnType<typeof getVaultOps>,
+  vault: string,
+  filePath: string,
+  targetBasename: string,
+  relType: string,
+  context: string
+): Promise<WriteResult> {
+  const file = await ops.readFile(vault, filePath);
+
+  if (hasConnection(file.content, targetBasename)) {
+    return { written: 'skipped', error: '' };
+  }
+
+  const count = countConnections(file.content);
+  if (count >= CONNECTION_LIMIT) {
+    const bn = basenameOf(filePath);
+    return { written: false, error: `Connection limit (${CONNECTION_LIMIT}) reached on ${bn}` };
+  }
+
+  const result = appendToConnections(file.content, connLine(relType, targetBasename, context));
+  if (result.error) {
+    return { written: false, error: result.error };
+  }
+
+  await ops.replaceFileContent(vault, filePath, result.content);
+  return { written: true, error: '' };
 }
 
 /**
@@ -145,62 +179,25 @@ export async function addConnection(
   const targetBasename = basenameOf(targetPath);
 
   /* Write forward connection */
-  const sourceFile = await ops.readFile(vault, sourcePath);
-  let forwardWritten: boolean | 'skipped';
-
-  if (hasConnection(sourceFile.content, targetBasename)) {
-    forwardWritten = 'skipped';
-  } else {
-    const count = countConnections(sourceFile.content);
-    if (count >= CONNECTION_LIMIT) {
-      return {
-        ok: false,
-        data: { forwardWritten: false, inverseWritten: false, inverseError: '' },
-        error: `add-connection: Connection limit (${CONNECTION_LIMIT}) reached on ${sourceBasename}`,
-      };
-    }
-    const result = appendToConnections(
-      sourceFile.content,
-      connLine(relType, targetBasename, context)
-    );
-    if (result.error) {
-      return {
-        ok: false,
-        data: { forwardWritten: false, inverseWritten: false, inverseError: '' },
-        error: `add-connection: ${result.error}`,
-      };
-    }
-    await ops.replaceFileContent(vault, sourcePath, result.content);
-    forwardWritten = true;
+  const fwd = await writeConnection(ops, vault, sourcePath, targetBasename, relType, context);
+  if (fwd.error) {
+    return {
+      ok: false,
+      data: { forwardWritten: false, inverseWritten: false, inverseError: '' },
+      error: `add-connection: ${fwd.error}`,
+    };
   }
+  const forwardWritten = fwd.written;
 
   /* Write inverse connection */
   let inverseWritten: boolean | 'skipped' = false;
   let inverseError = '';
 
   if (inverseType) {
-    const targetFile = await ops.readFile(vault, targetPath);
-
-    if (hasConnection(targetFile.content, sourceBasename)) {
-      inverseWritten = 'skipped';
-    } else {
-      const count = countConnections(targetFile.content);
-      if (count >= CONNECTION_LIMIT) {
-        inverseError = `Connection limit (${CONNECTION_LIMIT}) reached on ${targetBasename}`;
-      } else {
-        const invCtx = context ? `inverse of: ${context}` : '';
-        const result = appendToConnections(
-          targetFile.content,
-          connLine(inverseType, sourceBasename, invCtx)
-        );
-        if (result.error) {
-          inverseError = result.error;
-        } else {
-          await ops.replaceFileContent(vault, targetPath, result.content);
-          inverseWritten = true;
-        }
-      }
-    }
+    const invCtx = context ? `inverse of: ${context}` : '';
+    const inv = await writeConnection(ops, vault, targetPath, sourceBasename, inverseType, invCtx);
+    inverseWritten = inv.written;
+    inverseError = inv.error;
   }
 
   return {
@@ -213,24 +210,18 @@ export async function addConnection(
   };
 }
 
-const command: Command = {
-  name: 'add-connection',
-  description: 'Write a typed bidirectional connection between two notes',
-  async run(args: string[]): Promise<void> {
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
+class AddConnectionCommand extends BaseCommand {
+  readonly name = 'add-connection';
+  readonly description = 'Write a typed bidirectional connection between two notes';
+  readonly usage =
+    'nerv add-connection [--vault <name>] <source_path> <rel_type> <target_path> [<context>]';
+  readonly minPositional = 3;
 
-    if (rest.length < 3) {
-      process.stderr.write(
-        'Usage: nerv add-connection [--vault <name>] <source_path> <rel_type> <target_path> [<context>]\n'
-      );
-      process.exit(1);
-    }
-
-    const vault = await resolveVault(vaultArg);
-    const sourcePath = rest[0];
-    const relType = rest[1];
-    const targetPath = rest[2];
-    const context = rest[3] ?? '';
+  protected async execute(ctx: CommandContext): Promise<void> {
+    const sourcePath = ctx.positional[0];
+    const relType = ctx.positional[1];
+    const targetPath = ctx.positional[2];
+    const context = ctx.positional[3] ?? '';
 
     if (!REL_TYPE_RE.test(relType)) {
       logError(
@@ -238,7 +229,13 @@ const command: Command = {
       );
     }
 
-    const result = await addConnection({ vault, sourcePath, relType, targetPath, context });
+    const result = await addConnection({
+      vault: ctx.vault,
+      sourcePath,
+      relType,
+      targetPath,
+      context,
+    });
 
     if (!result.ok) {
       process.stderr.write(`ERROR: ${result.error}\n`);
@@ -260,7 +257,7 @@ const command: Command = {
     } else if (inverseError) {
       process.stderr.write(`WARN: inverse not written: ${inverseError}\n`);
     }
-  },
-};
+  }
+}
 
-export default command;
+export default new AddConnectionCommand();

@@ -6,10 +6,8 @@
  * Security: rejects code paths containing ]] or newlines.
  */
 
-import type { Command } from '../../cli';
-import { resolveVault } from '../../lib/obsidian';
+import { BaseCommand, type CommandContext } from '../base-command';
 import type { CommandResult } from '../../types/result';
-import { extractVaultFlag } from '../../lib/vault-registry';
 import { getVaultOps } from '../../ports/provider';
 
 export interface CodeLinkData {
@@ -111,25 +109,17 @@ export async function codeLink(
   };
 }
 
-const command: Command = {
-  name: 'dev/code-link',
-  description: 'Append a code-path reference to ## Connections in a note',
+class CodeLinkCommand extends BaseCommand {
+  readonly name = 'dev/code-link';
+  readonly description = 'Append a code-path reference to ## Connections in a note';
+  readonly usage = 'nerv dev/code-link [--vault <name>] "<note-path>" "<code-path>"';
+  readonly minPositional = 2;
 
-  async run(args: string[]): Promise<void> {
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
+  protected async execute(ctx: CommandContext): Promise<void> {
+    const notePath = ctx.positional[0];
+    const codePath = ctx.positional[1];
 
-    if (rest.length < 2) {
-      process.stderr.write(
-        'Usage: nerv dev/code-link [--vault <name>] "<note-path>" "<code-path>"\n'
-      );
-      process.exit(1);
-    }
-
-    const vault = await resolveVault(vaultArg);
-    const notePath = rest[0];
-    const codePath = rest[1];
-
-    const result = await codeLink(vault, notePath, codePath);
+    const result = await codeLink(ctx.vault, notePath, codePath);
 
     if (!result.ok) {
       process.stderr.write(`ERROR: ${result.error}\n`);
@@ -142,7 +132,7 @@ const command: Command = {
     } else {
       process.stdout.write(`code-link: already present (no change) in ${result.data.note}\n`);
     }
-  },
-};
+  }
+}
 
-export default command;
+export default new CodeLinkCommand();

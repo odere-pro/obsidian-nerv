@@ -17,10 +17,10 @@
  * - body term freq: +1 per occurrence, capped at +5
  */
 
-import type { Command } from '../cli';
 import { parseJson } from '../lib/json';
-import { obEval, resolveVault } from '../lib/obsidian';
-import { extractVaultFlag } from '../lib/vault-registry';
+import { extractSection, escapeRegex } from '../lib/markdown';
+import { obEval } from '../lib/obsidian';
+import { BaseCommand, type CommandContext } from './base-command';
 
 /* ---------------------------------------------------------------------------
  * Types
@@ -119,7 +119,7 @@ export function scoreNote(query: string, note: ScoringNote): number {
     if (spine.includes(term)) score += 4;
     if (tags.some(t => t.includes(term))) score += 3;
 
-    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escaped = escapeRegex(term);
     const freq = (bodyLow.match(new RegExp(escaped, 'g')) ?? []).length;
     score += Math.min(freq, 5);
   }
@@ -130,15 +130,6 @@ export function scoreNote(query: string, note: ScoringNote): number {
 /* ---------------------------------------------------------------------------
  * Section parsing helpers (used in result assembly)
  * --------------------------------------------------------------------------- */
-
-function extractSection(body: string, heading: string): string {
-  const parts = body.split(/\n(?=## )/);
-  for (const part of parts) {
-    const m = part.match(new RegExp(`^## ${heading}\\s*\\n([\\s\\S]*)`));
-    if (m) return (m[1] ?? '').trim();
-  }
-  return '';
-}
 
 function parseConnectionSection(body: string): ConnectionEntry[] {
   const section = extractSection(body, 'Connections');
@@ -283,21 +274,15 @@ export async function contextSearch(
  * CLI Command
  * --------------------------------------------------------------------------- */
 
-const command: Command = {
-  name: 'context',
-  description: 'Relevance-scored vault retrieval for a query',
+class ContextCommand extends BaseCommand {
+  readonly name = 'context';
+  readonly description = 'Relevance-scored vault retrieval for a query';
+  readonly usage = 'nerv context [--vault <name>] "<query>" [<limit>]';
+  readonly minPositional = 1;
 
-  async run(args: string[]): Promise<void> {
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
-
-    if (rest.length < 1) {
-      process.stderr.write('Usage: nerv context [--vault <name>] "<query>" [<limit>]\n');
-      process.exit(1);
-    }
-
-    const vault = await resolveVault(vaultArg);
-    const query = rest[0];
-    const limitStr = rest[1] ?? '5';
+  protected async execute(ctx: CommandContext): Promise<void> {
+    const query = ctx.positional[0];
+    const limitStr = ctx.positional[1] ?? '5';
     const limit = parseInt(limitStr, 10);
 
     if (isNaN(limit) || limit < 1) {
@@ -305,9 +290,9 @@ const command: Command = {
       process.exit(1);
     }
 
-    const output = await contextSearch(vault, query, limit);
+    const output = await contextSearch(ctx.vault, query, limit);
     process.stdout.write(JSON.stringify(output) + '\n');
-  },
-};
+  }
+}
 
-export default command;
+export default new ContextCommand();

@@ -8,8 +8,10 @@
  *   - default Command — CLI entry point for the dispatcher
  */
 
+import { CONNECTION_LIMIT, FLAG_LIMIT, isEntityNote } from '../constants/limits';
 import { extractSection, stripFrontmatter } from '../lib/markdown';
 import { getVaultOps } from '../ports/provider';
+import type { VaultOps } from '../ports/vault-ops';
 import { ENTITY_REQUIRED_FIELDS } from '../types/entity';
 
 /* ---------------------------------------------------------------------------
@@ -183,11 +185,11 @@ function rulesUntypedConnection(note: NoteData): Violation | null {
 
 function rulesConnectionLimit(note: NoteData): Violation | null {
   const typedCount = note.connections.filter(c => c.typed).length;
-  if (typedCount > 7) {
+  if (typedCount > CONNECTION_LIMIT) {
     return {
       note: note.path,
       rule: 'connection-limit',
-      detail: `Connection count ${typedCount} exceeds limit of 7`,
+      detail: `Connection count ${typedCount} exceeds limit of ${CONNECTION_LIMIT}`,
     };
   }
   return null;
@@ -207,11 +209,11 @@ function rulesMissingBreadcrumb(note: NoteData): Violation | null {
 
 function rulesFlagLimit(note: NoteData): Violation | null {
   const matches = note.body.match(/^> \[!flag\b/gm) ?? [];
-  if (matches.length > 3) {
+  if (matches.length > FLAG_LIMIT) {
     return {
       note: note.path,
       rule: 'flag-limit',
-      detail: `Callout flag count ${matches.length} exceeds limit of 3`,
+      detail: `Callout flag count ${matches.length} exceeds limit of ${FLAG_LIMIT}`,
     };
   }
   return null;
@@ -236,25 +238,31 @@ export const VIOLATION_RULES: ViolationRule[] = [
  * VaultOps data fetch
  * --------------------------------------------------------------------------- */
 
-const EXCLUDED_PREFIXES = ['tpl-', '_vocab', '_topk', '_ontology'];
-
 /* ---------------------------------------------------------------------------
  * Programmatic API
  * --------------------------------------------------------------------------- */
 
 /** Lint all notes in the vault (or a folder) and return structured results. */
-export async function lintProject(vault: string, folder = ''): Promise<LintResult> {
-  const ops = getVaultOps();
+export async function lintProject(
+  vault: string,
+  folder = '',
+  injectedOps?: VaultOps
+): Promise<LintResult> {
+  const ops = injectedOps ?? getVaultOps();
   const allFiles = await ops.listFiles(vault).catch(() => []);
   const filtered = allFiles.filter(e => {
     if (folder && !e.path.startsWith(folder + '/') && e.path !== folder) return false;
     const name = e.path.split('/').pop() ?? '';
-    return !EXCLUDED_PREFIXES.some(p => name.startsWith(p));
+    return isEntityNote(name);
   });
 
   const notes: NoteData[] = [];
-  for (const entry of filtered) {
-    const file = await ops.readFile(vault, entry.path);
+  const files = await ops.readFiles(
+    vault,
+    filtered.map(e => e.path)
+  );
+  for (let i = 0; i < filtered.length; i++) {
+    const file = files[i];
     const body = stripFrontmatter(file.content);
     const connections = parseConnections(body);
     notes.push({

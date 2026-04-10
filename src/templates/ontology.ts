@@ -1,17 +1,12 @@
+import { renderProjectFrontmatter, renderVaultFrontmatter } from './frontmatter';
+
 export interface OntologyParams {
   project: string;
   /** YYYY-MM-DD */
   updated: string;
 }
 
-export function renderOntology(params: OntologyParams): string {
-  return `---
-type: ONTOLOGY
-project: ${params.project}
-updated: ${params.updated}
----
-
-## Relationship Types
+const RELATIONSHIP_TABLE = `## Relationship Types
 
 | Type | Inverse | Symmetric | Description |
 |------|---------|-----------|-------------|
@@ -24,8 +19,15 @@ updated: ${params.updated}
 | \`feeds-data\` | \`fed-by\` | false | A supplies data to B |
 | \`authenticates-via\` | \`authenticates\` | false | A uses B for authentication |
 | \`contains\` | \`contained-by\` | false | A is the parent container of B |
-| \`mitigates\` | \`mitigated-by\` | false | A reduces risk posed by B |
-`;
+| \`mitigates\` | \`mitigated-by\` | false | A reduces risk posed by B |`;
+
+export function renderOntology(params: OntologyParams): string {
+  const fm = renderProjectFrontmatter({
+    type: 'ONTOLOGY',
+    project: params.project,
+    updated: params.updated,
+  });
+  return `${fm}\n\n${RELATIONSHIP_TABLE}\n`;
 }
 
 /* ---------------------------------------------------------------------------
@@ -40,14 +42,13 @@ export interface VaultOntologyParams {
 }
 
 export function renderVaultOntology(params: VaultOntologyParams): string {
-  return `---
-title: "${params.title} Ontology"
-type: ONTOLOGY
-spine: ""
-status: active
-created: ${params.created}
-modified: ${params.modified}
----
+  const fm = renderVaultFrontmatter({
+    title: `${params.title} Ontology`,
+    type: 'ONTOLOGY',
+    created: params.created,
+    modified: params.modified,
+  });
+  return `${fm}
 
 # Relationship Types
 

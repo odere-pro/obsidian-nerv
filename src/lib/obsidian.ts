@@ -190,28 +190,61 @@ export async function resolveVault(vault?: string): Promise<string> {
  * @security Never pass user-supplied, unvalidated input as `expr`.
  *   Always build the expression using encodeForJs() for string values.
  */
+/**
+ * Prepare the code argument for obEval. Large expressions are written to a
+ * temp file and bootstrapped via a short wrapper to avoid IPC arg limits.
+ */
+async function prepareCodeArg(expr: string): Promise<{ codeArg: string; tmpFile?: string }> {
+  if (expr.length <= MAX_INLINE_EXPR) {
+    return { codeArg: expr };
+  }
+  const tmpFile = join(tmpdir(), `obeval-${Date.now()}-${Math.random().toString(36).slice(2)}.js`);
+  await Bun.write(tmpFile, expr);
+  /*
+   * Security note: intentional — obEval's entire purpose is to evaluate trusted
+   * JS expressions inside Obsidian. The temp file contains the same expression
+   * that would otherwise be inlined in the code= arg.
+   */
+  const readExpr = `require('fs').readFileSync(${JSON.stringify(tmpFile)},'utf8')`;
+  return { codeArg: `(0,eval)(${readExpr})`, tmpFile };
+}
+
+/**
+ * Noise pattern — matches informational/warning lines from the Obsidian CLI
+ * that precede the actual result (e.g. upgrade notices, status messages).
+ */
+const NOISE_RE =
+  /^(\d{4}-\d{2}-\d{2} |Loading updated|Your Obsidian installer|Ignored:|Checking for update|Success\.|Latest version|App is up to date|\(no output\)|$)/;
+
+/**
+ * Parse the raw stdout from an obEval invocation.
+ * Strips the "=> " prefix and filters noise lines.
+ */
+function parseObEvalOutput(stdout: string): string {
+  const lines = stdout.split('\n');
+  const firstResult = lines.findIndex(l => l.startsWith('=> '));
+  if (firstResult === -1) {
+    const meaningful = lines
+      .filter(l => !NOISE_RE.test(l))
+      .join('\n')
+      .trim();
+    if (meaningful) {
+      throw new Error(`obEval: ${meaningful}`);
+    }
+    return '';
+  }
+  return lines
+    .slice(firstResult)
+    .map(l => (l.startsWith('=> ') ? l.slice('=> '.length) : l))
+    .join('\n')
+    .trim();
+}
+
 export async function obEval(vault: string, expr: string): Promise<string> {
   if (!vault) logError('obEval: vault argument is required');
   if (!expr) logError('obEval: expr argument is required');
 
-  /*
-   * Large expressions exceed the Obsidian CLI's IPC argument limit and cause
-   * hangs. Write them to a temp file and bootstrap with a short wrapper that
-   * reads the file content via Node's fs module (available in Electron).
-   */
-  let tmpFile: string | undefined;
-  let codeArg = expr;
-  if (expr.length > MAX_INLINE_EXPR) {
-    tmpFile = join(tmpdir(), `obeval-${Date.now()}-${Math.random().toString(36).slice(2)}.js`);
-    await Bun.write(tmpFile, expr);
-    /*
-     * Security note: intentional — obEval's entire purpose is to evaluate trusted
-     * JS expressions inside Obsidian. The temp file contains the same expression
-     * that would otherwise be inlined in the code= arg.
-     */
-    const readExpr = `require('fs').readFileSync(${JSON.stringify(tmpFile)},'utf8')`;
-    codeArg = `(0,eval)(${readExpr})`; /* indirect eval in global scope */
-  }
+  const { codeArg, tmpFile } = await prepareCodeArg(expr);
 
   let result: { stdout: string; exitCode: number; stderr: string };
   try {
@@ -220,37 +253,13 @@ export async function obEval(vault: string, expr: string): Promise<string> {
     if (tmpFile) await unlink(tmpFile).catch(() => {});
   }
 
-  const { stdout, exitCode, stderr } = result;
-
-  if (exitCode !== 0) {
-    logError(`obEval failed (exit ${exitCode}): ${stderr.trim() || stdout.trim()}`);
+  if (result.exitCode !== 0) {
+    logError(
+      `obEval failed (exit ${result.exitCode}): ${result.stderr.trim() || result.stdout.trim()}`
+    );
   }
 
-  /*
-   * The CLI prefixes result lines with "=> "; strip informational/warning lines
-   * preceding the result (e.g. "Loading updated app package..." upgrade notices).
-   */
-  const noiseRe =
-    /^(\d{4}-\d{2}-\d{2} |Loading updated|Your Obsidian installer|Ignored:|Checking for update|Success\.|Latest version|App is up to date|\(no output\)|$)/;
-  const lines = stdout.split('\n');
-  const firstResult = lines.findIndex(l => l.startsWith('=> '));
-  if (firstResult === -1) {
-    /* No "=> " prefix — check if this is a void return or an error */
-    const meaningful = lines
-      .filter(l => !noiseRe.test(l))
-      .join('\n')
-      .trim();
-    if (meaningful) {
-      throw new Error(`obEval: ${meaningful}`);
-    }
-    /* Void return — expression succeeded but produced no output */
-    return '';
-  }
-  return lines
-    .slice(firstResult)
-    .map(l => (l.startsWith('=> ') ? l.slice('=> '.length) : l))
-    .join('\n')
-    .trim();
+  return parseObEvalOutput(result.stdout);
 }
 
 /**
@@ -270,6 +279,28 @@ export async function dailyAppend(vault: string, content: string): Promise<void>
   if (exitCode !== 0) {
     logError(`dailyAppend failed: ${stderr.trim()}`);
   }
+}
+
+/**
+ * Build a JavaScript IIFE expression that appends a row to the rollback log.
+ * Separated from rollbackLog() so the expression construction is testable.
+ */
+export function buildRollbackExpr(header: string, entry: string): string {
+  const jsEntry = encodeForJs(entry);
+  const jsHeader = encodeForJs(header);
+
+  return `(async () => {
+  const path = '_inbox/_rollback-log.md';
+  const dir = '_inbox';
+  if (!app.vault.getAbstractFileByPath(dir)) await app.vault.createFolder(dir);
+  const f = app.vault.getAbstractFileByPath(path);
+  if (f) {
+    await app.vault.append(f, ${jsEntry});
+  } else {
+    await app.vault.create(path, ${jsHeader} + ${jsEntry});
+  }
+  return 'ok';
+})()`;
 }
 
 /**
@@ -297,23 +328,5 @@ export async function rollbackLog(
     '| Timestamp | Operation | Partial State |\n' +
     '|-----------|-----------|---------------|\n';
 
-  const jsEntry = encodeForJs(entry + '\n');
-  const jsHeader = encodeForJs(header);
-
-  /* FIXME: Eval expression construction is brittle — embedding both header and entry
-   * with the entire expression as a single line is fragile and error-prone. */
-  const expr = `(async () => {
-  const path = '_inbox/_rollback-log.md';
-  const dir = '_inbox';
-  if (!app.vault.getAbstractFileByPath(dir)) await app.vault.createFolder(dir);
-  const f = app.vault.getAbstractFileByPath(path);
-  if (f) {
-    await app.vault.append(f, ${jsEntry});
-  } else {
-    await app.vault.create(path, ${jsHeader} + ${jsEntry});
-  }
-  return 'ok';
-})()`;
-
-  await obEval(vault, expr);
+  await obEval(vault, buildRollbackExpr(header, entry + '\n'));
 }

@@ -5,11 +5,10 @@
  * and notes modified in the last 7 days. Supports --format compact.
  */
 
-import type { Command } from '../../cli';
 import { encodeForJs, parseJson } from '../../lib/json';
-import { obEval, resolveVault } from '../../lib/obsidian';
+import { obEval } from '../../lib/obsidian';
 import type { CommandResult } from '../../types/result';
-import { extractVaultFlag } from '../../lib/vault-registry';
+import { BaseCommand, type CommandContext } from '../base-command';
 
 export interface ProgressData {
   project: string;
@@ -100,35 +99,26 @@ export async function getProgress(
   return { ok: true, data };
 }
 
-const command: Command = {
-  name: 'study/progress',
-  description: 'Study progress dashboard for a project',
+class ProgressCommand extends BaseCommand {
+  readonly name = 'study/progress';
+  readonly description = 'Study progress dashboard for a project';
+  readonly usage = 'nerv study/progress [--vault <name>] <project_slug> [--format compact]';
+  readonly minPositional = 1;
 
-  async run(args: string[]): Promise<void> {
+  protected async execute(ctx: CommandContext): Promise<void> {
     let format = 'json';
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
-
     const positional: string[] = [];
 
-    for (let i = 0; i < rest.length; i++) {
-      if (rest[i] === '--format') {
-        format = rest[++i] ?? 'json';
+    for (let i = 0; i < ctx.positional.length; i++) {
+      if (ctx.positional[i] === '--format') {
+        format = ctx.positional[++i] ?? 'json';
       } else {
-        positional.push(rest[i]);
+        positional.push(ctx.positional[i]);
       }
     }
 
-    if (positional.length < 1) {
-      process.stderr.write(
-        'Usage: nerv study/progress [--vault <name>] <project_slug> [--format compact]\n'
-      );
-      process.exit(1);
-    }
-
-    const vault = await resolveVault(vaultArg);
     const project = positional[0];
-
-    const result = await getProgress(vault, project);
+    const result = await getProgress(ctx.vault, project);
 
     if (!result.ok) {
       process.stderr.write(`ERROR: ${result.error}\n`);
@@ -143,7 +133,7 @@ const command: Command = {
     } else {
       process.stdout.write(JSON.stringify(d) + '\n');
     }
-  },
-};
+  }
+}
 
-export default command;
+export default new ProgressCommand();

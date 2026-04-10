@@ -11,11 +11,9 @@
  *   0 8 * * 1-5 ~/.ontology-cli/bin/nerv morning [--vault <name>]
  */
 
-import type { Command } from '../cli';
-import { resolveVault } from '../lib/obsidian';
-import { getVaultOps } from '../ports/provider';
+import { logWarn } from '../lib/logger';
 import type { VaultOps } from '../ports/vault-ops';
-import { extractVaultFlag } from '../lib/vault-registry';
+import { BaseCommand, type CommandContext } from './base-command';
 
 /* ---------------------------------------------------------------------------
  * Constants
@@ -40,7 +38,9 @@ export interface MorningResult {
 
 export async function runMorning(vault: string, ops: VaultOps): Promise<MorningResult> {
   /* Step 1: open today's daily note */
-  await ops.openDaily(vault).catch(() => undefined);
+  await ops.openDaily(vault).catch(() => {
+    logWarn('morning: failed to open daily note');
+  });
   process.stdout.write('[morning] daily note opened\n');
 
   /* Step 2: count inbox backlog and append to daily note */
@@ -52,7 +52,9 @@ export async function runMorning(vault: string, ops: VaultOps): Promise<MorningR
     /* fallback to 0 */
   }
 
-  await ops.appendToDaily(vault, `- Inbox backlog: ${inboxCount} note(s)`).catch(() => undefined);
+  await ops.appendToDaily(vault, `- Inbox backlog: ${inboxCount} note(s)`).catch(() => {
+    logWarn('morning: failed to append inbox count to daily');
+  });
   process.stdout.write(`[morning] inbox backlog: ${inboxCount} note(s)\n`);
 
   /* Step 3: recently modified files (last 10) */
@@ -87,16 +89,16 @@ export async function runMorning(vault: string, ops: VaultOps): Promise<MorningR
  * CLI Command
  * --------------------------------------------------------------------------- */
 
-const command: Command = {
-  name: 'morning',
-  description:
-    'Daily startup sequence: open daily note, inbox count, recent files, unresolved links',
+class MorningCommand extends BaseCommand {
+  readonly name = 'morning';
+  readonly description =
+    'Daily startup sequence: open daily note, inbox count, recent files, unresolved links';
+  readonly usage = 'nerv morning [--vault <name>]';
+  readonly minPositional = 0;
 
-  async run(args: string[]): Promise<void> {
-    const { vault: vaultArg } = extractVaultFlag(args);
-    const vault = await resolveVault(vaultArg);
-    await runMorning(vault, getVaultOps());
-  },
-};
+  protected async execute(ctx: CommandContext): Promise<void> {
+    await runMorning(ctx.vault, ctx.ops);
+  }
+}
 
-export default command;
+export default new MorningCommand();

@@ -5,16 +5,15 @@
  * programmatic callers (import-json, adr).
  */
 
-import type { Command } from '../cli';
 import { logError } from '../lib/logger';
-import { resolveVault, rollbackLog } from '../lib/obsidian';
+import { rollbackLog } from '../lib/obsidian';
 import { getVaultOps } from '../ports/provider';
 import { renderBranch, renderLeaf, renderRoot } from '../templates/index';
 import { EntityTypes } from '../types/entity';
 import type { EntityType } from '../types/entity';
 import type { CommandResult } from '../types/result';
 import { Slug } from '../types/slug';
-import { extractVaultFlag } from '../lib/vault-registry';
+import { BaseCommand, type CommandContext } from './base-command';
 
 export interface CreateEntityParams {
   vault: string;
@@ -184,43 +183,27 @@ export async function createEntity(
   return { ok: true, data: { created: true, path: entityPath, title } };
 }
 
-const command: Command = {
-  name: 'create-entity',
-  description: 'Create a typed note inside a project',
-  async run(args: string[]): Promise<void> {
-    /* Strip --json flag before positional assignment */
-    let jsonOutput = false;
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
+class CreateEntityCommand extends BaseCommand {
+  readonly name = 'create-entity';
+  readonly description = 'Create a typed note inside a project';
+  readonly usage =
+    'nerv create-entity [--vault <name>] <project> <TYPE> <slug> "<Title>" <parent_slug> <kind> [<spine>] [--json]';
+  readonly minPositional = 7;
 
-    const positional = rest.filter(a => {
-      if (a === '--json') {
-        jsonOutput = true;
-        return false;
-      }
-      return true;
-    });
-
-    if (positional.length < 7) {
-      process.stderr.write(
-        'Usage: nerv create-entity [--vault <name>] <project> <TYPE> <slug> "<Title>" <parent_slug> <kind> [<spine>] [--json]\n'
-      );
-      process.exit(1);
-    }
-
-    const vault = await resolveVault(vaultArg);
-    const project = positional[0];
-    const slug = positional[2];
-    const title = positional[3];
-    const parentSlug = positional[4];
-    const kind = positional[5];
-    const spine = positional[6];
+  protected async execute(ctx: CommandContext): Promise<void> {
+    const project = ctx.positional[0];
+    const slug = ctx.positional[2];
+    const title = ctx.positional[3];
+    const parentSlug = ctx.positional[4];
+    const kind = ctx.positional[5];
+    const spine = ctx.positional[6];
 
     let type: EntityType;
     try {
-      type = EntityTypes.parse(positional[1]);
+      type = EntityTypes.parse(ctx.positional[1]);
     } catch {
-      const msg = `TYPE must be LEAF, BRANCH, or ROOT (got: ${positional[1]})`;
-      if (jsonOutput) {
+      const msg = `TYPE must be LEAF, BRANCH, or ROOT (got: ${ctx.positional[1]})`;
+      if (ctx.jsonOutput) {
         process.stdout.write(JSON.stringify({ created: false, error: msg }) + '\n');
       } else {
         logError(`create-entity: ${msg}`);
@@ -229,7 +212,7 @@ const command: Command = {
     }
 
     const result = await createEntity({
-      vault,
+      vault: ctx.vault,
       project,
       type,
       slug,
@@ -239,7 +222,7 @@ const command: Command = {
       spine,
     });
 
-    if (jsonOutput) {
+    if (ctx.jsonOutput) {
       if (result.ok) {
         process.stdout.write(
           JSON.stringify({
@@ -263,7 +246,7 @@ const command: Command = {
         process.stdout.write(`INFO: entity "${slug}" already exists — no changes made\n`);
       }
     }
-  },
-};
+  }
+}
 
-export default command;
+export default new CreateEntityCommand();

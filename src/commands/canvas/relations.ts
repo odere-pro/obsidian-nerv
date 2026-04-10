@@ -15,7 +15,6 @@
  *   - default Command — CLI entry point
  */
 
-import type { Command } from '../../cli';
 import {
   deterministicEdgeId,
   deterministicHexId,
@@ -29,10 +28,10 @@ import {
   type CanvasNode,
   type CanvasResult,
 } from '../../lib/canvas';
-import { encodeForJs } from '../../lib/json';
-import { obEval, resolveVault } from '../../lib/obsidian';
+import { buildWriteExpr } from '../../lib/canvas-codegen';
+import { logWarn } from '../../lib/logger';
+import { obEval } from '../../lib/obsidian';
 import { getRelations, type Edge } from '../cli-relations';
-import { extractVaultFlag } from '../../lib/vault-registry';
 
 export type { CanvasResult };
 
@@ -104,30 +103,6 @@ export function buildRelationsCanvas(input: RelationsInput): CanvasData {
 }
 
 /* ---------------------------------------------------------------------------
- * Canvas write helper (via obEval)
- * --------------------------------------------------------------------------- */
-
-function buildWriteExpr(filePath: string, content: string): string {
-  const jsPath = encodeForJs(filePath);
-  const jsContent = encodeForJs(content);
-  return `(async () => {
-  var path = ${jsPath};
-  var content = ${jsContent};
-  var existing = app.vault.getAbstractFileByPath(path);
-  if (existing) {
-    await app.vault.modify(existing, content);
-  } else {
-    var parts = path.split('/');
-    parts.pop();
-    var dir = parts.join('/');
-    var dirFile = app.vault.getAbstractFileByPath(dir);
-    if (!dirFile) await app.vault.createFolder(dir);
-    await app.vault.create(path, content);
-  }
-})()`;
-}
-
-/* ---------------------------------------------------------------------------
  * Programmatic API
  * --------------------------------------------------------------------------- */
 
@@ -159,7 +134,9 @@ export async function generateRelationsCanvas(
   const outputPath = `projects/${project}/${project}.relations.canvas`;
   const content = JSON.stringify(canvas, null, 2);
 
-  await obEval(vault, buildWriteExpr(outputPath, content)).catch(() => undefined);
+  await obEval(vault, buildWriteExpr(outputPath, content)).catch(() => {
+    logWarn('canvas/relations: failed to write canvas file via obEval');
+  });
 
   return { ok: true, data: canvas, outputPath };
 }
@@ -168,20 +145,16 @@ export async function generateRelationsCanvas(
  * CLI Command
  * --------------------------------------------------------------------------- */
 
-const command: Command = {
-  name: 'canvas/relations',
-  description: 'Generate a JSON Canvas relations graph from project connections',
+import { BaseCommand, type CommandContext } from '../base-command';
 
-  async run(args: string[]): Promise<void> {
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
+class CanvasRelationsCommand extends BaseCommand {
+  readonly name = 'canvas/relations';
+  readonly description = 'Generate a JSON Canvas relations graph from project connections';
+  readonly usage = 'nerv canvas/relations [--vault <name>] <project_slug>';
+  readonly minPositional = 1;
 
-    if (rest.length < 1) {
-      process.stderr.write('Usage: nerv canvas/relations [--vault <name>] <project_slug>\n');
-      process.exit(1);
-    }
-
-    const vault = await resolveVault(vaultArg);
-    const project = rest[0];
+  protected async execute(ctx: CommandContext): Promise<void> {
+    const project = ctx.positional[0];
 
     if (!/^[a-z0-9][a-z0-9-]*$/.test(project)) {
       process.stderr.write(
@@ -190,7 +163,7 @@ const command: Command = {
       process.exit(1);
     }
 
-    const result = await generateRelationsCanvas(vault, project);
+    const result = await generateRelationsCanvas(ctx.vault, project);
 
     if (!result.ok) {
       process.stderr.write(`ERROR: ${result.error}\n`);
@@ -200,7 +173,7 @@ const command: Command = {
     process.stdout.write(
       `canvas:relations written to ${result.outputPath} (${result.data.nodes.length} nodes, ${result.data.edges.length} edges)\n`
     );
-  },
-};
+  }
+}
 
-export default command;
+export default new CanvasRelationsCommand();

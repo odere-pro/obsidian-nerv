@@ -8,10 +8,8 @@
  * CLI: nerv web-ingest/batch [--vault <name>] <project> <path-to-json> [--json]
  */
 
-import type { Command } from '../../cli';
-import { resolveVault } from '../../lib/obsidian';
 import { ingestUrl } from './add';
-import { extractVaultFlag } from '../../lib/vault-registry';
+import { BaseCommand, type CommandContext } from '../base-command';
 
 /* ---------------------------------------------------------------------------
  * Types
@@ -69,32 +67,15 @@ export async function runBatch(
  * CLI command
  * --------------------------------------------------------------------------- */
 
-const command: Command = {
-  name: 'web-ingest/batch',
-  description: 'Ingest multiple URLs from a JSON file into the vault',
+class BatchCommand extends BaseCommand {
+  readonly name = 'web-ingest/batch';
+  readonly description = 'Ingest multiple URLs from a JSON file into the vault';
+  readonly usage = 'nerv web-ingest/batch [--vault <name>] <project> <batch-json-path> [--json]';
+  readonly minPositional = 2;
 
-  async run(args: string[]): Promise<void> {
-    let jsonOutput = false;
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
-
-    const positional = rest.filter(a => {
-      if (a === '--json') {
-        jsonOutput = true;
-        return false;
-      }
-      return true;
-    });
-
-    if (positional.length < 2) {
-      process.stderr.write(
-        'Usage: nerv web-ingest/batch [--vault <name>] <project> <batch-json-path> [--json]\n'
-      );
-      process.exit(1);
-    }
-
-    const vault = await resolveVault(vaultArg);
-    const project = positional[0];
-    const batchPath = positional[1];
+  protected async execute(ctx: CommandContext): Promise<void> {
+    const project = ctx.positional[0];
+    const batchPath = ctx.positional[1];
 
     let batchFile: BatchFile;
     try {
@@ -109,9 +90,9 @@ const command: Command = {
       process.exit(1);
     }
 
-    const summary = await runBatch(vault, project, batchFile);
+    const summary = await runBatch(ctx.vault, project, batchFile);
 
-    if (jsonOutput) {
+    if (ctx.jsonOutput) {
       process.stdout.write(JSON.stringify(summary) + '\n');
     } else {
       process.stdout.write(
@@ -119,7 +100,7 @@ const command: Command = {
       );
       if (summary.failed > 0) process.exit(1);
     }
-  },
-};
+  }
+}
 
-export default command;
+export default new BatchCommand();

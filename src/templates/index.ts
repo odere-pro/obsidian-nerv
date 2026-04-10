@@ -4,6 +4,15 @@ export { auditOrphansYml } from './audit-orphans';
 export { renderBase, type BaseParams } from './base';
 export { renderBranch, type BranchParams } from './branch';
 export { renderDaily, type DailyParams } from './daily';
+export {
+  renderEntityBody,
+  renderEntityFrontmatter,
+  renderProjectFrontmatter,
+  renderVaultFrontmatter,
+  type EntityFrontmatterData,
+  type ProjectFrontmatterData,
+  type VaultFrontmatterData,
+} from './frontmatter';
 export { renderInbox, type InboxParams } from './inbox';
 export { renderLeaf, type BaseEntityParams, type LeafParams } from './leaf';
 export {

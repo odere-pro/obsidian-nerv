@@ -11,6 +11,28 @@ export type EntityStatus = 'draft' | 'review' | 'published' | 'archived';
 
 export type EntityKind = string;
 
+/** Validation helper for EntityKind — free-form but must follow slug pattern. */
+export const EntityKinds = {
+  PATTERN: /^[a-z][a-z0-9-]*$/,
+
+  /** Validate a raw string as an EntityKind. Throws ValidationError if invalid. */
+  parse(raw: string): EntityKind {
+    const lower = raw.toLowerCase();
+    if (!EntityKinds.PATTERN.test(lower)) {
+      throw new ValidationError(
+        `Kind must be lowercase alphanumeric with hyphens (got: ${raw})`,
+        'kind'
+      );
+    }
+    return lower;
+  },
+
+  /** Return true if the value matches the kind pattern. */
+  isValid(raw: string): boolean {
+    return EntityKinds.PATTERN.test(raw);
+  },
+} as const;
+
 /* ---------------------------------------------------------------------------
  * Companion utilities — centralise validation that was previously duplicated
  * in create-entity, import-json, and other commands.
@@ -110,6 +132,11 @@ export class NoteEntityModel {
   readonly status: EntityStatus;
   readonly parent: string | null;
   readonly children: readonly string[];
+  readonly aliases: readonly string[];
+  readonly attachments: readonly string[];
+  readonly created: string;
+  readonly modified: string;
+  readonly tags: readonly string[];
 
   constructor(entity: NoteEntity) {
     this.title = entity.title;
@@ -119,6 +146,11 @@ export class NoteEntityModel {
     this.status = entity.status;
     this.parent = entity.parent;
     this.children = [...entity.children];
+    this.aliases = [...entity.aliases];
+    this.attachments = [...entity.attachments];
+    this.created = entity.created;
+    this.modified = entity.modified;
+    this.tags = [...entity.tags];
   }
 
   /** Validate structural invariants. Returns a list of violation messages. */
@@ -140,18 +172,8 @@ export class NoteEntityModel {
   addChild(childLink: string): NoteEntityModel {
     if (this.children.includes(childLink)) return this;
     return new NoteEntityModel({
-      title: this.title,
-      type: this.type,
-      kind: this.kind,
-      spine: this.spine,
-      status: this.status,
-      parent: this.parent,
+      ...this.toEntity(),
       children: [...this.children, childLink],
-      aliases: [],
-      attachments: [],
-      created: '',
-      modified: '',
-      tags: [],
     });
   }
 
@@ -163,5 +185,50 @@ export class NoteEntityModel {
   /** Return true if the entity requires a parent (BRANCH or LEAF). */
   requiresParent(): boolean {
     return EntityTypes.requiresParent(this.type);
+  }
+
+  /** Return a new model with a child link removed. */
+  removeChild(childLink: string): NoteEntityModel {
+    const filtered = this.children.filter(c => c !== childLink);
+    if (filtered.length === this.children.length) return this;
+    return new NoteEntityModel({
+      ...this.toEntity(),
+      children: filtered,
+    });
+  }
+
+  /** Return a new model with an updated status. */
+  updateStatus(newStatus: EntityStatus): NoteEntityModel {
+    if (this.status === newStatus) return this;
+    return new NoteEntityModel({
+      ...this.toEntity(),
+      status: newStatus,
+    });
+  }
+
+  /** Return a new model with an updated modified timestamp. */
+  withModified(timestamp: string): NoteEntityModel {
+    return new NoteEntityModel({
+      ...this.toEntity(),
+      modified: timestamp,
+    });
+  }
+
+  /** Serialise back to the plain NoteEntity interface. */
+  toEntity(): NoteEntity {
+    return {
+      title: this.title,
+      type: this.type,
+      kind: this.kind,
+      spine: this.spine,
+      status: this.status,
+      parent: this.parent,
+      children: [...this.children],
+      aliases: [...this.aliases],
+      attachments: [...this.attachments],
+      created: this.created,
+      modified: this.modified,
+      tags: [...this.tags],
+    };
   }
 }
