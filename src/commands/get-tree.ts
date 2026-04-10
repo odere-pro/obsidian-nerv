@@ -189,8 +189,7 @@ class GetTreeCommand extends BaseCommand {
       if (ctx.positional[i] === '--depth') {
         const d = parseInt(ctx.positional[++i] ?? '', 10);
         if (isNaN(d) || d < 1) {
-          process.stderr.write('ERROR: get-tree: --depth requires a positive integer\n');
-          process.exit(1);
+          ctx.out.error('get-tree: --depth requires a positive integer');
         }
         maxDepth = d;
       } else {
@@ -201,10 +200,7 @@ class GetTreeCommand extends BaseCommand {
     const slug = filtered[0];
 
     if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
-      process.stderr.write(
-        'ERROR: get-tree: project slug must be lowercase alphanumeric with hyphens\n'
-      );
-      process.exit(1);
+      ctx.out.error('get-tree: project slug must be lowercase alphanumeric with hyphens');
     }
 
     const result = await getTree(ctx.vault, slug, maxDepth);

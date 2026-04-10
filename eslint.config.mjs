@@ -27,5 +27,11 @@ export default tseslint.config(
       'prefer-const': 'error',
       'no-var': 'error',
     },
+  },
+  {
+    files: ['src/commands/**/*.ts'],
+    rules: {
+      'no-console': 'error',
+    },
   }
 );

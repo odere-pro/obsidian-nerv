@@ -121,8 +121,7 @@ class ProgressCommand extends BaseCommand {
     const result = await getProgress(ctx.vault, project);
 
     if (!result.ok) {
-      process.stderr.write(`ERROR: ${result.error}\n`);
-      process.exit(1);
+      ctx.out.error(result.error);
     }
 
     const d = result.data;

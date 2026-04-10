@@ -148,8 +148,7 @@ class AdrCommand extends BaseCommand {
     const result = await createAdr({ vault: ctx.vault, project, title, parentSlug });
 
     if (!result.ok) {
-      process.stderr.write(`ERROR: ${result.error}\n`);
-      process.exit(1);
+      ctx.out.error(result.error);
     }
 
     process.stdout.write(`ADR created: ${result.data.path}\n`);

@@ -10,7 +10,7 @@
  * when multiple sub-commands read the same vault data.
  */
 
-import type { VaultFile, VaultFileEntry, VaultOps } from '../ports/vault-ops';
+import type { ListFilesFilter, VaultFile, VaultFileEntry, VaultOps } from '../ports/vault-ops';
 
 export class VaultSnapshot implements VaultOps {
   private listCache = new Map<string, VaultFileEntry[]>();
@@ -66,7 +66,10 @@ export class VaultSnapshot implements VaultOps {
     return results as VaultFile[];
   }
 
-  async listFiles(vault: string): Promise<VaultFileEntry[]> {
+  async listFiles(vault: string, filter?: ListFilesFilter): Promise<VaultFileEntry[]> {
+    if (filter?.folder != null) {
+      return this.delegate.listFiles(vault, filter);
+    }
     const cached = this.listCache.get(vault);
     if (cached) return cached;
     const entries = await this.delegate.listFiles(vault);

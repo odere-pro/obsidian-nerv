@@ -152,8 +152,7 @@ class CoverageCommand extends BaseCommand {
     const result = await getCoverage(ctx.vault, project);
 
     if (!result.ok) {
-      process.stderr.write(`ERROR: ${result.error}\n`);
-      process.exit(1);
+      ctx.out.error(result.error);
     }
 
     process.stdout.write(JSON.stringify(result.data) + '\n');

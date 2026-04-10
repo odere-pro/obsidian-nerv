@@ -172,7 +172,8 @@ export async function findOrphans(
   injectedOps?: VaultOps
 ): Promise<OrphanResult> {
   const ops = injectedOps ?? getVaultOps();
-  const allEntries = await ops.listFiles(vault).catch(() => []);
+  const listFilter = folder ? { folder } : undefined;
+  const allEntries = await ops.listFiles(vault, listFilter).catch(() => []);
   const notes = buildOrphanNotes(allEntries, folder);
   const issues = detectOrphans(notes);
   return { issues, count: issues.length, noteCount: notes.length };

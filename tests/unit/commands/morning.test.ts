@@ -66,12 +66,19 @@ describe('runMorning', () => {
 
   test('inboxCount counts files under _inbox/', async () => {
     const ops = makeMockOps({
-      listFiles: async () => [
-        { path: '_inbox/note1.md', frontmatter: {} },
-        { path: '_inbox/note2.md', frontmatter: {} },
-        { path: 'projects/foo.md', frontmatter: {} },
-        { path: '_inbox/note3.md', frontmatter: {} },
-      ],
+      listFiles: async (_vault, filter) => {
+        const all = [
+          { path: '_inbox/note1.md', frontmatter: {} },
+          { path: '_inbox/note2.md', frontmatter: {} },
+          { path: 'projects/foo.md', frontmatter: {} },
+          { path: '_inbox/note3.md', frontmatter: {} },
+        ];
+        if (filter?.folder) {
+          const prefix = filter.folder.endsWith('/') ? filter.folder : filter.folder + '/';
+          return all.filter(e => e.path.startsWith(prefix));
+        }
+        return all;
+      },
     });
     const result = await runMorning('vault', ops);
     expect(result.inboxCount).toBe(3);

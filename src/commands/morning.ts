@@ -46,8 +46,8 @@ export async function runMorning(vault: string, ops: VaultOps): Promise<MorningR
   /* Step 2: count inbox backlog and append to daily note */
   let inboxCount = 0;
   try {
-    const entries = await ops.listFiles(vault);
-    inboxCount = entries.filter(f => f.path.startsWith('_inbox/')).length;
+    const entries = await ops.listFiles(vault, { folder: '_inbox' });
+    inboxCount = entries.length;
   } catch {
     /* fallback to 0 */
   }

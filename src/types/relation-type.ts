@@ -93,4 +93,12 @@ export class RelationType {
     if (!Slug.PATTERN.test(raw)) return null;
     return new RelationType(raw);
   }
+
+  /**
+   * Parse a raw string into a RelationType, returning null for invalid input.
+   * Alias for tryCreate — preferred name at parse boundaries.
+   */
+  static parse(raw: string): RelationType | null {
+    return RelationType.tryCreate(raw);
+  }
 }

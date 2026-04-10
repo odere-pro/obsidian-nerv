@@ -286,8 +286,7 @@ class ContextCommand extends BaseCommand {
     const limit = parseInt(limitStr, 10);
 
     if (isNaN(limit) || limit < 1) {
-      process.stderr.write(`ERROR: context: limit must be a positive integer (got: ${limitStr})\n`);
-      process.exit(1);
+      ctx.out.error(`context: limit must be a positive integer (got: ${limitStr})`);
     }
 
     const output = await contextSearch(ctx.vault, query, limit);

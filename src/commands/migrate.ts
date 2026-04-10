@@ -55,18 +55,16 @@ class MigrateCommand extends BaseCommand {
     }
 
     if (positional.length < 2) {
-      process.stderr.write(`Usage: ${this.usage}\n`);
-      process.exit(1);
+      ctx.out.error(`Usage: ${this.usage}`);
     }
 
     const slug = positional[0];
     const specPath = positional[1];
 
     if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
-      process.stderr.write(
-        `ERROR: migrate: project slug must be lowercase alphanumeric with hyphens (got: ${slug})\n`
+      ctx.out.error(
+        `migrate: project slug must be lowercase alphanumeric with hyphens (got: ${slug})`
       );
-      process.exit(1);
     }
 
     /* Read and parse spec */
@@ -74,52 +72,40 @@ class MigrateCommand extends BaseCommand {
     try {
       spec = await Bun.file(specPath).json();
     } catch {
-      process.stderr.write(`ERROR: migrate: spec file not found or invalid JSON: ${specPath}\n`);
-      process.exit(1);
+      ctx.out.error(`migrate: spec file not found or invalid JSON: ${specPath}`);
     }
 
     /* Structural validation */
     const validationErrors = validateSpec(spec);
     if (validationErrors.length > 0) {
-      for (const err of validationErrors) {
-        process.stderr.write(`ERROR: migrate: ${err}\n`);
-      }
-      process.exit(1);
+      ctx.out.error(validationErrors.map(e => `migrate: ${e}`).join('\n'));
     }
 
     /* Run migration via Obsidian eval */
     const raw = await obEval(ctx.vault, buildMigrateExpr(spec, slug, dryRun)).catch(
       (e: unknown) => {
-        process.stderr.write(
-          `ERROR: migrate: Obsidian not reachable or eval failed: ${e instanceof Error ? e.message : String(e)}\n`
+        ctx.out.error(
+          `migrate: Obsidian not reachable or eval failed: ${e instanceof Error ? e.message : String(e)}`
         );
-        process.exit(1);
       }
     );
     if (!raw) {
-      process.stderr.write('ERROR: migrate: Obsidian returned empty result\n');
-      process.exit(1);
+      ctx.out.error('migrate: Obsidian returned empty result');
     }
 
     const data = parseJson<MigrateResult>(raw);
     if (!data) {
-      process.stderr.write('ERROR: migrate: invalid JSON from eval\n');
-      process.stderr.write('DEBUG raw: ' + JSON.stringify(raw) + '\n');
-      process.exit(1);
+      ctx.out.error('migrate: invalid JSON from eval\nDEBUG raw: ' + JSON.stringify(raw));
     }
 
     if (data.validationFailed) {
-      for (const err of data.errors ?? []) {
-        process.stderr.write(`ERROR: migrate: ${err}\n`);
-      }
-      process.exit(1);
+      ctx.out.error((data.errors ?? []).map(e => `migrate: ${e}`).join('\n'));
     }
 
     /* Print per-operation results */
     for (const op of data.ops) {
       if (op.error) {
-        process.stderr.write(`ERROR: migrate: ${op.op} — ${op.error}\n`);
-        process.exit(1);
+        ctx.out.error(`migrate: ${op.op} — ${op.error}`);
       }
       if (dryRun) {
         process.stdout.write(`Dry-run ${op.op}: ${op.count} note(s) would be modified\n`);

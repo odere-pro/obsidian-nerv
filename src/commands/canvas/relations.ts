@@ -157,17 +157,13 @@ class CanvasRelationsCommand extends BaseCommand {
     const project = ctx.positional[0];
 
     if (!/^[a-z0-9][a-z0-9-]*$/.test(project)) {
-      process.stderr.write(
-        'ERROR: canvas:relations: project slug must be lowercase alphanumeric with hyphens\n'
-      );
-      process.exit(1);
+      ctx.out.error('canvas:relations: project slug must be lowercase alphanumeric with hyphens');
     }
 
     const result = await generateRelationsCanvas(ctx.vault, project);
 
     if (!result.ok) {
-      process.stderr.write(`ERROR: ${result.error}\n`);
-      process.exit(1);
+      ctx.out.error(result.error);
     }
 
     process.stdout.write(

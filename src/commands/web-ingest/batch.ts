@@ -8,6 +8,7 @@
  * CLI: nerv web-ingest/batch [--vault <name>] <project> <path-to-json> [--json]
  */
 
+import { parallel } from '../../lib/shell';
 import { ingestUrl } from './add';
 import { BaseCommand, type CommandContext } from '../base-command';
 
@@ -39,16 +40,30 @@ export async function runBatch(
   const { urls, parent } = batchFile;
   const summary: BatchSummary = { ingested: 0, skipped: 0, failed: 0, totalTokens: 0 };
 
-  for (const url of urls) {
-    const result = await ingestUrl(url, vault, project, parent).catch(err => ({
-      ok: false as const,
-      data: { ingested: false, path: '', title: '', url, wordCount: 0, tokenEstimate: 0 },
-      error: err instanceof Error ? err.message : String(err),
-    }));
+  const results = await parallel(
+    urls.map(
+      url => () =>
+        ingestUrl(url, vault, project, parent).catch(err => ({
+          ok: false as const,
+          data: { ingested: false, path: '', title: '', url, wordCount: 0, tokenEstimate: 0 },
+          error: err instanceof Error ? err.message : String(err),
+        }))
+    ),
+    { concurrency: 5 }
+  );
 
+  for (let i = 0; i < results.length; i++) {
+    const settled = results[i];
+    if (settled.status === 'rejected') {
+      summary.failed++;
+      process.stderr.write(`WARN: failed to ingest ${urls[i]}: ${settled.reason}\n`);
+      continue;
+    }
+
+    const result = settled.value;
     if (!result.ok) {
       summary.failed++;
-      process.stderr.write(`WARN: failed to ingest ${url}: ${result.error}\n`);
+      process.stderr.write(`WARN: failed to ingest ${urls[i]}: ${result.error}\n`);
       continue;
     }
 
@@ -86,8 +101,7 @@ class BatchCommand extends BaseCommand {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      process.stderr.write(`ERROR: could not read batch file: ${msg}\n`);
-      process.exit(1);
+      ctx.out.error(`could not read batch file: ${msg}`);
     }
 
     const summary = await runBatch(ctx.vault, project, batchFile);
@@ -95,8 +109,8 @@ class BatchCommand extends BaseCommand {
     if (ctx.jsonOutput) {
       process.stdout.write(JSON.stringify(summary) + '\n');
     } else {
-      process.stdout.write(
-        `INFO: batch complete — ingested: ${summary.ingested}, skipped: ${summary.skipped}, failed: ${summary.failed}, totalTokens: ${summary.totalTokens}\n`
+      ctx.out.info(
+        `batch complete — ingested: ${summary.ingested}, skipped: ${summary.skipped}, failed: ${summary.failed}, totalTokens: ${summary.totalTokens}`
       );
       if (summary.failed > 0) process.exit(1);
     }

@@ -58,10 +58,9 @@ async function findExistingNote(
   url: string,
   ops: VaultOps
 ): Promise<{ path: string; title: string } | null> {
-  const entries = await ops.listFiles(vault);
-  const prefix = `projects/${project}/`;
+  const prefix = `projects/${project}`;
+  const entries = await ops.listFiles(vault, { folder: prefix });
   for (const entry of entries) {
-    if (!entry.path.startsWith(prefix)) continue;
     if (entry.frontmatter['url'] === url) {
       return { path: entry.path, title: (entry.frontmatter['title'] as string) ?? '' };
     }
@@ -133,12 +132,10 @@ async function appendParentConnection(
 ): Promise<void> {
   const projUpper = project.toUpperCase();
   const prefix = `${projUpper}.${parentSlug} - `;
-  const projDir = `projects/${project}/`;
+  const projDir = `projects/${project}`;
 
-  const entries = await ops.listFiles(vault);
-  const parentEntry = entries.find(
-    e => e.path.startsWith(projDir) && e.path.split('/').pop()?.startsWith(prefix)
-  );
+  const entries = await ops.listFiles(vault, { folder: projDir });
+  const parentEntry = entries.find(e => e.path.split('/').pop()?.startsWith(prefix));
   if (!parentEntry) return;
 
   const file = await ops.readFile(vault, parentEntry.path);
@@ -300,23 +297,20 @@ class AddCommand extends BaseCommand {
 
     const result = await ingestUrl(url, ctx.vault, project, parent);
 
+    if (!result.ok) {
+      ctx.out.error(result.error);
+    }
+
     if (ctx.jsonOutput) {
-      process.stdout.write(
-        JSON.stringify(result.ok ? result.data : { ingested: false, error: result.error }) + '\n'
-      );
-      if (!result.ok) process.exit(1);
+      process.stdout.write(JSON.stringify(result.data) + '\n');
     } else {
-      if (!result.ok) {
-        process.stderr.write(`ERROR: ${result.error}\n`);
-        process.exit(1);
-      }
       if (result.data.ingested) {
-        process.stdout.write(`INFO: ingested ${result.data.path}\n`);
+        ctx.out.info(`ingested ${result.data.path}`);
         process.stdout.write(`  title:         ${result.data.title}\n`);
         process.stdout.write(`  words:         ${result.data.wordCount}\n`);
         process.stdout.write(`  tokenEstimate: ${result.data.tokenEstimate}\n`);
       } else {
-        process.stdout.write(`INFO: URL already ingested — ${result.data.path}\n`);
+        ctx.out.info(`URL already ingested — ${result.data.path}`);
       }
     }
   }

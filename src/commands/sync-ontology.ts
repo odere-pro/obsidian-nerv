@@ -71,12 +71,9 @@ export function detectMissingInverses(
 const REQUIRED = ['title', 'type', 'kind', 'spine', 'status'];
 
 function fetchMeta(
-  entries: { path: string; frontmatter: Record<string, unknown> }[],
-  slug: string
+  entries: { path: string; frontmatter: Record<string, unknown> }[]
 ): OntologyMeta {
-  const projDir = `projects/${slug}`;
   const notes = entries.filter(e => {
-    if (!e.path.startsWith(projDir + '/')) return false;
     const name = e.path.split('/').pop() ?? '';
     return isEntityNote(name);
   });
@@ -129,8 +126,8 @@ export async function syncOntology(
     unknownTypes: [],
   }));
 
-  const allFiles = await ops.listFiles(vault);
-  const meta = fetchMeta(allFiles, slug);
+  const allFiles = await ops.listFiles(vault, { folder: `projects/${slug}` });
+  const meta = fetchMeta(allFiles);
   if (meta.noteCount === 0) throw new Error('sync-ontology: no notes found or vault not reachable');
 
   const edges = relResult.edges;
@@ -182,8 +179,8 @@ class SyncOntologyCommand extends BaseCommand {
       unknownTypes: [] as string[],
     }));
 
-    const allFiles = await ops.listFiles(ctx.vault);
-    const meta = fetchMeta(allFiles, slug);
+    const allFiles = await ops.listFiles(ctx.vault, { folder: `projects/${slug}` });
+    const meta = fetchMeta(allFiles);
     if (meta.noteCount === 0) {
       ctx.out.error('sync-ontology: no notes found or vault not reachable');
     }

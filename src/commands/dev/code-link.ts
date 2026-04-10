@@ -122,8 +122,7 @@ class CodeLinkCommand extends BaseCommand {
     const result = await codeLink(ctx.vault, notePath, codePath);
 
     if (!result.ok) {
-      process.stderr.write(`ERROR: ${result.error}\n`);
-      process.exit(1);
+      ctx.out.error(result.error);
     }
 
     if (result.data.appended) {
