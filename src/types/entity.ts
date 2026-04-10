@@ -110,6 +110,11 @@ export class NoteEntityModel {
   readonly status: EntityStatus;
   readonly parent: string | null;
   readonly children: readonly string[];
+  readonly aliases: readonly string[];
+  readonly attachments: readonly string[];
+  readonly created: string;
+  readonly modified: string;
+  readonly tags: readonly string[];
 
   constructor(entity: NoteEntity) {
     this.title = entity.title;
@@ -119,6 +124,11 @@ export class NoteEntityModel {
     this.status = entity.status;
     this.parent = entity.parent;
     this.children = [...entity.children];
+    this.aliases = [...entity.aliases];
+    this.attachments = [...entity.attachments];
+    this.created = entity.created;
+    this.modified = entity.modified;
+    this.tags = [...entity.tags];
   }
 
   /** Validate structural invariants. Returns a list of violation messages. */
@@ -147,11 +157,11 @@ export class NoteEntityModel {
       status: this.status,
       parent: this.parent,
       children: [...this.children, childLink],
-      aliases: [],
-      attachments: [],
-      created: '',
-      modified: '',
-      tags: [],
+      aliases: [...this.aliases],
+      attachments: [...this.attachments],
+      created: this.created,
+      modified: this.modified,
+      tags: [...this.tags],
     });
   }
 
