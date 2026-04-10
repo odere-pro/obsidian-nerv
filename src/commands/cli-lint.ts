@@ -8,6 +8,7 @@
  *   - default Command — CLI entry point for the dispatcher
  */
 
+import { CONNECTION_LIMIT, FLAG_LIMIT } from '../constants/limits';
 import { extractSection, stripFrontmatter } from '../lib/markdown';
 import { getVaultOps } from '../ports/provider';
 import { ENTITY_REQUIRED_FIELDS } from '../types/entity';
@@ -183,11 +184,11 @@ function rulesUntypedConnection(note: NoteData): Violation | null {
 
 function rulesConnectionLimit(note: NoteData): Violation | null {
   const typedCount = note.connections.filter(c => c.typed).length;
-  if (typedCount > 7) {
+  if (typedCount > CONNECTION_LIMIT) {
     return {
       note: note.path,
       rule: 'connection-limit',
-      detail: `Connection count ${typedCount} exceeds limit of 7`,
+      detail: `Connection count ${typedCount} exceeds limit of ${CONNECTION_LIMIT}`,
     };
   }
   return null;
@@ -207,11 +208,11 @@ function rulesMissingBreadcrumb(note: NoteData): Violation | null {
 
 function rulesFlagLimit(note: NoteData): Violation | null {
   const matches = note.body.match(/^> \[!flag\b/gm) ?? [];
-  if (matches.length > 3) {
+  if (matches.length > FLAG_LIMIT) {
     return {
       note: note.path,
       rule: 'flag-limit',
-      detail: `Callout flag count ${matches.length} exceeds limit of 3`,
+      detail: `Callout flag count ${matches.length} exceeds limit of ${FLAG_LIMIT}`,
     };
   }
   return null;

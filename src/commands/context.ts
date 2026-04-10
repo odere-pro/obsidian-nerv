@@ -19,6 +19,7 @@
 
 import type { Command } from '../cli';
 import { parseJson } from '../lib/json';
+import { extractSection, escapeRegex } from '../lib/markdown';
 import { obEval, resolveVault } from '../lib/obsidian';
 import { extractVaultFlag } from '../lib/vault-registry';
 
@@ -119,7 +120,7 @@ export function scoreNote(query: string, note: ScoringNote): number {
     if (spine.includes(term)) score += 4;
     if (tags.some(t => t.includes(term))) score += 3;
 
-    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escaped = escapeRegex(term);
     const freq = (bodyLow.match(new RegExp(escaped, 'g')) ?? []).length;
     score += Math.min(freq, 5);
   }
@@ -130,15 +131,6 @@ export function scoreNote(query: string, note: ScoringNote): number {
 /* ---------------------------------------------------------------------------
  * Section parsing helpers (used in result assembly)
  * --------------------------------------------------------------------------- */
-
-function extractSection(body: string, heading: string): string {
-  const parts = body.split(/\n(?=## )/);
-  for (const part of parts) {
-    const m = part.match(new RegExp(`^## ${heading}\\s*\\n([\\s\\S]*)`));
-    if (m) return (m[1] ?? '').trim();
-  }
-  return '';
-}
 
 function parseConnectionSection(body: string): ConnectionEntry[] {
   const section = extractSection(body, 'Connections');

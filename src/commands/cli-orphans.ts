@@ -8,6 +8,7 @@
  */
 
 import type { Command } from '../cli';
+import { stripWikilink } from '../lib/markdown';
 import { resolveVault } from '../lib/obsidian';
 import { getVaultOps } from '../ports/provider';
 import type { VaultFileEntry } from '../ports/vault-ops';
@@ -66,22 +67,14 @@ export function detectOrphans(notes: OrphanNoteData[]): OrphanIssue[] {
     /* BROKEN: parent wikilink resolves to no file */
     if ((type === 'BRANCH' || type === 'LEAF') && note.parent.trim() !== '') {
       if (note.resolvedParentPath === null) {
-        const rawParent = note.parent
-          .replace(/^\[\[/, '')
-          .replace(/\]\]$/, '')
-          .split('|')[0]
-          .trim();
+        const rawParent = stripWikilink(note.parent);
         issues.push({ type: 'BROKEN', note: note.path, detail: `parent "${rawParent}" not found` });
         continue;
       }
 
       /* MISMATCH: parent exists but does not list this note in children */
       if (!note.parentChildrenBasenames.includes(note.basename)) {
-        const rawParent = note.parent
-          .replace(/^\[\[/, '')
-          .replace(/\]\]$/, '')
-          .split('|')[0]
-          .trim();
+        const rawParent = stripWikilink(note.parent);
         issues.push({
           type: 'MISMATCH',
           note: note.path,
@@ -111,9 +104,7 @@ export function detectOrphans(notes: OrphanNoteData[]): OrphanIssue[] {
 
 const EXCLUDED_PREFIXES = ['tpl-', '_vocab', '_topk', '_ontology'];
 
-function rawLink(s: string): string {
-  return String(s).replace(/^\[\[/, '').replace(/\]\]$/, '').split('|')[0].trim();
-}
+const rawLink = stripWikilink;
 
 function buildOrphanNotes(allEntries: VaultFileEntry[], folder: string): OrphanNoteData[] {
   /* Build basename → entry map for wikilink resolution */

@@ -5,6 +5,7 @@
 /* CLI: nerv web-ingest/monitor [--vault <name>] <project> <feed-url> [--interval 3600] [--once] [--max-articles 10] */
 
 import type { Command } from '../../cli';
+import { escapeRegex } from '../../lib/markdown';
 import { resolveVault } from '../../lib/obsidian';
 import { getVaultOps } from '../../ports/provider';
 import type { VaultOps } from '../../ports/vault-ops';
@@ -69,8 +70,7 @@ export function parseFeed(xml: string): FeedArticle[] {
 }
 
 function extractTag(xml: string, tag: string): string | undefined {
-  /* Escape special regex chars in tag name (e.g. dc:date has a colon) */
-  const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escapedTag = escapeRegex(tag);
   const re = new RegExp(`<${escapedTag}[^>]*>([\\s\\S]*?)<\\/${escapedTag}>`, 'i');
   const m = re.exec(xml);
   if (!m) return undefined;
@@ -81,8 +81,8 @@ function extractTag(xml: string, tag: string): string | undefined {
 }
 
 function extractAttr(xml: string, tag: string, attr: string): string | undefined {
-  const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const escapedAttr = attr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escapedTag = escapeRegex(tag);
+  const escapedAttr = escapeRegex(attr);
   const re = new RegExp(`<${escapedTag}[^>]*${escapedAttr}="([^"]*)"`, 'i');
   const m = re.exec(xml);
   return m ? m[1].trim() : undefined;

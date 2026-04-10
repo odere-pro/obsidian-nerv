@@ -29,7 +29,7 @@ import {
   type CanvasNode,
   type CanvasResult,
 } from '../../lib/canvas';
-import { encodeForJs } from '../../lib/json';
+import { buildWriteExpr } from '../../lib/canvas-codegen';
 import { obEval, resolveVault } from '../../lib/obsidian';
 import { getRelations, type Edge } from '../cli-relations';
 import { extractVaultFlag } from '../../lib/vault-registry';
@@ -101,30 +101,6 @@ export function buildRelationsCanvas(input: RelationsInput): CanvasData {
   }
 
   return { nodes: [...nodeMap.values()], edges: canvasEdges };
-}
-
-/* ---------------------------------------------------------------------------
- * Canvas write helper (via obEval)
- * --------------------------------------------------------------------------- */
-
-function buildWriteExpr(filePath: string, content: string): string {
-  const jsPath = encodeForJs(filePath);
-  const jsContent = encodeForJs(content);
-  return `(async () => {
-  var path = ${jsPath};
-  var content = ${jsContent};
-  var existing = app.vault.getAbstractFileByPath(path);
-  if (existing) {
-    await app.vault.modify(existing, content);
-  } else {
-    var parts = path.split('/');
-    parts.pop();
-    var dir = parts.join('/');
-    var dirFile = app.vault.getAbstractFileByPath(dir);
-    if (!dirFile) await app.vault.createFolder(dir);
-    await app.vault.create(path, content);
-  }
-})()`;
 }
 
 /* ---------------------------------------------------------------------------

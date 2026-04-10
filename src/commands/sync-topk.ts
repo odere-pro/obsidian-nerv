@@ -15,6 +15,7 @@
  */
 
 import type { Command } from '../cli';
+import { CONNECTION_LIMIT, FLAG_LIMIT, CHILDREN_LIMIT } from '../constants/limits';
 import { logError } from '../lib/logger';
 import { stripFrontmatter } from '../lib/markdown';
 import { resolveVault } from '../lib/obsidian';
@@ -48,28 +49,28 @@ export interface TopkViolation {
 export function detectTopkViolations(notes: TopkNote[]): TopkViolation[] {
   const violations: TopkViolation[] = [];
   for (const n of notes) {
-    if (n.connectionCount > 7) {
+    if (n.connectionCount > CONNECTION_LIMIT) {
       violations.push({
         note: `[[${n.basename}]]`,
         field: 'connections',
         count: n.connectionCount,
-        threshold: 7,
+        threshold: CONNECTION_LIMIT,
       });
     }
-    if (n.flagCount > 3) {
+    if (n.flagCount > FLAG_LIMIT) {
       violations.push({
         note: `[[${n.basename}]]`,
         field: 'callout-flags',
         count: n.flagCount,
-        threshold: 3,
+        threshold: FLAG_LIMIT,
       });
     }
-    if (n.type === 'BRANCH' && n.childrenCount > 7) {
+    if (n.type === 'BRANCH' && n.childrenCount > CHILDREN_LIMIT) {
       violations.push({
         note: `[[${n.basename}]]`,
         field: 'children',
         count: n.childrenCount,
-        threshold: 7,
+        threshold: CHILDREN_LIMIT,
       });
     }
   }

@@ -20,6 +20,8 @@
  */
 
 import type { Command } from '../cli';
+import { SUMMARY_BODY_LIMIT } from '../constants/limits';
+import { parseSections, stripFrontmatter, extractSection } from '../lib/markdown';
 import { resolveVault } from '../lib/obsidian';
 import { getVaultOps } from '../ports/provider';
 import type { VaultOps } from '../ports/vault-ops';
@@ -61,30 +63,15 @@ export interface ExplainResult {
  * --------------------------------------------------------------------------- */
 
 function extractSummary(rawBody: string): string {
-  const body = rawBody.replace(/^---[\s\S]*?---\n?/, '');
-  const parts = body.split(/\n(?=## )/);
-  for (const part of parts) {
-    const m = part.match(/^## Summary\s*\n([\s\S]*)/);
-    if (m) return (m[1] ?? '').trim().substring(0, 500);
-  }
-  return '';
-}
-
-function parseSections(rawBody: string): Record<string, string> {
-  const body = rawBody.replace(/^---[\s\S]*?---\n?/, '');
-  const parts = body.split(/\n(?=## )/);
-  const sections: Record<string, string> = {};
-  for (const part of parts) {
-    const m = part.match(/^## (.+)\n?([\s\S]*)/);
-    if (m) sections[m[1].trim()] = (m[2] ?? '').trim().substring(0, 3000);
-  }
-  return sections;
+  const body = stripFrontmatter(rawBody);
+  const raw = extractSection(body, 'Summary');
+  return raw.substring(0, SUMMARY_BODY_LIMIT);
 }
 
 function parseConnections(
   rawBody: string
 ): Array<{ rel: string; target: string; context: string }> {
-  const body = rawBody.replace(/^---[\s\S]*?---\n?/, '');
+  const body = stripFrontmatter(rawBody);
   const parts = body.split(/\n(?=## )/);
   let connSection = '';
   for (const part of parts) {

@@ -23,7 +23,8 @@ import {
   NODE_H,
   NODE_W,
 } from '../../lib/canvas';
-import { encodeForJs, parseJson } from '../../lib/json';
+import { buildWriteExpr } from '../../lib/canvas-codegen';
+import { parseJson } from '../../lib/json';
 import { obEval, resolveVault } from '../../lib/obsidian';
 import { buildTree, type FlatNote, type TreeNode } from '../get-tree';
 import { extractVaultFlag } from '../../lib/vault-registry';
@@ -139,31 +140,6 @@ function buildFetchExpr(slug: string): string {
 }
 
 /* ---------------------------------------------------------------------------
- * Canvas write helper (via obEval)
- * --------------------------------------------------------------------------- */
-
-function buildWriteExpr(_vault: string, filePath: string, content: string): string {
-  const jsPath = encodeForJs(filePath);
-  const jsContent = encodeForJs(content);
-  return `(async () => {
-  var path = ${jsPath};
-  var content = ${jsContent};
-  var existing = app.vault.getAbstractFileByPath(path);
-  if (existing) {
-    await app.vault.modify(existing, content);
-  } else {
-    /* Ensure parent folder exists */
-    var parts = path.split('/');
-    parts.pop();
-    var dir = parts.join('/');
-    var dirFile = app.vault.getAbstractFileByPath(dir);
-    if (!dirFile) await app.vault.createFolder(dir);
-    await app.vault.create(path, content);
-  }
-})()`;
-}
-
-/* ---------------------------------------------------------------------------
  * Programmatic API
  * --------------------------------------------------------------------------- */
 
@@ -192,7 +168,7 @@ export async function generateTreeCanvas(vault: string, project: string): Promis
   const content = JSON.stringify(canvas, null, 2);
 
   try {
-    await obEval(vault, buildWriteExpr(vault, outputPath, content));
+    await obEval(vault, buildWriteExpr(outputPath, content));
   } catch (e) {
     return { ok: false, data: canvas, outputPath, error: String(e) };
   }

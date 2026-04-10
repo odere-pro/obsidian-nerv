@@ -18,6 +18,7 @@
 
 import type { Command } from '../cli';
 import { parseJson } from '../lib/json';
+import { parseSections } from '../lib/markdown';
 import { obEval, resolveVault } from '../lib/obsidian';
 import { extractVaultFlag } from '../lib/vault-registry';
 
@@ -140,23 +141,6 @@ export function resolveEntity(query: string, notes: EntityNote[]): MatchResult |
   if (fuzzyMatches.length === 1) return { note: fuzzyMatches[0], matchType: 'fuzzy' };
 
   return null;
-}
-
-/* ---------------------------------------------------------------------------
- * Section parser
- * --------------------------------------------------------------------------- */
-
-function parseSections(rawBody: string): Record<string, string> {
-  const body = rawBody.replace(/^---[\s\S]*?---\n?/, '');
-  const parts = body.split(/\n(?=## )/);
-  const sections: Record<string, string> = {};
-  for (const part of parts) {
-    const m = part.match(/^## (.+)\n?([\s\S]*)/);
-    if (m) {
-      sections[m[1].trim()] = (m[2] ?? '').trim().substring(0, 3000);
-    }
-  }
-  return sections;
 }
 
 /* ---------------------------------------------------------------------------

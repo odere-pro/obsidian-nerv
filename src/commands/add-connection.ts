@@ -6,13 +6,14 @@
  */
 
 import type { Command } from '../cli';
+import { CONNECTION_LIMIT } from '../constants/limits';
 import { logError, logWarn } from '../lib/logger';
+import { SLUG_PATTERN } from '../lib/markdown';
 import { resolveVault } from '../lib/obsidian';
 import { getVaultOps } from '../ports/provider';
 import { extractVaultFlag } from '../lib/vault-registry';
 
-const REL_TYPE_RE = /^[a-z][a-z0-9-]*$/;
-const CONNECTION_LIMIT = 7;
+const REL_TYPE_RE = SLUG_PATTERN;
 
 export interface AddConnectionParams {
   vault: string;
