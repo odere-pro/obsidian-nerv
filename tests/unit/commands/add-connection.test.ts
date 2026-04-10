@@ -130,6 +130,35 @@ describe('addConnection', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Rel type validation
+  // ---------------------------------------------------------------------------
+  test('returns error with suggestions for invalid rel type', async () => {
+    seedStandard({});
+    const result = await addConnection({
+      vault: 'v',
+      sourcePath: 'projects/p/PROJ.a - A.md',
+      relType: 'INVALID_TYPE',
+      targetPath: 'projects/p/PROJ.b - B.md',
+    });
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('invalid rel_type');
+    expect(result.error).toContain('INVALID_TYPE');
+    expect(result.error).toContain('triggers');
+  });
+
+  test('returns error for rel type with spaces', async () => {
+    seedStandard({});
+    const result = await addConnection({
+      vault: 'v',
+      sourcePath: 'projects/p/PROJ.a - A.md',
+      relType: 'depends on',
+      targetPath: 'projects/p/PROJ.b - B.md',
+    });
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('invalid rel_type');
+  });
+
+  // ---------------------------------------------------------------------------
   // Project slug derivation
   // ---------------------------------------------------------------------------
   test('returns error when source path is not under projects/', async () => {

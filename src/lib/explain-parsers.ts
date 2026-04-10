@@ -6,6 +6,7 @@
  */
 
 import { SUMMARY_BODY_LIMIT } from '../constants/limits';
+import { RelationType } from '../types/relation-type';
 import { extractSection, stripFrontmatter } from './markdown';
 
 /* ---------------------------------------------------------------------------
@@ -36,7 +37,9 @@ export function parseConnections(
   const result: Array<{ rel: string; target: string; context: string }> = [];
   for (const line of connSection.split('\n')) {
     const m = line.trim().match(re);
-    if (m) result.push({ rel: m[1], target: m[2], context: (m[3] ?? '').trim() });
+    if (m && RelationType.parse(m[1])) {
+      result.push({ rel: m[1], target: m[2], context: (m[3] ?? '').trim() });
+    }
   }
   return result;
 }

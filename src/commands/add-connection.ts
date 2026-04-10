@@ -7,11 +7,9 @@
 
 import { CONNECTION_LIMIT } from '../constants/limits';
 import { logError, logWarn } from '../lib/logger';
-import { SLUG_PATTERN } from '../lib/markdown';
 import { getVaultOps } from '../ports/provider';
+import { BUILTIN_RELATIONS, RelationType } from '../types/relation-type';
 import { BaseCommand, type CommandContext } from './base-command';
-
-const REL_TYPE_RE = SLUG_PATTERN;
 
 export interface AddConnectionParams {
   vault: string;
@@ -105,11 +103,13 @@ export async function addConnection(
   const { vault, sourcePath, relType, targetPath } = params;
   const context = (params.context ?? '').replace(/[\n\r]/g, '');
 
-  if (!REL_TYPE_RE.test(relType)) {
+  const parsedRel = RelationType.parse(relType);
+  if (!parsedRel) {
+    const builtins = [...BUILTIN_RELATIONS.keys()].slice(0, 5).join(', ');
     return {
       ok: false,
       data: { forwardWritten: false, inverseWritten: false, inverseError: '' },
-      error: `add-connection: rel_type must be lowercase alphanumeric with hyphens (got: ${relType})`,
+      error: `add-connection: invalid rel_type '${relType}'. Must be lowercase alphanumeric with hyphens (e.g. ${builtins})`,
     };
   }
 
