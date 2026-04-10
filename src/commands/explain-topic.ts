@@ -19,7 +19,6 @@
  *   }
  */
 
-import type { Command } from '../cli';
 import {
   buildBacklinks,
   extractOutgoingLinks,
@@ -28,13 +27,12 @@ import {
   resolveWikiLink,
 } from '../lib/explain-parsers';
 import { parseSections } from '../lib/markdown';
-import { resolveVault } from '../lib/obsidian';
 import { getVaultOps } from '../ports/provider';
 import type { VaultOps } from '../ports/vault-ops';
+import { BaseCommand, type CommandContext } from './base-command';
 import { scoreNote } from './context';
 import type { EntityNote, EntityOutput } from './get-entity';
 import { resolveEntity } from './get-entity';
-import { extractVaultFlag } from '../lib/vault-registry';
 
 /* ---------------------------------------------------------------------------
  * Types
@@ -71,13 +69,17 @@ export interface ExplainResult {
 async function fetchAllNotes(vault: string, ops: VaultOps): Promise<EntityNote[]> {
   const entries = await ops.listFiles(vault);
   const notes: EntityNote[] = [];
+  const files = await ops.readFiles(
+    vault,
+    entries.map(e => e.path)
+  );
 
-  for (const entry of entries) {
-    const file = await ops.readFile(vault, entry.path);
-    const basename = entry.path.replace(/.*\//, '').replace(/\.md$/, '');
+  for (let i = 0; i < entries.length; i++) {
+    const file = files[i];
+    const basename = entries[i].path.replace(/.*\//, '').replace(/\.md$/, '');
     const outgoing = extractOutgoingLinks(file.content);
     notes.push({
-      path: entry.path,
+      path: entries[i].path,
       basename,
       frontmatter: file.frontmatter,
       rawBody: file.content,
@@ -202,21 +204,15 @@ export async function explainTopic(
  * CLI Command
  * --------------------------------------------------------------------------- */
 
-const command: Command = {
-  name: 'explain-topic',
-  description: 'Assemble a teaching bundle for a queried topic',
+class ExplainTopicCommand extends BaseCommand {
+  readonly name = 'explain-topic';
+  readonly description = 'Assemble a teaching bundle for a queried topic';
+  readonly usage = 'nerv explain-topic [--vault <name>] "<query>"';
+  readonly minPositional = 1;
 
-  async run(args: string[]): Promise<void> {
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
-
-    if (rest.length < 1) {
-      process.stderr.write('Usage: nerv explain-topic [--vault <name>] "<query>"\n');
-      process.exit(1);
-    }
-
-    const vault = await resolveVault(vaultArg);
-    const query = rest[0];
-    const result = await explainTopic(vault, query);
+  protected async execute(ctx: CommandContext): Promise<void> {
+    const query = ctx.positional[0];
+    const result = await explainTopic(ctx.vault, query);
 
     if (!result) {
       process.stderr.write(`ERROR: explain-topic: no matching note found for query: ${query}\n`);
@@ -224,7 +220,7 @@ const command: Command = {
     }
 
     process.stdout.write(JSON.stringify(result) + '\n');
-  },
-};
+  }
+}
 
-export default command;
+export default new ExplainTopicCommand();

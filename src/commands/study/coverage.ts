@@ -6,11 +6,10 @@
  * Returns JSON output matching the Bash coverage.sh schema.
  */
 
-import type { Command } from '../../cli';
 import { encodeForJs, parseJson } from '../../lib/json';
-import { obEval, resolveVault } from '../../lib/obsidian';
+import { obEval } from '../../lib/obsidian';
 import type { CommandResult } from '../../types/result';
-import { extractVaultFlag } from '../../lib/vault-registry';
+import { BaseCommand, type CommandContext } from '../base-command';
 
 export interface CoverageDomain {
   spine: string;
@@ -142,22 +141,15 @@ export async function getCoverage(
   return { ok: true, data };
 }
 
-const command: Command = {
-  name: 'study/coverage',
-  description: 'Report spine-domain coverage metrics for a project',
+class CoverageCommand extends BaseCommand {
+  readonly name = 'study/coverage';
+  readonly description = 'Report spine-domain coverage metrics for a project';
+  readonly usage = 'nerv study/coverage [--vault <name>] <project_slug>';
+  readonly minPositional = 1;
 
-  async run(args: string[]): Promise<void> {
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
-
-    if (rest.length < 1) {
-      process.stderr.write('Usage: nerv study/coverage [--vault <name>] <project_slug>\n');
-      process.exit(1);
-    }
-
-    const vault = await resolveVault(vaultArg);
-    const project = rest[0];
-
-    const result = await getCoverage(vault, project);
+  protected async execute(ctx: CommandContext): Promise<void> {
+    const project = ctx.positional[0];
+    const result = await getCoverage(ctx.vault, project);
 
     if (!result.ok) {
       process.stderr.write(`ERROR: ${result.error}\n`);
@@ -165,7 +157,7 @@ const command: Command = {
     }
 
     process.stdout.write(JSON.stringify(result.data) + '\n');
-  },
-};
+  }
+}
 
-export default command;
+export default new CoverageCommand();

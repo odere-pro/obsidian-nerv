@@ -8,10 +8,9 @@
  *   - default Command — CLI entry point
  */
 
-import type { Command } from '../cli';
+import { BaseCommand, type CommandContext } from './base-command';
 import { encodeForJs, parseJson } from '../lib/json';
-import { obEval, resolveVault } from '../lib/obsidian';
-import { extractVaultFlag } from '../lib/vault-registry';
+import { obEval } from '../lib/obsidian';
 
 /* ---------------------------------------------------------------------------
  * Types
@@ -176,35 +175,30 @@ export async function getTree(vault: string, slug: string, maxDepth = 50): Promi
  * CLI Command
  * --------------------------------------------------------------------------- */
 
-const command: Command = {
-  name: 'get-tree',
-  description: 'Return the hierarchical note tree for a project',
+class GetTreeCommand extends BaseCommand {
+  readonly name = 'get-tree';
+  readonly description = 'Return the hierarchical note tree for a project';
+  readonly usage = 'nerv get-tree [--vault <name>] <project_slug> [--depth N]';
+  readonly minPositional = 1;
 
-  async run(args: string[]): Promise<void> {
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
-    const positional: string[] = [];
+  protected async execute(ctx: CommandContext): Promise<void> {
     let maxDepth = 50;
+    const filtered: string[] = [];
 
-    for (let i = 0; i < rest.length; i++) {
-      if (rest[i] === '--depth') {
-        const d = parseInt(rest[++i] ?? '', 10);
+    for (let i = 0; i < ctx.positional.length; i++) {
+      if (ctx.positional[i] === '--depth') {
+        const d = parseInt(ctx.positional[++i] ?? '', 10);
         if (isNaN(d) || d < 1) {
           process.stderr.write('ERROR: get-tree: --depth requires a positive integer\n');
           process.exit(1);
         }
         maxDepth = d;
       } else {
-        positional.push(rest[i]);
+        filtered.push(ctx.positional[i]);
       }
     }
 
-    if (positional.length < 1) {
-      process.stderr.write('Usage: nerv get-tree [--vault <name>] <project_slug> [--depth N]\n');
-      process.exit(1);
-    }
-
-    const vault = await resolveVault(vaultArg);
-    const slug = positional[0];
+    const slug = filtered[0];
 
     if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
       process.stderr.write(
@@ -213,9 +207,9 @@ const command: Command = {
       process.exit(1);
     }
 
-    const result = await getTree(vault, slug, maxDepth);
+    const result = await getTree(ctx.vault, slug, maxDepth);
     process.stdout.write(JSON.stringify(result) + '\n');
-  },
-};
+  }
+}
 
-export default command;
+export default new GetTreeCommand();

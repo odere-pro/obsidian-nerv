@@ -11,11 +11,8 @@
  *   0 8 * * 1-5 ~/.ontology-cli/bin/nerv morning [--vault <name>]
  */
 
-import type { Command } from '../cli';
-import { resolveVault } from '../lib/obsidian';
-import { getVaultOps } from '../ports/provider';
 import type { VaultOps } from '../ports/vault-ops';
-import { extractVaultFlag } from '../lib/vault-registry';
+import { BaseCommand, type CommandContext } from './base-command';
 
 /* ---------------------------------------------------------------------------
  * Constants
@@ -87,16 +84,16 @@ export async function runMorning(vault: string, ops: VaultOps): Promise<MorningR
  * CLI Command
  * --------------------------------------------------------------------------- */
 
-const command: Command = {
-  name: 'morning',
-  description:
-    'Daily startup sequence: open daily note, inbox count, recent files, unresolved links',
+class MorningCommand extends BaseCommand {
+  readonly name = 'morning';
+  readonly description =
+    'Daily startup sequence: open daily note, inbox count, recent files, unresolved links';
+  readonly usage = 'nerv morning [--vault <name>]';
+  readonly minPositional = 0;
 
-  async run(args: string[]): Promise<void> {
-    const { vault: vaultArg } = extractVaultFlag(args);
-    const vault = await resolveVault(vaultArg);
-    await runMorning(vault, getVaultOps());
-  },
-};
+  protected async execute(ctx: CommandContext): Promise<void> {
+    await runMorning(ctx.vault, ctx.ops);
+  }
+}
 
-export default command;
+export default new MorningCommand();

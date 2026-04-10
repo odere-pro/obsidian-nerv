@@ -14,6 +14,7 @@
  */
 
 import { getVaultOps } from '../ports/provider';
+import type { VaultOps } from '../ports/vault-ops';
 import { Slug } from '../types/slug';
 import { getRelations } from './cli-relations';
 
@@ -113,10 +114,14 @@ function fetchMeta(
  * --------------------------------------------------------------------------- */
 
 /** Run ontology health analysis for a project. Used by weekly-review. */
-export async function syncOntology(vault: string, slug: string): Promise<OntologyResult> {
-  const ops = getVaultOps();
+export async function syncOntology(
+  vault: string,
+  slug: string,
+  injectedOps?: VaultOps
+): Promise<OntologyResult> {
+  const ops = injectedOps ?? getVaultOps();
 
-  const relResult = await getRelations(vault, slug).catch(() => ({
+  const relResult = await getRelations(vault, slug, ops).catch(() => ({
     project: slug,
     edges: [],
     summary: {},

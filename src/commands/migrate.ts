@@ -20,10 +20,9 @@
  * Post-apply: appends migration summary to daily note; writes rollback log entry.
  */
 
-import type { Command } from '../cli';
+import { BaseCommand, type CommandContext } from './base-command';
 import { parseJson } from '../lib/json';
-import { obEval, resolveVault, rollbackLog } from '../lib/obsidian';
-import { extractVaultFlag } from '../lib/vault-registry';
+import { obEval, rollbackLog } from '../lib/obsidian';
 import { buildMigrateExpr } from './migrate-engine';
 import type { MigrateOp, MigrateResult } from './migrate-spec';
 import { validateSpec } from './migrate-spec';
@@ -38,29 +37,27 @@ export { validateSpec } from './migrate-spec';
  * CLI Command
  * --------------------------------------------------------------------------- */
 
-const command: Command = {
-  name: 'migrate',
-  description:
-    'Apply bulk schema changes from a declarative JSON spec (rename-rel, rename-spine, add-field, promote)',
+class MigrateCommand extends BaseCommand {
+  readonly name = 'migrate';
+  readonly description =
+    'Apply bulk schema changes from a declarative JSON spec (rename-rel, rename-spine, add-field, promote)';
+  readonly usage = 'nerv migrate [--vault <name>] <project_slug> <spec_file> [--dry-run]';
+  readonly minPositional = 2;
 
-  async run(args: string[]): Promise<void> {
+  protected async execute(ctx: CommandContext): Promise<void> {
+    /* Extract --dry-run from positional args (not handled by BaseCommand) */
     let dryRun = false;
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
-
     const positional: string[] = [];
-    for (const a of rest) {
+    for (const a of ctx.positional) {
       if (a === '--dry-run') dryRun = true;
       else positional.push(a);
     }
 
     if (positional.length < 2) {
-      process.stderr.write(
-        'Usage: nerv migrate [--vault <name>] <project_slug> <spec_file> [--dry-run]\n'
-      );
+      process.stderr.write(`Usage: ${this.usage}\n`);
       process.exit(1);
     }
 
-    const vault = await resolveVault(vaultArg);
     const slug = positional[0];
     const specPath = positional[1];
 
@@ -90,12 +87,14 @@ const command: Command = {
     }
 
     /* Run migration via Obsidian eval */
-    const raw = await obEval(vault, buildMigrateExpr(spec, slug, dryRun)).catch((e: unknown) => {
-      process.stderr.write(
-        `ERROR: migrate: Obsidian not reachable or eval failed: ${e instanceof Error ? e.message : String(e)}\n`
-      );
-      process.exit(1);
-    });
+    const raw = await obEval(ctx.vault, buildMigrateExpr(spec, slug, dryRun)).catch(
+      (e: unknown) => {
+        process.stderr.write(
+          `ERROR: migrate: Obsidian not reachable or eval failed: ${e instanceof Error ? e.message : String(e)}\n`
+        );
+        process.exit(1);
+      }
+    );
     if (!raw) {
       process.stderr.write('ERROR: migrate: Obsidian returned empty result\n');
       process.exit(1);
@@ -140,10 +139,10 @@ const command: Command = {
       /* Write rollback log if any changes were made */
       if (total > 0) {
         const summary = `migrate ${slug}: ` + data.ops.map(r => `${r.op} ${r.count}`).join('; ');
-        await rollbackLog(vault, `migrate ${slug}`, summary).catch(() => undefined);
+        await rollbackLog(ctx.vault, `migrate ${slug}`, summary).catch(() => undefined);
       }
     }
-  },
-};
+  }
+}
 
-export default command;
+export default new MigrateCommand();

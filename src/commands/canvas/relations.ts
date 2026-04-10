@@ -15,7 +15,6 @@
  *   - default Command — CLI entry point
  */
 
-import type { Command } from '../../cli';
 import {
   deterministicEdgeId,
   deterministicHexId,
@@ -30,9 +29,8 @@ import {
   type CanvasResult,
 } from '../../lib/canvas';
 import { buildWriteExpr } from '../../lib/canvas-codegen';
-import { obEval, resolveVault } from '../../lib/obsidian';
+import { obEval } from '../../lib/obsidian';
 import { getRelations, type Edge } from '../cli-relations';
-import { extractVaultFlag } from '../../lib/vault-registry';
 
 export type { CanvasResult };
 
@@ -144,20 +142,16 @@ export async function generateRelationsCanvas(
  * CLI Command
  * --------------------------------------------------------------------------- */
 
-const command: Command = {
-  name: 'canvas/relations',
-  description: 'Generate a JSON Canvas relations graph from project connections',
+import { BaseCommand, type CommandContext } from '../base-command';
 
-  async run(args: string[]): Promise<void> {
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
+class CanvasRelationsCommand extends BaseCommand {
+  readonly name = 'canvas/relations';
+  readonly description = 'Generate a JSON Canvas relations graph from project connections';
+  readonly usage = 'nerv canvas/relations [--vault <name>] <project_slug>';
+  readonly minPositional = 1;
 
-    if (rest.length < 1) {
-      process.stderr.write('Usage: nerv canvas/relations [--vault <name>] <project_slug>\n');
-      process.exit(1);
-    }
-
-    const vault = await resolveVault(vaultArg);
-    const project = rest[0];
+  protected async execute(ctx: CommandContext): Promise<void> {
+    const project = ctx.positional[0];
 
     if (!/^[a-z0-9][a-z0-9-]*$/.test(project)) {
       process.stderr.write(
@@ -166,7 +160,7 @@ const command: Command = {
       process.exit(1);
     }
 
-    const result = await generateRelationsCanvas(vault, project);
+    const result = await generateRelationsCanvas(ctx.vault, project);
 
     if (!result.ok) {
       process.stderr.write(`ERROR: ${result.error}\n`);
@@ -176,7 +170,7 @@ const command: Command = {
     process.stdout.write(
       `canvas:relations written to ${result.outputPath} (${result.data.nodes.length} nodes, ${result.data.edges.length} edges)\n`
     );
-  },
-};
+  }
+}
 
-export default command;
+export default new CanvasRelationsCommand();

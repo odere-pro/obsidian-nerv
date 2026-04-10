@@ -4,13 +4,11 @@
 
 /* CLI: nerv web-ingest/monitor [--vault <name>] <project> <feed-url> [--interval 3600] [--once] [--max-articles 10] */
 
-import type { Command } from '../../cli';
 import { escapeRegex } from '../../lib/markdown';
-import { resolveVault } from '../../lib/obsidian';
 import { getVaultOps } from '../../ports/provider';
 import type { VaultOps } from '../../ports/vault-ops';
 import { ingestUrl } from './add';
-import { extractVaultFlag } from '../../lib/vault-registry';
+import { BaseCommand, type CommandContext } from '../base-command';
 
 /* ---------------------------------------------------------------------------
  * Types
@@ -222,51 +220,44 @@ export async function runMonitor(
  * CLI command
  * --------------------------------------------------------------------------- */
 
-const command: Command = {
-  name: 'web-ingest/monitor',
-  description: 'Poll an RSS/Atom feed and ingest new articles',
+class MonitorCommand extends BaseCommand {
+  readonly name = 'web-ingest/monitor';
+  readonly description = 'Poll an RSS/Atom feed and ingest new articles';
+  readonly usage =
+    'nerv web-ingest/monitor [--vault <name>] <project> <feed-url> [--interval 3600] [--once] [--max-articles 10] [--parent slug]';
+  readonly minPositional = 2;
 
-  async run(args: string[]): Promise<void> {
+  protected async execute(ctx: CommandContext): Promise<void> {
     let interval = 3600;
     let once = false;
     let maxArticles = 10;
     let parent: string | undefined;
 
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
-
     const positional: string[] = [];
-    for (let i = 0; i < rest.length; i++) {
-      if (rest[i] === '--interval' && rest[i + 1]) {
-        interval = parseInt(rest[++i], 10) || 3600;
-      } else if (rest[i] === '--once') {
+    for (let i = 0; i < ctx.positional.length; i++) {
+      if (ctx.positional[i] === '--interval' && ctx.positional[i + 1]) {
+        interval = parseInt(ctx.positional[++i], 10) || 3600;
+      } else if (ctx.positional[i] === '--once') {
         once = true;
-      } else if (rest[i] === '--max-articles' && rest[i + 1]) {
-        maxArticles = Math.min(parseInt(rest[++i], 10) || 10, 100);
-      } else if (rest[i] === '--parent' && rest[i + 1]) {
-        parent = rest[++i];
+      } else if (ctx.positional[i] === '--max-articles' && ctx.positional[i + 1]) {
+        maxArticles = Math.min(parseInt(ctx.positional[++i], 10) || 10, 100);
+      } else if (ctx.positional[i] === '--parent' && ctx.positional[i + 1]) {
+        parent = ctx.positional[++i];
       } else {
-        positional.push(rest[i]);
+        positional.push(ctx.positional[i]);
       }
     }
 
-    if (positional.length < 2) {
-      process.stderr.write(
-        'Usage: nerv web-ingest/monitor [--vault <name>] <project> <feed-url> [--interval 3600] [--once] [--max-articles 10] [--parent slug]\n'
-      );
-      process.exit(1);
-    }
-
-    const vault = await resolveVault(vaultArg);
     const project = positional[0];
     const feedUrl = positional[1];
 
-    await runMonitor(vault, project, feedUrl, {
+    await runMonitor(ctx.vault, project, feedUrl, {
       interval,
       once,
       maxArticles,
       parent: parent || '',
     });
-  },
-};
+  }
+}
 
-export default command;
+export default new MonitorCommand();

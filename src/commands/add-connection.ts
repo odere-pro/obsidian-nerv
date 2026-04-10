@@ -5,13 +5,11 @@
  * inverse relationship type from the project's _ontology file.
  */
 
-import type { Command } from '../cli';
 import { CONNECTION_LIMIT } from '../constants/limits';
 import { logError, logWarn } from '../lib/logger';
 import { SLUG_PATTERN } from '../lib/markdown';
-import { resolveVault } from '../lib/obsidian';
 import { getVaultOps } from '../ports/provider';
-import { extractVaultFlag } from '../lib/vault-registry';
+import { BaseCommand, type CommandContext } from './base-command';
 
 const REL_TYPE_RE = SLUG_PATTERN;
 
@@ -214,24 +212,18 @@ export async function addConnection(
   };
 }
 
-const command: Command = {
-  name: 'add-connection',
-  description: 'Write a typed bidirectional connection between two notes',
-  async run(args: string[]): Promise<void> {
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
+class AddConnectionCommand extends BaseCommand {
+  readonly name = 'add-connection';
+  readonly description = 'Write a typed bidirectional connection between two notes';
+  readonly usage =
+    'nerv add-connection [--vault <name>] <source_path> <rel_type> <target_path> [<context>]';
+  readonly minPositional = 3;
 
-    if (rest.length < 3) {
-      process.stderr.write(
-        'Usage: nerv add-connection [--vault <name>] <source_path> <rel_type> <target_path> [<context>]\n'
-      );
-      process.exit(1);
-    }
-
-    const vault = await resolveVault(vaultArg);
-    const sourcePath = rest[0];
-    const relType = rest[1];
-    const targetPath = rest[2];
-    const context = rest[3] ?? '';
+  protected async execute(ctx: CommandContext): Promise<void> {
+    const sourcePath = ctx.positional[0];
+    const relType = ctx.positional[1];
+    const targetPath = ctx.positional[2];
+    const context = ctx.positional[3] ?? '';
 
     if (!REL_TYPE_RE.test(relType)) {
       logError(
@@ -239,7 +231,13 @@ const command: Command = {
       );
     }
 
-    const result = await addConnection({ vault, sourcePath, relType, targetPath, context });
+    const result = await addConnection({
+      vault: ctx.vault,
+      sourcePath,
+      relType,
+      targetPath,
+      context,
+    });
 
     if (!result.ok) {
       process.stderr.write(`ERROR: ${result.error}\n`);
@@ -261,7 +259,7 @@ const command: Command = {
     } else if (inverseError) {
       process.stderr.write(`WARN: inverse not written: ${inverseError}\n`);
     }
-  },
-};
+  }
+}
 
-export default command;
+export default new AddConnectionCommand();

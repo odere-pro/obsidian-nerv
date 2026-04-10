@@ -7,12 +7,10 @@
  *   - default Command — CLI entry point
  */
 
-import type { Command } from '../cli';
 import { stripWikilink } from '../lib/markdown';
-import { resolveVault } from '../lib/obsidian';
 import { getVaultOps } from '../ports/provider';
-import type { VaultFileEntry } from '../ports/vault-ops';
-import { extractVaultFlag } from '../lib/vault-registry';
+import type { VaultFileEntry, VaultOps } from '../ports/vault-ops';
+import { BaseCommand, type CommandContext } from './base-command';
 
 /* ---------------------------------------------------------------------------
  * Types
@@ -169,8 +167,12 @@ function buildOrphanNotes(allEntries: VaultFileEntry[], folder: string): OrphanN
  * --------------------------------------------------------------------------- */
 
 /** Run orphan detection against a vault folder. Used by weekly-review. */
-export async function findOrphans(vault: string, folder: string): Promise<OrphanResult> {
-  const ops = getVaultOps();
+export async function findOrphans(
+  vault: string,
+  folder: string,
+  injectedOps?: VaultOps
+): Promise<OrphanResult> {
+  const ops = injectedOps ?? getVaultOps();
   const allEntries = await ops.listFiles(vault).catch(() => []);
   const notes = buildOrphanNotes(allEntries, folder);
   const issues = detectOrphans(notes);
@@ -181,33 +183,28 @@ export async function findOrphans(vault: string, folder: string): Promise<Orphan
  * CLI Command
  * --------------------------------------------------------------------------- */
 
-const command: Command = {
-  name: 'cli-orphans',
-  description: 'Verify bidirectional parent↔children integrity of vault notes',
+class CliOrphansCommand extends BaseCommand {
+  readonly name = 'cli-orphans';
+  readonly description = 'Verify bidirectional parent↔children integrity of vault notes';
+  readonly usage = 'nerv cli-orphans [--vault <name>] [--project <slug>] [--json]';
+  readonly minPositional = 0;
 
-  async run(args: string[]): Promise<void> {
-    let jsonOutput = false;
+  protected async execute(ctx: CommandContext): Promise<void> {
     let projectFilter = '';
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
-
     const positional: string[] = [];
 
-    for (let i = 0; i < rest.length; i++) {
-      if (rest[i] === '--json') {
-        jsonOutput = true;
-      } else if (rest[i] === '--project' && rest[i + 1]) {
-        projectFilter = `projects/${rest[++i]}`;
+    for (let i = 0; i < ctx.positional.length; i++) {
+      if (ctx.positional[i] === '--project' && ctx.positional[i + 1]) {
+        projectFilter = `projects/${ctx.positional[++i]}`;
       } else {
-        positional.push(rest[i]);
+        positional.push(ctx.positional[i]);
       }
     }
 
-    const vault = await resolveVault(vaultArg);
     const folder = projectFilter || positional[0] || '';
-    const result = await findOrphans(vault, folder);
+    const result = await findOrphans(ctx.vault, folder);
 
-    if (jsonOutput) {
-      /* omit noteCount from JSON output */
+    if (ctx.jsonOutput) {
       process.stdout.write(JSON.stringify({ issues: result.issues, count: result.count }) + '\n');
     } else {
       const labels: Record<OrphanType, string> = {
@@ -223,7 +220,7 @@ const command: Command = {
         `Link check complete. ${result.count} issue(s) in ${result.noteCount} note(s).\n`
       );
     }
-  },
-};
+  }
+}
 
-export default command;
+export default new CliOrphansCommand();

@@ -10,7 +10,6 @@
  *   - default Command — CLI entry point
  */
 
-import type { Command } from '../../cli';
 import {
   type CanvasData,
   type CanvasEdge,
@@ -26,9 +25,8 @@ import {
 import { buildWriteExpr } from '../../lib/canvas-codegen';
 import { encodeForJs } from '../../lib/json';
 import { parseJson } from '../../lib/json';
-import { obEval, resolveVault } from '../../lib/obsidian';
+import { obEval } from '../../lib/obsidian';
 import { buildTree, type FlatNote, type TreeNode } from '../get-tree';
-import { extractVaultFlag } from '../../lib/vault-registry';
 
 export type { CanvasResult };
 
@@ -181,20 +179,17 @@ export async function generateTreeCanvas(vault: string, project: string): Promis
  * CLI Command
  * --------------------------------------------------------------------------- */
 
-const command: Command = {
-  name: 'canvas/tree',
-  description: 'Generate a JSON Canvas tree from project hierarchy (ROOT → BRANCH → LEAF)',
+import { BaseCommand, type CommandContext } from '../base-command';
 
-  async run(args: string[]): Promise<void> {
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
+class CanvasTreeCommand extends BaseCommand {
+  readonly name = 'canvas/tree';
+  readonly description =
+    'Generate a JSON Canvas tree from project hierarchy (ROOT -> BRANCH -> LEAF)';
+  readonly usage = 'nerv canvas/tree [--vault <name>] <project_slug>';
+  readonly minPositional = 1;
 
-    if (rest.length < 1) {
-      process.stderr.write('Usage: nerv canvas/tree [--vault <name>] <project_slug>\n');
-      process.exit(1);
-    }
-
-    const vault = await resolveVault(vaultArg);
-    const project = rest[0];
+  protected async execute(ctx: CommandContext): Promise<void> {
+    const project = ctx.positional[0];
 
     if (!/^[a-z0-9][a-z0-9-]*$/.test(project)) {
       process.stderr.write(
@@ -203,7 +198,7 @@ const command: Command = {
       process.exit(1);
     }
 
-    const result = await generateTreeCanvas(vault, project);
+    const result = await generateTreeCanvas(ctx.vault, project);
 
     if (!result.ok) {
       process.stderr.write(`ERROR: ${result.error}\n`);
@@ -213,7 +208,7 @@ const command: Command = {
     process.stdout.write(
       `canvas:tree written to ${result.outputPath} (${result.data.nodes.length} nodes, ${result.data.edges.length} edges)\n`
     );
-  },
-};
+  }
+}
 
-export default command;
+export default new CanvasTreeCommand();

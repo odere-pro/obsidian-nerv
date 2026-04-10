@@ -7,15 +7,13 @@
  * CLI:               nerv web-ingest/add [--vault <name>] <project> <url> [<parent_slug>] [--json]
  */
 
-import type { Command } from '../../cli';
 import { fetchAndParse, generateUrlSlug } from '../../lib/defuddle';
-import { resolveVault } from '../../lib/obsidian';
 import { getVaultOps } from '../../ports/provider';
 import type { VaultOps } from '../../ports/vault-ops';
 import type { CommandResult } from '../../types/result';
 import { Slug } from '../../types/slug';
 import { createEntity } from '../create-entity';
-import { extractVaultFlag } from '../../lib/vault-registry';
+import { BaseCommand, type CommandContext } from '../base-command';
 
 /* ---------------------------------------------------------------------------
  * Constants
@@ -286,37 +284,20 @@ export async function ingestUrl(
  * CLI command
  * --------------------------------------------------------------------------- */
 
-const command: Command = {
-  name: 'web-ingest/add',
-  description: 'Fetch a URL via defuddle and import it as a LEAF note',
+class AddCommand extends BaseCommand {
+  readonly name = 'web-ingest/add';
+  readonly description = 'Fetch a URL via defuddle and import it as a LEAF note';
+  readonly usage = 'nerv web-ingest/add [--vault <name>] <project> <url> [<parent_slug>] [--json]';
+  readonly minPositional = 2;
 
-  async run(args: string[]): Promise<void> {
-    let jsonOutput = false;
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
+  protected async execute(ctx: CommandContext): Promise<void> {
+    const project = ctx.positional[0];
+    const url = ctx.positional[1];
+    const parent = ctx.positional[2];
 
-    const positional = rest.filter(a => {
-      if (a === '--json') {
-        jsonOutput = true;
-        return false;
-      }
-      return true;
-    });
+    const result = await ingestUrl(url, ctx.vault, project, parent);
 
-    if (positional.length < 2) {
-      process.stderr.write(
-        'Usage: nerv web-ingest/add [--vault <name>] <project> <url> [<parent_slug>] [--json]\n'
-      );
-      process.exit(1);
-    }
-
-    const vault = await resolveVault(vaultArg);
-    const project = positional[0];
-    const url = positional[1];
-    const parent = positional[2];
-
-    const result = await ingestUrl(url, vault, project, parent);
-
-    if (jsonOutput) {
+    if (ctx.jsonOutput) {
       process.stdout.write(
         JSON.stringify(result.ok ? result.data : { ingested: false, error: result.error }) + '\n'
       );
@@ -335,7 +316,7 @@ const command: Command = {
         process.stdout.write(`INFO: URL already ingested — ${result.data.path}\n`);
       }
     }
-  },
-};
+  }
+}
 
-export default command;
+export default new AddCommand();

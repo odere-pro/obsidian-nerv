@@ -6,11 +6,10 @@
  * Excludes draft-status notes.
  */
 
-import type { Command } from '../../cli';
 import { encodeForJs, parseJson } from '../../lib/json';
-import { obEval, resolveVault } from '../../lib/obsidian';
+import { obEval } from '../../lib/obsidian';
 import type { CommandResult } from '../../types/result';
-import { extractVaultFlag } from '../../lib/vault-registry';
+import { BaseCommand, type CommandContext } from '../base-command';
 
 const QUIZ_INSTRUCTION =
   "You are a quiz generator grounded exclusively in the user's knowledge vault. " +
@@ -146,31 +145,25 @@ export async function getQuiz(
   };
 }
 
-const command: Command = {
-  name: 'study/quiz',
-  description: 'Generate a vault-grounded quiz bundle from project notes',
+class QuizCommand extends BaseCommand {
+  readonly name = 'study/quiz';
+  readonly description = 'Generate a vault-grounded quiz bundle from project notes';
+  readonly usage = 'nerv study/quiz [--vault <name>] <project_slug> <spine> [<limit>]';
+  readonly minPositional = 2;
 
-  async run(args: string[]): Promise<void> {
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
+  protected async execute(ctx: CommandContext): Promise<void> {
+    const project = ctx.positional[0];
+    const spine = ctx.positional[1];
+    const limit = ctx.positional[2] ? parseInt(ctx.positional[2], 10) : 5;
 
-    if (rest.length < 2) {
+    if (isNaN(limit) || limit < 1) {
       process.stderr.write(
-        'Usage: nerv study/quiz [--vault <name>] <project_slug> <spine> [<limit>]\n'
+        `ERROR: quiz: limit must be a positive integer (got: ${ctx.positional[2]})\n`
       );
       process.exit(1);
     }
 
-    const vault = await resolveVault(vaultArg);
-    const project = rest[0];
-    const spine = rest[1];
-    const limit = rest[2] ? parseInt(rest[2], 10) : 5;
-
-    if (isNaN(limit) || limit < 1) {
-      process.stderr.write(`ERROR: quiz: limit must be a positive integer (got: ${rest[2]})\n`);
-      process.exit(1);
-    }
-
-    const result = await getQuiz(vault, project, spine, limit);
+    const result = await getQuiz(ctx.vault, project, spine, limit);
 
     if (!result.ok) {
       process.stderr.write(`ERROR: ${result.error}\n`);
@@ -178,7 +171,7 @@ const command: Command = {
     }
 
     process.stdout.write(JSON.stringify(result.data) + '\n');
-  },
-};
+  }
+}
 
-export default command;
+export default new QuizCommand();
