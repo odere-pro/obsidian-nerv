@@ -12,6 +12,7 @@ function makeMockOps(overrides: Partial<VaultOps> = {}): VaultOps {
   return {
     fileExists: async () => false,
     readFile: async (_v, p) => ({ path: p, content: '', frontmatter: {} }),
+    readFiles: async (_v, paths) => paths.map(p => ({ path: p, content: '', frontmatter: {} })),
     createFile: async () => undefined,
     updateFrontmatter: async () => undefined,
     listFiles: async () => [],

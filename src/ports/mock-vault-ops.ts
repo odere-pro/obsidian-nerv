@@ -59,6 +59,14 @@ export class MockVaultOps implements VaultOps {
     return { path, content: stored.content, frontmatter: { ...stored.frontmatter } };
   }
 
+  async readFiles(vault: string, paths: string[]): Promise<VaultFile[]> {
+    const results: VaultFile[] = [];
+    for (const path of paths) {
+      results.push(await this.readFile(vault, path));
+    }
+    return results;
+  }
+
   async createFile(vault: string, path: string, content: string): Promise<void> {
     const vm = this.vaultMap(vault);
     if (vm.has(path)) throw new Error(`MockVaultOps: file already exists: ${path}`);

@@ -37,6 +37,12 @@ export interface FileReadOps {
   fileExists(vault: string, path: string): Promise<boolean>;
   /** Read a file and return its content and parsed frontmatter. */
   readFile(vault: string, path: string): Promise<VaultFile>;
+  /**
+   * Read multiple files in a single batch call.
+   * Returns one VaultFile per path, in the same order as the input array.
+   * Reduces N+1 IPC overhead when reading many files after listFiles().
+   */
+  readFiles(vault: string, paths: string[]): Promise<VaultFile[]>;
   /** Return all markdown files in the vault with their frontmatter. */
   listFiles(vault: string): Promise<VaultFileEntry[]>;
 }

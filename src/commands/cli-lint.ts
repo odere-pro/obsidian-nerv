@@ -11,6 +11,7 @@
 import { CONNECTION_LIMIT, FLAG_LIMIT } from '../constants/limits';
 import { extractSection, stripFrontmatter } from '../lib/markdown';
 import { getVaultOps } from '../ports/provider';
+import type { VaultOps } from '../ports/vault-ops';
 import { ENTITY_REQUIRED_FIELDS } from '../types/entity';
 
 /* ---------------------------------------------------------------------------
@@ -244,8 +245,12 @@ const EXCLUDED_PREFIXES = ['tpl-', '_vocab', '_topk', '_ontology'];
  * --------------------------------------------------------------------------- */
 
 /** Lint all notes in the vault (or a folder) and return structured results. */
-export async function lintProject(vault: string, folder = ''): Promise<LintResult> {
-  const ops = getVaultOps();
+export async function lintProject(
+  vault: string,
+  folder = '',
+  injectedOps?: VaultOps
+): Promise<LintResult> {
+  const ops = injectedOps ?? getVaultOps();
   const allFiles = await ops.listFiles(vault).catch(() => []);
   const filtered = allFiles.filter(e => {
     if (folder && !e.path.startsWith(folder + '/') && e.path !== folder) return false;
@@ -254,8 +259,12 @@ export async function lintProject(vault: string, folder = ''): Promise<LintResul
   });
 
   const notes: NoteData[] = [];
-  for (const entry of filtered) {
-    const file = await ops.readFile(vault, entry.path);
+  const files = await ops.readFiles(
+    vault,
+    filtered.map(e => e.path)
+  );
+  for (let i = 0; i < filtered.length; i++) {
+    const file = files[i];
     const body = stripFrontmatter(file.content);
     const connections = parseConnections(body);
     notes.push({

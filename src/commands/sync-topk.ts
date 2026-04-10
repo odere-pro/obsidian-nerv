@@ -14,13 +14,12 @@
  *   - default Command — CLI entry point
  */
 
-import type { Command } from '../cli';
 import { CONNECTION_LIMIT, FLAG_LIMIT, CHILDREN_LIMIT } from '../constants/limits';
 import { logError } from '../lib/logger';
 import { stripFrontmatter } from '../lib/markdown';
-import { resolveVault } from '../lib/obsidian';
 import { getVaultOps } from '../ports/provider';
-import { extractVaultFlag } from '../lib/vault-registry';
+import type { VaultOps } from '../ports/vault-ops';
+import { BaseCommand, type CommandContext } from './base-command';
 
 /* ---------------------------------------------------------------------------
  * Types
@@ -88,9 +87,10 @@ const FLAG_RE = /^> \[!flag\b/gm;
 
 async function runSync(
   vault: string,
-  slug: string
+  slug: string,
+  injectedOps?: VaultOps
 ): Promise<{ noteCount: number; appended: number; warning: string }> {
-  const ops = getVaultOps();
+  const ops = injectedOps ?? getVaultOps();
   const projDir = `projects/${slug}`;
   const topkPath = `${projDir}/_topk.${slug}.md`;
   const today = new Date().toISOString().split('T')[0];
@@ -105,10 +105,14 @@ async function runSync(
 
   /* Read each note body to compute metrics */
   const violations: TopkViolation[] = [];
-  for (const entry of noteEntries) {
-    const file = await ops.readFile(vault, entry.path);
+  const noteFiles = await ops.readFiles(
+    vault,
+    noteEntries.map(e => e.path)
+  );
+  for (let i = 0; i < noteEntries.length; i++) {
+    const file = noteFiles[i];
     const body = stripFrontmatter(file.content);
-    const basename = (entry.path.split('/').pop() ?? '').replace(/\.md$/, '');
+    const basename = (noteEntries[i].path.split('/').pop() ?? '').replace(/\.md$/, '');
     const link = `[[${basename}]]`;
 
     const connMatches = body.match(CONN_RE) ?? [];
@@ -131,7 +135,7 @@ async function runSync(
       });
     }
 
-    const fm = entry.frontmatter;
+    const fm = noteEntries[i].frontmatter;
     const type = fm.type ? String(fm.type) : '';
     if (type === 'BRANCH' && Array.isArray(fm.children) && fm.children.length > 7) {
       violations.push({ note: link, field: 'children', count: fm.children.length, threshold: 7 });
@@ -206,28 +210,26 @@ export interface TopkResult {
 }
 
 /** Run topk overflow detection and append rows. Used by weekly-review. */
-export async function syncTopk(vault: string, slug: string): Promise<TopkResult> {
-  return runSync(vault, slug);
+export async function syncTopk(
+  vault: string,
+  slug: string,
+  injectedOps?: VaultOps
+): Promise<TopkResult> {
+  return runSync(vault, slug, injectedOps);
 }
 
 /* ---------------------------------------------------------------------------
  * CLI Command
  * --------------------------------------------------------------------------- */
 
-const command: Command = {
-  name: 'sync-topk',
-  description: 'Append overflow log entries to _topk.<project>.md',
+class SyncTopkCommand extends BaseCommand {
+  readonly name = 'sync-topk';
+  readonly description = 'Append overflow log entries to _topk.<project>.md';
+  readonly usage = 'nerv sync-topk [--vault <name>] <project_slug>';
+  readonly minPositional = 1;
 
-  async run(args: string[]): Promise<void> {
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
-
-    if (rest.length < 1) {
-      process.stderr.write('Usage: nerv sync-topk [--vault <name>] <project_slug>\n');
-      process.exit(1);
-    }
-
-    const vault = await resolveVault(vaultArg);
-    const slug = rest[0];
+  protected async execute(ctx: CommandContext): Promise<void> {
+    const slug = ctx.positional[0];
 
     if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
       logError(
@@ -236,7 +238,7 @@ const command: Command = {
     }
 
     try {
-      const result = await runSync(vault, slug);
+      const result = await runSync(ctx.vault, slug);
       if (result.warning && result.appended === 0 && result.warning.includes('not found')) {
         process.stderr.write(`ERROR: sync-topk: ${result.warning}\n`);
         process.exit(1);
@@ -251,7 +253,7 @@ const command: Command = {
       process.stderr.write(`ERROR: ${err instanceof Error ? err.message : String(err)}\n`);
       process.exit(1);
     }
-  },
-};
+  }
+}
 
-export default command;
+export default new SyncTopkCommand();
