@@ -20,8 +20,14 @@
  */
 
 import type { Command } from '../cli';
-import { SUMMARY_BODY_LIMIT } from '../constants/limits';
-import { parseSections, stripFrontmatter, extractSection } from '../lib/markdown';
+import {
+  buildBacklinks,
+  extractOutgoingLinks,
+  extractSummary,
+  parseConnections,
+  resolveWikiLink,
+} from '../lib/explain-parsers';
+import { parseSections } from '../lib/markdown';
 import { resolveVault } from '../lib/obsidian';
 import { getVaultOps } from '../ports/provider';
 import type { VaultOps } from '../ports/vault-ops';
@@ -59,89 +65,6 @@ export interface ExplainResult {
 }
 
 /* ---------------------------------------------------------------------------
- * Section parser helpers
- * --------------------------------------------------------------------------- */
-
-function extractSummary(rawBody: string): string {
-  const body = stripFrontmatter(rawBody);
-  const raw = extractSection(body, 'Summary');
-  return raw.substring(0, SUMMARY_BODY_LIMIT);
-}
-
-function parseConnections(
-  rawBody: string
-): Array<{ rel: string; target: string; context: string }> {
-  const body = stripFrontmatter(rawBody);
-  const parts = body.split(/\n(?=## )/);
-  let connSection = '';
-  for (const part of parts) {
-    if (/^## Connections\b/.test(part)) {
-      connSection = part.replace(/^## Connections\n?/, '');
-      break;
-    }
-  }
-  const re = /^- ([a-z][\w-]*) :: \[\[([^\]]+)\]\](.*)?$/;
-  const result: Array<{ rel: string; target: string; context: string }> = [];
-  for (const line of connSection.split('\n')) {
-    const m = line.trim().match(re);
-    if (m) result.push({ rel: m[1], target: m[2], context: (m[3] ?? '').trim() });
-  }
-  return result;
-}
-
-function resolveWikiLink(raw: string): string {
-  const m = String(raw ?? '').match(/\[\[([^\]#|]+)/);
-  return m ? m[1].trim() : String(raw ?? '').trim();
-}
-
-/* ---------------------------------------------------------------------------
- * Wikilink extraction helpers — derive backlinks/outgoing from content
- * --------------------------------------------------------------------------- */
-
-function extractOutgoingLinks(
-  rawBody: string
-): Array<{ path: string; title: string; display: string }> {
-  const re = /\[\[([^\]#|]+)(?:\|([^\]]*))?\]\]/g;
-  const links: Array<{ path: string; title: string; display: string }> = [];
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(rawBody)) !== null) {
-    const target = m[1].trim();
-    const display = m[2]?.trim() ?? target;
-    links.push({ path: '', title: target, display });
-  }
-  return links;
-}
-
-function buildBacklinks(
-  notes: EntityNote[],
-  targetBasename: string
-): Array<{ path: string; title: string; type: string; kind: string; spine: string }> {
-  const backlinks: Array<{
-    path: string;
-    title: string;
-    type: string;
-    kind: string;
-    spine: string;
-  }> = [];
-  for (const n of notes) {
-    if (n.basename === targetBasename) continue;
-    for (const link of n.outgoing) {
-      if (link.title === targetBasename || link.display === targetBasename) {
-        backlinks.push({
-          path: n.path,
-          title: String(n.frontmatter['title'] ?? n.basename),
-          type: String(n.frontmatter['type'] ?? ''),
-          kind: String(n.frontmatter['kind'] ?? ''),
-          spine: String(n.frontmatter['spine'] ?? ''),
-        });
-        break;
-      }
-    }
-  }
-  return backlinks;
-}
-
-/* ---------------------------------------------------------------------------
  * Vault data fetch via VaultOps
  * --------------------------------------------------------------------------- */
 
@@ -151,16 +74,14 @@ async function fetchAllNotes(vault: string, ops: VaultOps): Promise<EntityNote[]
 
   for (const entry of entries) {
     const file = await ops.readFile(vault, entry.path);
-    const basename = entry.path
-      .replace(/.*\//, '')
-      .replace(/\.md$/, ''); /* strip dir prefix + extension */
+    const basename = entry.path.replace(/.*\//, '').replace(/\.md$/, '');
     const outgoing = extractOutgoingLinks(file.content);
     notes.push({
       path: entry.path,
       basename,
       frontmatter: file.frontmatter,
       rawBody: file.content,
-      backlinks: [] /* populated in a second pass */,
+      backlinks: [],
       outgoing,
     });
   }
@@ -258,7 +179,6 @@ export async function explainTopic(
   const connected: ConnectedEntry[] = [];
   for (const conn of connections) {
     const target = conn.target;
-    /* Try to find by basename or path match */
     let destNote: EntityNote | undefined;
     for (const n of notes) {
       if (n.basename === target || n.path === target) {
