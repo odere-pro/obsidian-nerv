@@ -236,10 +236,7 @@ class GetKnowledgeGapCommand extends BaseCommand {
     const slug = ctx.positional[0];
 
     if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
-      process.stderr.write(
-        'ERROR: get-knowledge-gap: project slug must be lowercase alphanumeric with hyphens\n'
-      );
-      process.exit(1);
+      ctx.out.error('get-knowledge-gap: project slug must be lowercase alphanumeric with hyphens');
     }
 
     const result = await getKnowledgeGap(ctx.vault, slug);

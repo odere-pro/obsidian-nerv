@@ -35,18 +35,16 @@ class DevCycleCommand extends BaseCommand {
     }
 
     if (positional.length < 1) {
-      process.stderr.write(`Usage: ${this.usage}\n`);
-      process.exit(1);
+      ctx.out.error(`Usage: ${this.usage}`);
     }
 
     const pluginId = positional[0];
 
     if (!PLUGIN_ID_RE.test(pluginId)) {
-      process.stderr.write(
-        `ERROR: dev-cycle: plugin-id must contain only letters, digits, hyphens, or underscores\n` +
-          `       Pass the directory name from .obsidian/plugins/, not the display name.\n`
+      ctx.out.error(
+        `dev-cycle: plugin-id must contain only letters, digits, hyphens, or underscores\n` +
+          `       Pass the directory name from .obsidian/plugins/, not the display name.`
       );
-      process.exit(1);
     }
 
     const devOps = getDevOps();

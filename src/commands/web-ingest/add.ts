@@ -297,23 +297,20 @@ class AddCommand extends BaseCommand {
 
     const result = await ingestUrl(url, ctx.vault, project, parent);
 
+    if (!result.ok) {
+      ctx.out.error(result.error);
+    }
+
     if (ctx.jsonOutput) {
-      process.stdout.write(
-        JSON.stringify(result.ok ? result.data : { ingested: false, error: result.error }) + '\n'
-      );
-      if (!result.ok) process.exit(1);
+      process.stdout.write(JSON.stringify(result.data) + '\n');
     } else {
-      if (!result.ok) {
-        process.stderr.write(`ERROR: ${result.error}\n`);
-        process.exit(1);
-      }
       if (result.data.ingested) {
-        process.stdout.write(`INFO: ingested ${result.data.path}\n`);
+        ctx.out.info(`ingested ${result.data.path}`);
         process.stdout.write(`  title:         ${result.data.title}\n`);
         process.stdout.write(`  words:         ${result.data.wordCount}\n`);
         process.stdout.write(`  tokenEstimate: ${result.data.tokenEstimate}\n`);
       } else {
-        process.stdout.write(`INFO: URL already ingested — ${result.data.path}\n`);
+        ctx.out.info(`URL already ingested — ${result.data.path}`);
       }
     }
   }

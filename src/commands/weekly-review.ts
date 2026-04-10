@@ -205,10 +205,9 @@ class WeeklyReviewCommand extends BaseCommand {
     const slug = ctx.positional[0];
 
     if (!Slug.PATTERN.test(slug)) {
-      process.stderr.write(
-        `ERROR: weekly-review: project slug must be lowercase alphanumeric with hyphens (got: ${slug})\n`
+      ctx.out.error(
+        `weekly-review: project slug must be lowercase alphanumeric with hyphens (got: ${slug})`
       );
-      process.exit(1);
     }
 
     const { result, failedCmd } = await runWeeklyReview(ctx.vault, slug, ctx.jsonOutput, REAL_DEPS);
@@ -218,8 +217,7 @@ class WeeklyReviewCommand extends BaseCommand {
     }
 
     if (failedCmd) {
-      process.stderr.write(`ERROR: weekly-review: sub-command failed: ${failedCmd}\n`);
-      process.exit(1);
+      ctx.out.error(`weekly-review: sub-command failed: ${failedCmd}`);
     }
   }
 }

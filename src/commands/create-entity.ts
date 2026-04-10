@@ -222,28 +222,21 @@ class CreateEntityCommand extends BaseCommand {
       spine,
     });
 
+    if (!result.ok) {
+      ctx.out.error(result.error ?? 'create-entity failed');
+    }
+
     if (ctx.jsonOutput) {
-      if (result.ok) {
-        process.stdout.write(
-          JSON.stringify({
-            created: result.data.created,
-            path: result.data.path,
-            title: result.data.title,
-          }) + '\n'
-        );
-      } else {
-        process.stdout.write(JSON.stringify({ created: false, error: result.error }) + '\n');
-      }
-      if (!result.ok) process.exit(1);
+      ctx.out.success({
+        created: result.data.created,
+        path: result.data.path,
+        title: result.data.title,
+      });
     } else {
-      if (!result.ok) {
-        process.stderr.write(`ERROR: ${result.error}\n`);
-        process.exit(1);
-      }
       if (result.data.created) {
-        process.stdout.write(`INFO: created ${result.data.path}\n`);
+        ctx.out.info(`created ${result.data.path}`);
       } else {
-        process.stdout.write(`INFO: entity "${slug}" already exists — no changes made\n`);
+        ctx.out.info(`entity "${slug}" already exists — no changes made`);
       }
     }
   }

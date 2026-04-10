@@ -101,8 +101,7 @@ class BatchCommand extends BaseCommand {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      process.stderr.write(`ERROR: could not read batch file: ${msg}\n`);
-      process.exit(1);
+      ctx.out.error(`could not read batch file: ${msg}`);
     }
 
     const summary = await runBatch(ctx.vault, project, batchFile);
@@ -110,8 +109,8 @@ class BatchCommand extends BaseCommand {
     if (ctx.jsonOutput) {
       process.stdout.write(JSON.stringify(summary) + '\n');
     } else {
-      process.stdout.write(
-        `INFO: batch complete — ingested: ${summary.ingested}, skipped: ${summary.skipped}, failed: ${summary.failed}, totalTokens: ${summary.totalTokens}\n`
+      ctx.out.info(
+        `batch complete — ingested: ${summary.ingested}, skipped: ${summary.skipped}, failed: ${summary.failed}, totalTokens: ${summary.totalTokens}`
       );
       if (summary.failed > 0) process.exit(1);
     }

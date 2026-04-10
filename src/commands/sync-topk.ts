@@ -250,18 +250,16 @@ class SyncTopkCommand extends BaseCommand {
     try {
       const result = await runSync(ctx.vault, slug);
       if (result.warning && result.appended === 0 && result.warning.includes('not found')) {
-        process.stderr.write(`ERROR: sync-topk: ${result.warning}\n`);
-        process.exit(1);
+        ctx.out.error(`sync-topk: ${result.warning}`);
       }
       process.stdout.write(
         `sync-topk: ${result.noteCount} note(s) scanned, ${result.appended} overflow row(s) appended to _topk.${slug}.md\n`
       );
       if (result.warning) {
-        process.stdout.write(`WARN: ${result.warning}\n`);
+        ctx.out.warn(result.warning);
       }
     } catch (err) {
-      process.stderr.write(`ERROR: ${err instanceof Error ? err.message : String(err)}\n`);
-      process.exit(1);
+      ctx.out.error(err instanceof Error ? err.message : String(err));
     }
   }
 }

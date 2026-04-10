@@ -67,8 +67,7 @@ class DependencyMapCommand extends BaseCommand {
       if (ctx.positional[i] === '--format') {
         const fmt = ctx.positional[++i];
         if (fmt !== 'json' && fmt !== 'dot') {
-          process.stderr.write(`ERROR: dependency-map: unknown format: ${fmt} (json|dot)\n`);
-          process.exit(1);
+          ctx.out.error(`dependency-map: unknown format: ${fmt} (json|dot)`);
         }
         format = fmt;
       } else {
@@ -77,16 +76,14 @@ class DependencyMapCommand extends BaseCommand {
     }
 
     if (positional.length < 1) {
-      process.stderr.write(`Usage: ${this.usage}\n`);
-      process.exit(1);
+      ctx.out.error(`Usage: ${this.usage}`);
     }
 
     const project = positional[0];
     const result = await getDependencyMap(ctx.vault, project);
 
     if (!result.ok) {
-      process.stderr.write(`ERROR: ${result.error}\n`);
-      process.exit(1);
+      ctx.out.error(result.error);
     }
 
     if (format === 'dot') {

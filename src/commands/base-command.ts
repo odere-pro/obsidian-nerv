@@ -84,7 +84,12 @@ export abstract class BaseCommand implements Command {
 
     const ctx: CommandContext = { vault, positional, jsonOutput, out, ops: vaultOps };
 
-    await this.execute(ctx);
+    try {
+      await this.execute(ctx);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      out.error(`${this.name}: ${msg}`);
+    }
   }
 
   /**

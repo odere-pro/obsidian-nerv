@@ -139,13 +139,11 @@ class ImportJsonCommand extends BaseCommand {
     try {
       const raw = (await Bun.file(jsonFile).json()) as unknown;
       if (!Array.isArray(raw)) {
-        process.stderr.write('ERROR: import-json: JSON root must be an array\n');
-        process.exit(1);
+        ctx.out.error('import-json: JSON root must be an array');
       }
       entries = raw as ImportEntry[];
     } catch {
-      process.stderr.write(`ERROR: import-json: failed to read or parse JSON file: ${jsonFile}\n`);
-      process.exit(1);
+      ctx.out.error(`import-json: failed to read or parse JSON file: ${jsonFile}`);
     }
 
     /* Verify the project exists */

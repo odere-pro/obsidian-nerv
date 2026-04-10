@@ -215,8 +215,7 @@ class ExplainTopicCommand extends BaseCommand {
     const result = await explainTopic(ctx.vault, query);
 
     if (!result) {
-      process.stderr.write(`ERROR: explain-topic: no matching note found for query: ${query}\n`);
-      process.exit(1);
+      ctx.out.error(`explain-topic: no matching note found for query: ${query}`);
     }
 
     process.stdout.write(JSON.stringify(result) + '\n');

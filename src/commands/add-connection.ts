@@ -238,24 +238,23 @@ class AddConnectionCommand extends BaseCommand {
     });
 
     if (!result.ok) {
-      process.stderr.write(`ERROR: ${result.error}\n`);
-      process.exit(1);
+      ctx.out.error(result.error ?? 'add-connection failed');
     }
 
     const { forwardWritten, inverseWritten, inverseError } = result.data;
 
     if (forwardWritten === 'skipped') {
-      process.stdout.write('INFO: forward connection already exists — skipped\n');
+      ctx.out.info('forward connection already exists — skipped');
     } else if (forwardWritten) {
-      process.stdout.write(`INFO: wrote ${relType} :: ${sourcePath} -> ${targetPath}\n`);
+      ctx.out.info(`wrote ${relType} :: ${sourcePath} -> ${targetPath}`);
     }
 
     if (inverseWritten === 'skipped') {
-      process.stdout.write('INFO: inverse connection already exists — skipped\n');
+      ctx.out.info('inverse connection already exists — skipped');
     } else if (inverseWritten) {
-      process.stdout.write('INFO: wrote inverse connection\n');
+      ctx.out.info('wrote inverse connection');
     } else if (inverseError) {
-      process.stderr.write(`WARN: inverse not written: ${inverseError}\n`);
+      ctx.out.warn(`inverse not written: ${inverseError}`);
     }
   }
 }

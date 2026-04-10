@@ -41,7 +41,7 @@ const command: Command = {
     const pathIdx = rest.indexOf('--path');
 
     if (!name) {
-      process.stderr.write(`add-vault: --vault <name> is required\n${HELP}`);
+      process.stderr.write(`ERROR: add-vault: --vault <name> is required\n${HELP}`);
       process.exit(1);
     }
 
@@ -55,7 +55,7 @@ const command: Command = {
       const inside = vaultPath === gitRoot || vaultPath.startsWith(gitRoot + sep);
       if (!inside) {
         process.stderr.write(
-          `add-vault: vault path must be inside the git repository.\n  Git root: ${gitRoot}\n  Given:    ${vaultPath}\n`
+          `ERROR: add-vault: vault path must be inside the git repository.\n  Git root: ${gitRoot}\n  Given:    ${vaultPath}\n`
         );
         process.exit(1);
       }

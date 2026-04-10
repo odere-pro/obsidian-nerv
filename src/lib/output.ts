@@ -47,7 +47,7 @@ export class JsonOutput implements OutputStrategy {
   }
 
   error(msg: string): never {
-    process.stdout.write(JSON.stringify({ error: msg }) + '\n');
+    process.stdout.write(JSON.stringify({ ok: false, error: msg }) + '\n');
     process.exit(1);
   }
 

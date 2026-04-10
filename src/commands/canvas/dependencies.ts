@@ -246,17 +246,15 @@ class CanvasDependenciesCommand extends BaseCommand {
     const project = ctx.positional[0];
 
     if (!/^[a-z0-9][a-z0-9-]*$/.test(project)) {
-      process.stderr.write(
-        'ERROR: canvas:dependencies: project slug must be lowercase alphanumeric with hyphens\n'
+      ctx.out.error(
+        'canvas:dependencies: project slug must be lowercase alphanumeric with hyphens'
       );
-      process.exit(1);
     }
 
     const result = await generateDependenciesCanvas(ctx.vault, project);
 
     if (!result.ok) {
-      process.stderr.write(`ERROR: ${result.error}\n`);
-      process.exit(1);
+      ctx.out.error(result.error);
     }
 
     process.stdout.write(

@@ -157,17 +157,13 @@ class QuizCommand extends BaseCommand {
     const limit = ctx.positional[2] ? parseInt(ctx.positional[2], 10) : 5;
 
     if (isNaN(limit) || limit < 1) {
-      process.stderr.write(
-        `ERROR: quiz: limit must be a positive integer (got: ${ctx.positional[2]})\n`
-      );
-      process.exit(1);
+      ctx.out.error(`quiz: limit must be a positive integer (got: ${ctx.positional[2]})`);
     }
 
     const result = await getQuiz(ctx.vault, project, spine, limit);
 
     if (!result.ok) {
-      process.stderr.write(`ERROR: ${result.error}\n`);
-      process.exit(1);
+      ctx.out.error(result.error);
     }
 
     process.stdout.write(JSON.stringify(result.data) + '\n');

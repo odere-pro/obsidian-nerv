@@ -170,8 +170,7 @@ class SyncVocabCommand extends BaseCommand {
         `sync-vocab: ${result.noteCount} note(s) scanned, ${result.entryCount} vocab entries, ${result.orphanCount} orphan(s) written to _vocab.${slug}.md\n`
       );
     } catch (err) {
-      process.stderr.write(`ERROR: ${err instanceof Error ? err.message : String(err)}\n`);
-      process.exit(1);
+      ctx.out.error(err instanceof Error ? err.message : String(err));
     }
   }
 }
