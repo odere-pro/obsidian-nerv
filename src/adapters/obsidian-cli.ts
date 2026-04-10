@@ -9,7 +9,7 @@ import { encodeForJs, parseJson } from '../lib/json';
 import { logError } from '../lib/logger';
 import { dailyAppend, obEval } from '../lib/obsidian';
 import { spawnCapture } from '../lib/shell';
-import type { VaultFile, VaultFileEntry, VaultOps } from '../ports/vault-ops';
+import type { ListFilesFilter, VaultFile, VaultFileEntry, VaultOps } from '../ports/vault-ops';
 
 const e = encodeForJs;
 
@@ -67,10 +67,14 @@ export class ObsidianCliAdapter implements VaultOps {
     );
   }
 
-  async listFiles(vault: string): Promise<VaultFileEntry[]> {
+  async listFiles(vault: string, filter?: ListFilesFilter): Promise<VaultFileEntry[]> {
+    const folderFilter =
+      filter?.folder != null
+        ? `.filter(f => f.path.startsWith(${e(filter.folder.endsWith('/') ? filter.folder : filter.folder + '/')}))`
+        : '';
     const raw = await obEval(
       vault,
-      `JSON.stringify(app.vault.getMarkdownFiles().map(f => ({path: f.path, frontmatter: app.metadataCache.getFileCache(f)?.frontmatter ?? {}})))`
+      `JSON.stringify(app.vault.getMarkdownFiles()${folderFilter}.map(f => ({path: f.path, frontmatter: app.metadataCache.getFileCache(f)?.frontmatter ?? {}})))`
     );
     return parseJson<VaultFileEntry[]>(raw) ?? [];
   }

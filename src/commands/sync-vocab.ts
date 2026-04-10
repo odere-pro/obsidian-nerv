@@ -91,13 +91,10 @@ export function buildVocabContent(notes: VocabNote[], slug: string): string {
  * --------------------------------------------------------------------------- */
 
 function fetchVocabNotes(
-  entries: { path: string; frontmatter: Record<string, unknown> }[],
-  slug: string
+  entries: { path: string; frontmatter: Record<string, unknown> }[]
 ): VocabNote[] {
-  const projDir = `projects/${slug}`;
   return entries
     .filter(e => {
-      if (!e.path.startsWith(projDir + '/')) return false;
       const name = e.path.split('/').pop() ?? '';
       return isEntityNote(name);
     })
@@ -125,8 +122,8 @@ export async function syncVocab(
   injectedOps?: VaultOps
 ): Promise<VocabResult> {
   const ops = injectedOps ?? getVaultOps();
-  const allFiles = await ops.listFiles(vault);
-  const notes = fetchVocabNotes(allFiles, slug);
+  const allFiles = await ops.listFiles(vault, { folder: `projects/${slug}` });
+  const notes = fetchVocabNotes(allFiles);
   if (notes.length === 0) throw new Error('sync-vocab: no notes found or vault not reachable');
 
   const newBody = buildVocabContent(notes, slug);

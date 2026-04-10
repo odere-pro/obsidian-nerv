@@ -3,7 +3,7 @@
  * Commands unit tests use this instead of mocking Obsidian internals.
  */
 
-import type { VaultFile, VaultFileEntry, VaultOps } from './vault-ops';
+import type { ListFilesFilter, VaultFile, VaultFileEntry, VaultOps } from './vault-ops';
 
 interface StoredFile {
   content: string;
@@ -126,10 +126,17 @@ export class MockVaultOps implements VaultOps {
     Object.assign(stored.frontmatter, mutations);
   }
 
-  async listFiles(vault: string): Promise<VaultFileEntry[]> {
-    this.tracker.record('listFiles', [vault]);
+  async listFiles(vault: string, filter?: ListFilesFilter): Promise<VaultFileEntry[]> {
+    this.tracker.record('listFiles', [vault, filter]);
+    const folderPrefix =
+      filter?.folder != null
+        ? filter.folder.endsWith('/')
+          ? filter.folder
+          : filter.folder + '/'
+        : null;
     const entries: VaultFileEntry[] = [];
     for (const [path, stored] of this.vaultMap(vault)) {
+      if (folderPrefix && !path.startsWith(folderPrefix)) continue;
       entries.push({ path, frontmatter: { ...stored.frontmatter } });
     }
     return entries;

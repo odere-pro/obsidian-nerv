@@ -109,7 +109,37 @@ export function runVaultOpsContractTests(
       expect(found).toBeDefined();
     });
 
-    // 7. daily accumulation
+    // 7. listFiles with folder filter
+    test('listFiles with folder filter returns only matching files', async () => {
+      const ops = await factory();
+      const inFolder = `contract/filtered/inside-${Date.now()}.md`;
+      const outside = `contract/other/outside-${Date.now()}.md`;
+
+      await ops.createFile(VAULT, inFolder, 'inside');
+      await ops.createFile(VAULT, outside, 'outside');
+
+      const filtered = await ops.listFiles(VAULT, { folder: 'contract/filtered' });
+      const paths = filtered.map(e => e.path);
+      expect(paths).toContain(inFolder);
+      expect(paths).not.toContain(outside);
+    });
+
+    // 8. listFiles without filter returns all files (backward compat)
+    test('listFiles without filter returns all files', async () => {
+      const ops = await factory();
+      const path1 = `contract/compat-a-${Date.now()}.md`;
+      const path2 = `contract/compat-b-${Date.now()}.md`;
+
+      await ops.createFile(VAULT, path1, 'a');
+      await ops.createFile(VAULT, path2, 'b');
+
+      const all = await ops.listFiles(VAULT);
+      const paths = all.map(e => e.path);
+      expect(paths).toContain(path1);
+      expect(paths).toContain(path2);
+    });
+
+    // 9. daily accumulation
     test('appendToDaily accumulates entries', async () => {
       const ops = await factory();
 

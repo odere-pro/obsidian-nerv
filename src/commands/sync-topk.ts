@@ -100,9 +100,8 @@ async function runSync(
   const today = new Date().toISOString().split('T')[0];
 
   /* List all project notes */
-  const allFiles = await ops.listFiles(vault);
+  const allFiles = await ops.listFiles(vault, { folder: projDir });
   const noteEntries = allFiles.filter(e => {
-    if (!e.path.startsWith(projDir + '/')) return false;
     const name = e.path.split('/').pop() ?? '';
     return isEntityNote(name);
   });

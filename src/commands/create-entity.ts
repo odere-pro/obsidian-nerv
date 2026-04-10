@@ -90,10 +90,10 @@ export async function createEntity(
 
   /* Locate parent note and read its spine via listFiles */
   const parentPrefix = `${projUpper}.${parentSlug} - `;
-  const allFiles = await ops.listFiles(vault).catch(() => []);
+  const allFiles = await ops.listFiles(vault, { folder: projDir }).catch(() => []);
   const parentEntry = allFiles.find(f => {
     const fileName = f.path.split('/').pop() ?? '';
-    return f.path.startsWith(projDir + '/') && fileName.startsWith(parentPrefix);
+    return fileName.startsWith(parentPrefix);
   });
 
   if (!parentEntry) {

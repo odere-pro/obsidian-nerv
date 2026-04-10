@@ -113,10 +113,7 @@ export async function getRelations(
   const ops = injectedOps ?? getVaultOps();
   const folder = project.includes('/') ? project : `projects/${project}`;
 
-  const allFiles = await ops.listFiles(vault).catch(() => []);
-  const folderFiles = allFiles.filter(
-    e => folder && (e.path.startsWith(folder + '/') || e.path === folder)
-  );
+  const folderFiles = await ops.listFiles(vault, { folder }).catch(() => []);
 
   /* Load valid relationship types from _ontology files */
   const ontologyFiles = folderFiles.filter(e =>

@@ -28,6 +28,16 @@ export interface VaultFileEntry {
 }
 
 /* ---------------------------------------------------------------------------
+ * Filter types
+ * --------------------------------------------------------------------------- */
+
+/** Optional filter for listFiles() to reduce IPC payload. */
+export interface ListFilesFilter {
+  /** Only return files whose path starts with this folder prefix. */
+  folder?: string;
+}
+
+/* ---------------------------------------------------------------------------
  * Segregated interfaces
  * --------------------------------------------------------------------------- */
 
@@ -43,8 +53,12 @@ export interface FileReadOps {
    * Reduces N+1 IPC overhead when reading many files after listFiles().
    */
   readFiles(vault: string, paths: string[]): Promise<VaultFile[]>;
-  /** Return all markdown files in the vault with their frontmatter. */
-  listFiles(vault: string): Promise<VaultFileEntry[]>;
+  /**
+   * Return markdown files in the vault with their frontmatter.
+   * When filter.folder is provided, only files under that folder are returned.
+   * Without a filter, returns all markdown files.
+   */
+  listFiles(vault: string, filter?: ListFilesFilter): Promise<VaultFileEntry[]>;
 }
 
 /** Write operations: create, append, replace, trash. */

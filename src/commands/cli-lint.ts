@@ -249,9 +249,9 @@ export async function lintProject(
   injectedOps?: VaultOps
 ): Promise<LintResult> {
   const ops = injectedOps ?? getVaultOps();
-  const allFiles = await ops.listFiles(vault).catch(() => []);
+  const listFilter = folder ? { folder } : undefined;
+  const allFiles = await ops.listFiles(vault, listFilter).catch(() => []);
   const filtered = allFiles.filter(e => {
-    if (folder && !e.path.startsWith(folder + '/') && e.path !== folder) return false;
     const name = e.path.split('/').pop() ?? '';
     return isEntityNote(name);
   });

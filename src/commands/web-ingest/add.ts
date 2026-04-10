@@ -58,10 +58,9 @@ async function findExistingNote(
   url: string,
   ops: VaultOps
 ): Promise<{ path: string; title: string } | null> {
-  const entries = await ops.listFiles(vault);
-  const prefix = `projects/${project}/`;
+  const prefix = `projects/${project}`;
+  const entries = await ops.listFiles(vault, { folder: prefix });
   for (const entry of entries) {
-    if (!entry.path.startsWith(prefix)) continue;
     if (entry.frontmatter['url'] === url) {
       return { path: entry.path, title: (entry.frontmatter['title'] as string) ?? '' };
     }
@@ -133,12 +132,10 @@ async function appendParentConnection(
 ): Promise<void> {
   const projUpper = project.toUpperCase();
   const prefix = `${projUpper}.${parentSlug} - `;
-  const projDir = `projects/${project}/`;
+  const projDir = `projects/${project}`;
 
-  const entries = await ops.listFiles(vault);
-  const parentEntry = entries.find(
-    e => e.path.startsWith(projDir) && e.path.split('/').pop()?.startsWith(prefix)
-  );
+  const entries = await ops.listFiles(vault, { folder: projDir });
+  const parentEntry = entries.find(e => e.path.split('/').pop()?.startsWith(prefix));
   if (!parentEntry) return;
 
   const file = await ops.readFile(vault, parentEntry.path);
