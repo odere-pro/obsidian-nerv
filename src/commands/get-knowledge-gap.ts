@@ -10,7 +10,7 @@
  *   - default Command — CLI entry point
  *
  * Gap categories:
- *   stubs          — body word count < 100 (frontmatter excluded)
+ *   stubs          — body word count < STUB_WORD_THRESHOLD (frontmatter excluded)
  *   noConnections  — notes with zero typed connections
  *   drafts         — notes whose status === 'draft'
  *   missingFields  — notes missing any required frontmatter field
@@ -18,6 +18,7 @@
  *   unresolvedLinks — notes containing broken wikilinks (pre-resolved by Obsidian in fetch)
  */
 
+import { STUB_WORD_THRESHOLD } from '../constants/limits';
 import { encodeForJs, parseJson } from '../lib/json';
 import { obEval } from '../lib/obsidian';
 import { ENTITY_REQUIRED_FIELDS } from '../types/entity';
@@ -99,9 +100,9 @@ export function detectGaps(notes: GapNote[]): KnowledgeGapResult {
   const unresolvedLinks: UnresolvedLinkEntry[] = [];
 
   for (const note of notes) {
-    /* Stubs: body word count < 100 */
+    /* Stubs: body word count < STUB_WORD_THRESHOLD */
     const words = note.body.trim().split(/\s+/).filter(Boolean);
-    if (words.length < 100) {
+    if (words.length < STUB_WORD_THRESHOLD) {
       stubs.push({ note: note.basename, words: words.length });
     }
 

@@ -14,6 +14,7 @@
  * Exits 0 on all success; exits 1 with failing command name on stderr.
  */
 
+import { logWarn } from '../lib/logger';
 import { BaseCommand, type CommandContext } from './base-command';
 import { dailyAppend } from '../lib/obsidian';
 import { VaultSnapshot } from '../lib/vault-snapshot';
@@ -166,7 +167,9 @@ export async function runWeeklyReview(
       `- Review complete: ${timestamp}`,
     ].join('\n');
 
-    await deps.dailyAppend(vault, summary).catch(() => undefined);
+    await deps.dailyAppend(vault, summary).catch(() => {
+      logWarn('weekly-review: failed to append summary to daily');
+    });
   }
 
   return { result, failedCmd, topkViolations };

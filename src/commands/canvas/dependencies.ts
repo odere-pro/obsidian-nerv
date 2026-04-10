@@ -30,6 +30,7 @@ import {
   NODE_W,
 } from '../../lib/canvas';
 import { buildWriteExpr } from '../../lib/canvas-codegen';
+import { logWarn } from '../../lib/logger';
 import { obEval } from '../../lib/obsidian';
 import { getRelations } from '../cli-relations';
 
@@ -222,7 +223,9 @@ export async function generateDependenciesCanvas(
   const outputPath = `projects/${project}/${project}.dependencies.canvas`;
   const content = JSON.stringify(canvas, null, 2);
 
-  await obEval(vault, buildWriteExpr(outputPath, content)).catch(() => undefined);
+  await obEval(vault, buildWriteExpr(outputPath, content)).catch(() => {
+    logWarn('canvas/dependencies: failed to write canvas file via obEval');
+  });
 
   return { ok: true, data: canvas, outputPath };
 }

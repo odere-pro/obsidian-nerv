@@ -9,6 +9,7 @@
  * Idempotent: full regeneration on every run. Updates `updated:` frontmatter date.
  */
 
+import { CHILDREN_LIMIT, isEntityNote } from '../constants/limits';
 import { logError } from '../lib/logger';
 import { getVaultOps } from '../ports/provider';
 import type { VaultOps } from '../ports/vault-ops';
@@ -69,7 +70,7 @@ export function buildVocabContent(notes: VocabNote[], slug: string): string {
       currentSpine = e.spine;
     }
     let overflow = '';
-    if (e.type === 'BRANCH' && e.childrenCount > 7)
+    if (e.type === 'BRANCH' && e.childrenCount > CHILDREN_LIMIT)
       overflow = ` ⚠ overflow (children: ${e.childrenCount})`;
     if (e.type === 'LEAF' && e.childrenCount > 5)
       overflow = ` ⚠ overflow (children: ${e.childrenCount})`;
@@ -89,8 +90,6 @@ export function buildVocabContent(notes: VocabNote[], slug: string): string {
  * VaultOps data fetch
  * --------------------------------------------------------------------------- */
 
-const EXCLUDED_PREFIXES = ['_vocab', '_topk', '_ontology', 'tpl-'];
-
 function fetchVocabNotes(
   entries: { path: string; frontmatter: Record<string, unknown> }[],
   slug: string
@@ -100,7 +99,7 @@ function fetchVocabNotes(
     .filter(e => {
       if (!e.path.startsWith(projDir + '/')) return false;
       const name = e.path.split('/').pop() ?? '';
-      return !EXCLUDED_PREFIXES.some(p => name.startsWith(p));
+      return isEntityNote(name);
     })
     .map(e => {
       const fm = e.frontmatter;

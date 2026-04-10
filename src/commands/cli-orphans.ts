@@ -7,6 +7,7 @@
  *   - default Command — CLI entry point
  */
 
+import { isEntityNote } from '../constants/limits';
 import { stripWikilink } from '../lib/markdown';
 import { getVaultOps } from '../ports/provider';
 import type { VaultFileEntry, VaultOps } from '../ports/vault-ops';
@@ -100,8 +101,6 @@ export function detectOrphans(notes: OrphanNoteData[]): OrphanIssue[] {
  * VaultOps data fetch + wikilink resolution in TypeScript
  * --------------------------------------------------------------------------- */
 
-const EXCLUDED_PREFIXES = ['tpl-', '_vocab', '_topk', '_ontology'];
-
 const rawLink = stripWikilink;
 
 function buildOrphanNotes(allEntries: VaultFileEntry[], folder: string): OrphanNoteData[] {
@@ -116,7 +115,7 @@ function buildOrphanNotes(allEntries: VaultFileEntry[], folder: string): OrphanN
   const entries = allEntries.filter(e => {
     if (folder && !e.path.startsWith(folder + '/') && e.path !== folder) return false;
     const name = e.path.split('/').pop() ?? '';
-    return !EXCLUDED_PREFIXES.some(p => name.startsWith(p));
+    return isEntityNote(name);
   });
 
   return entries.map(e => {

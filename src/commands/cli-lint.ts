@@ -8,7 +8,7 @@
  *   - default Command — CLI entry point for the dispatcher
  */
 
-import { CONNECTION_LIMIT, FLAG_LIMIT } from '../constants/limits';
+import { CONNECTION_LIMIT, FLAG_LIMIT, isEntityNote } from '../constants/limits';
 import { extractSection, stripFrontmatter } from '../lib/markdown';
 import { getVaultOps } from '../ports/provider';
 import type { VaultOps } from '../ports/vault-ops';
@@ -238,8 +238,6 @@ export const VIOLATION_RULES: ViolationRule[] = [
  * VaultOps data fetch
  * --------------------------------------------------------------------------- */
 
-const EXCLUDED_PREFIXES = ['tpl-', '_vocab', '_topk', '_ontology'];
-
 /* ---------------------------------------------------------------------------
  * Programmatic API
  * --------------------------------------------------------------------------- */
@@ -255,7 +253,7 @@ export async function lintProject(
   const filtered = allFiles.filter(e => {
     if (folder && !e.path.startsWith(folder + '/') && e.path !== folder) return false;
     const name = e.path.split('/').pop() ?? '';
-    return !EXCLUDED_PREFIXES.some(p => name.startsWith(p));
+    return isEntityNote(name);
   });
 
   const notes: NoteData[] = [];

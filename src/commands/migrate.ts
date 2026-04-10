@@ -20,6 +20,7 @@
  * Post-apply: appends migration summary to daily note; writes rollback log entry.
  */
 
+import { logWarn } from '../lib/logger';
 import { BaseCommand, type CommandContext } from './base-command';
 import { parseJson } from '../lib/json';
 import { obEval, rollbackLog } from '../lib/obsidian';
@@ -139,7 +140,9 @@ class MigrateCommand extends BaseCommand {
       /* Write rollback log if any changes were made */
       if (total > 0) {
         const summary = `migrate ${slug}: ` + data.ops.map(r => `${r.op} ${r.count}`).join('; ');
-        await rollbackLog(ctx.vault, `migrate ${slug}`, summary).catch(() => undefined);
+        await rollbackLog(ctx.vault, `migrate ${slug}`, summary).catch(() => {
+          logWarn('migrate: failed to write rollback log');
+        });
       }
     }
   }

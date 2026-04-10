@@ -2,9 +2,9 @@
  * sync-topk — Autonomic skill: append overflow log entries to _topk.<project>.md.
  *
  * Scans every project note for overflow conditions:
- *   connections      > 7
- *   callout-flags    > 3
- *   children         > 7  (BRANCH notes only)
+ *   connections      > CONNECTION_LIMIT
+ *   callout-flags    > FLAG_LIMIT
+ *   children         > CHILDREN_LIMIT  (BRANCH notes only)
  *
  * Deduplicates rows already in the log. Updates `updated:` frontmatter date.
  * Idempotent: existing rows for the same note+field are skipped.
@@ -14,8 +14,14 @@
  *   - default Command — CLI entry point
  */
 
-import { CONNECTION_LIMIT, FLAG_LIMIT, CHILDREN_LIMIT } from '../constants/limits';
-import { logError } from '../lib/logger';
+import {
+  CONNECTION_LIMIT,
+  FLAG_LIMIT,
+  CHILDREN_LIMIT,
+  OVERFLOW_LOG_CAP,
+  isEntityNote,
+} from '../constants/limits';
+import { logError, logWarn } from '../lib/logger';
 import { stripFrontmatter } from '../lib/markdown';
 import { getVaultOps } from '../ports/provider';
 import type { VaultOps } from '../ports/vault-ops';
@@ -80,8 +86,6 @@ export function detectTopkViolations(notes: TopkNote[]): TopkViolation[] {
  * VaultOps data fetch + log update
  * --------------------------------------------------------------------------- */
 
-const EXCLUDED_PREFIXES = ['_ontology', '_vocab', '_topk', 'tpl-'];
-
 const CONN_RE = /^- [a-z][\w-]* :: \[\[/gm;
 const FLAG_RE = /^> \[!flag\b/gm;
 
@@ -100,7 +104,7 @@ async function runSync(
   const noteEntries = allFiles.filter(e => {
     if (!e.path.startsWith(projDir + '/')) return false;
     const name = e.path.split('/').pop() ?? '';
-    return !EXCLUDED_PREFIXES.some(p => name.startsWith(p));
+    return isEntityNote(name);
   });
 
   /* Read each note body to compute metrics */
@@ -116,29 +120,34 @@ async function runSync(
     const link = `[[${basename}]]`;
 
     const connMatches = body.match(CONN_RE) ?? [];
-    if (connMatches.length > 7) {
+    if (connMatches.length > CONNECTION_LIMIT) {
       violations.push({
         note: link,
         field: 'connections',
         count: connMatches.length,
-        threshold: 7,
+        threshold: CONNECTION_LIMIT,
       });
     }
 
     const flagMatches = body.match(FLAG_RE) ?? [];
-    if (flagMatches.length > 3) {
+    if (flagMatches.length > FLAG_LIMIT) {
       violations.push({
         note: link,
         field: 'callout-flags',
         count: flagMatches.length,
-        threshold: 3,
+        threshold: FLAG_LIMIT,
       });
     }
 
     const fm = noteEntries[i].frontmatter;
     const type = fm.type ? String(fm.type) : '';
-    if (type === 'BRANCH' && Array.isArray(fm.children) && fm.children.length > 7) {
-      violations.push({ note: link, field: 'children', count: fm.children.length, threshold: 7 });
+    if (type === 'BRANCH' && Array.isArray(fm.children) && fm.children.length > CHILDREN_LIMIT) {
+      violations.push({
+        note: link,
+        field: 'children',
+        count: fm.children.length,
+        threshold: CHILDREN_LIMIT,
+      });
     }
   }
 
@@ -166,11 +175,11 @@ async function runSync(
   const logSection = nextMatch ? afterHeader.substring(0, nextMatch.index) : afterHeader;
 
   const existingRows = logSection.split('\n').filter(l => l.trimStart().charAt(0) === '|');
-  if (existingRows.length >= 200) {
+  if (existingRows.length >= OVERFLOW_LOG_CAP) {
     return {
       noteCount: noteEntries.length,
       appended: 0,
-      warning: 'Overflow log has reached the 200-row cap. Operator cleanup required.',
+      warning: `Overflow log has reached the ${OVERFLOW_LOG_CAP}-row cap. Operator cleanup required.`,
     };
   }
 
@@ -178,7 +187,7 @@ async function runSync(
   let newRows = '';
   for (const viol of violations) {
     const dup = existingRows.some(r => r.indexOf(viol.note) !== -1 && r.indexOf(viol.field) !== -1);
-    if (!dup && existingRows.length + appended < 200) {
+    if (!dup && existingRows.length + appended < OVERFLOW_LOG_CAP) {
       newRows += `\n| ${today} | ${viol.note} | ${viol.field} | ${viol.count} | ${viol.threshold} |`;
       appended++;
     }
@@ -194,7 +203,9 @@ async function runSync(
     await ops.replaceFileContent(vault, topkPath, content);
   }
 
-  await ops.updateFrontmatter(vault, topkPath, { updated: today }).catch(() => undefined);
+  await ops.updateFrontmatter(vault, topkPath, { updated: today }).catch(() => {
+    logWarn('sync-topk: failed to update topk frontmatter date');
+  });
 
   return { noteCount: noteEntries.length, appended, warning: '' };
 }

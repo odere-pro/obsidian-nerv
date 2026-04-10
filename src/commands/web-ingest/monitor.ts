@@ -4,6 +4,7 @@
 
 /* CLI: nerv web-ingest/monitor [--vault <name>] <project> <feed-url> [--interval 3600] [--once] [--max-articles 10] */
 
+import { logWarn } from '../../lib/logger';
 import { escapeRegex } from '../../lib/markdown';
 import { getVaultOps } from '../../ports/provider';
 import type { VaultOps } from '../../ports/vault-ops';
@@ -188,7 +189,9 @@ export async function runMonitor(
     }
 
     state.lastChecked = new Date().toISOString();
-    await saveState(vault, state).catch(() => undefined);
+    await saveState(vault, state).catch(() => {
+      logWarn('web-ingest/monitor: failed to save poll state');
+    });
   };
 
   if (opts.once) {

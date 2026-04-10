@@ -7,6 +7,7 @@
  * CLI:               nerv web-ingest/add [--vault <name>] <project> <url> [<parent_slug>] [--json]
  */
 
+import { logWarn } from '../../lib/logger';
 import { fetchAndParse, generateUrlSlug } from '../../lib/defuddle';
 import { getVaultOps } from '../../ports/provider';
 import type { VaultOps } from '../../ports/vault-ops';
@@ -261,7 +262,9 @@ export async function ingestUrl(
 
   /* 8. Append sources connection to parent if explicitly specified */
   if (parent) {
-    await appendParentConnection(vault, project, parent, url, vaultOps).catch(() => undefined);
+    await appendParentConnection(vault, project, parent, url, vaultOps).catch(() => {
+      logWarn('web-ingest/add: failed to append parent connection');
+    });
   }
 
   /* 9. Log to daily note (best-effort) */

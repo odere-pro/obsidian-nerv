@@ -61,6 +61,41 @@ function appendToConnections(body: string, line: string): { content: string; err
   return { content: `${before}\n${line}\n${after}`, error: '' };
 }
 
+type WriteResult = { written: boolean | 'skipped'; error: string };
+
+/**
+ * Read a note, check for duplicate/limit, append a connection line, and write back.
+ * Returns the outcome without throwing.
+ */
+async function writeConnection(
+  ops: ReturnType<typeof getVaultOps>,
+  vault: string,
+  filePath: string,
+  targetBasename: string,
+  relType: string,
+  context: string
+): Promise<WriteResult> {
+  const file = await ops.readFile(vault, filePath);
+
+  if (hasConnection(file.content, targetBasename)) {
+    return { written: 'skipped', error: '' };
+  }
+
+  const count = countConnections(file.content);
+  if (count >= CONNECTION_LIMIT) {
+    const bn = basenameOf(filePath);
+    return { written: false, error: `Connection limit (${CONNECTION_LIMIT}) reached on ${bn}` };
+  }
+
+  const result = appendToConnections(file.content, connLine(relType, targetBasename, context));
+  if (result.error) {
+    return { written: false, error: result.error };
+  }
+
+  await ops.replaceFileContent(vault, filePath, result.content);
+  return { written: true, error: '' };
+}
+
 /**
  * Programmatic API for add-connection.
  */
@@ -144,62 +179,25 @@ export async function addConnection(
   const targetBasename = basenameOf(targetPath);
 
   /* Write forward connection */
-  const sourceFile = await ops.readFile(vault, sourcePath);
-  let forwardWritten: boolean | 'skipped';
-
-  if (hasConnection(sourceFile.content, targetBasename)) {
-    forwardWritten = 'skipped';
-  } else {
-    const count = countConnections(sourceFile.content);
-    if (count >= CONNECTION_LIMIT) {
-      return {
-        ok: false,
-        data: { forwardWritten: false, inverseWritten: false, inverseError: '' },
-        error: `add-connection: Connection limit (${CONNECTION_LIMIT}) reached on ${sourceBasename}`,
-      };
-    }
-    const result = appendToConnections(
-      sourceFile.content,
-      connLine(relType, targetBasename, context)
-    );
-    if (result.error) {
-      return {
-        ok: false,
-        data: { forwardWritten: false, inverseWritten: false, inverseError: '' },
-        error: `add-connection: ${result.error}`,
-      };
-    }
-    await ops.replaceFileContent(vault, sourcePath, result.content);
-    forwardWritten = true;
+  const fwd = await writeConnection(ops, vault, sourcePath, targetBasename, relType, context);
+  if (fwd.error) {
+    return {
+      ok: false,
+      data: { forwardWritten: false, inverseWritten: false, inverseError: '' },
+      error: `add-connection: ${fwd.error}`,
+    };
   }
+  const forwardWritten = fwd.written;
 
   /* Write inverse connection */
   let inverseWritten: boolean | 'skipped' = false;
   let inverseError = '';
 
   if (inverseType) {
-    const targetFile = await ops.readFile(vault, targetPath);
-
-    if (hasConnection(targetFile.content, sourceBasename)) {
-      inverseWritten = 'skipped';
-    } else {
-      const count = countConnections(targetFile.content);
-      if (count >= CONNECTION_LIMIT) {
-        inverseError = `Connection limit (${CONNECTION_LIMIT}) reached on ${targetBasename}`;
-      } else {
-        const invCtx = context ? `inverse of: ${context}` : '';
-        const result = appendToConnections(
-          targetFile.content,
-          connLine(inverseType, sourceBasename, invCtx)
-        );
-        if (result.error) {
-          inverseError = result.error;
-        } else {
-          await ops.replaceFileContent(vault, targetPath, result.content);
-          inverseWritten = true;
-        }
-      }
-    }
+    const invCtx = context ? `inverse of: ${context}` : '';
+    const inv = await writeConnection(ops, vault, targetPath, sourceBasename, inverseType, invCtx);
+    inverseWritten = inv.written;
+    inverseError = inv.error;
   }
 
   return {

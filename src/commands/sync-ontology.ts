@@ -13,6 +13,8 @@
  * Idempotent: updates `updated:` date in ontology artifact file on every run.
  */
 
+import { isEntityNote } from '../constants/limits';
+import { logWarn } from '../lib/logger';
 import { getVaultOps } from '../ports/provider';
 import type { VaultOps } from '../ports/vault-ops';
 import { Slug } from '../types/slug';
@@ -66,7 +68,6 @@ export function detectMissingInverses(
  * VaultOps data fetch
  * --------------------------------------------------------------------------- */
 
-const EXCLUDED_PREFIXES = ['_vocab', '_topk', '_ontology', 'tpl-'];
 const REQUIRED = ['title', 'type', 'kind', 'spine', 'status'];
 
 function fetchMeta(
@@ -77,7 +78,7 @@ function fetchMeta(
   const notes = entries.filter(e => {
     if (!e.path.startsWith(projDir + '/')) return false;
     const name = e.path.split('/').pop() ?? '';
-    return !EXCLUDED_PREFIXES.some(p => name.startsWith(p));
+    return isEntityNote(name);
   });
 
   const entities: Record<string, number> = { ROOT: 0, BRANCH: 0, LEAF: 0 };
@@ -138,7 +139,9 @@ export async function syncOntology(
   const ontoPath = `projects/${slug}/_ontology.${slug}.md`;
   const today = new Date().toISOString().split('T')[0];
   if (allFiles.some(e => e.path === ontoPath)) {
-    await ops.updateFrontmatter(vault, ontoPath, { updated: today }).catch(() => undefined);
+    await ops.updateFrontmatter(vault, ontoPath, { updated: today }).catch(() => {
+      logWarn('sync-ontology: failed to update ontology frontmatter date');
+    });
   }
 
   return {
@@ -193,7 +196,9 @@ class SyncOntologyCommand extends BaseCommand {
     const ontoPath = `projects/${slug}/_ontology.${slug}.md`;
     const today = new Date().toISOString().split('T')[0];
     if (allFiles.some(e => e.path === ontoPath)) {
-      await ops.updateFrontmatter(ctx.vault, ontoPath, { updated: today }).catch(() => undefined);
+      await ops.updateFrontmatter(ctx.vault, ontoPath, { updated: today }).catch(() => {
+        logWarn('sync-ontology: failed to update ontology frontmatter date');
+      });
     }
 
     if (ctx.jsonOutput) {

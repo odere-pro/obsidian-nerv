@@ -12,6 +12,7 @@
  *    "summary":{...},"unknownTypes":[...]}
  */
 
+import { isEntityNote } from '../constants/limits';
 import { extractSection, stripFrontmatter } from '../lib/markdown';
 import { getVaultOps } from '../ports/provider';
 import type { VaultOps } from '../ports/vault-ops';
@@ -134,12 +135,7 @@ export async function getRelations(
   /* Read note files to extract connections */
   const noteFiles = folderFiles.filter(e => {
     const name = e.path.split('/').pop() ?? '';
-    return (
-      !name.startsWith('_vocab') &&
-      !name.startsWith('_topk') &&
-      !name.startsWith('_ontology') &&
-      !name.startsWith('tpl-')
-    );
+    return isEntityNote(name);
   });
 
   const noteData = await ops.readFiles(

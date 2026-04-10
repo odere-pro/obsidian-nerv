@@ -11,6 +11,7 @@
  *   0 8 * * 1-5 ~/.ontology-cli/bin/nerv morning [--vault <name>]
  */
 
+import { logWarn } from '../lib/logger';
 import type { VaultOps } from '../ports/vault-ops';
 import { BaseCommand, type CommandContext } from './base-command';
 
@@ -37,7 +38,9 @@ export interface MorningResult {
 
 export async function runMorning(vault: string, ops: VaultOps): Promise<MorningResult> {
   /* Step 1: open today's daily note */
-  await ops.openDaily(vault).catch(() => undefined);
+  await ops.openDaily(vault).catch(() => {
+    logWarn('morning: failed to open daily note');
+  });
   process.stdout.write('[morning] daily note opened\n');
 
   /* Step 2: count inbox backlog and append to daily note */
@@ -49,7 +52,9 @@ export async function runMorning(vault: string, ops: VaultOps): Promise<MorningR
     /* fallback to 0 */
   }
 
-  await ops.appendToDaily(vault, `- Inbox backlog: ${inboxCount} note(s)`).catch(() => undefined);
+  await ops.appendToDaily(vault, `- Inbox backlog: ${inboxCount} note(s)`).catch(() => {
+    logWarn('morning: failed to append inbox count to daily');
+  });
   process.stdout.write(`[morning] inbox backlog: ${inboxCount} note(s)\n`);
 
   /* Step 3: recently modified files (last 10) */

@@ -282,6 +282,28 @@ export async function dailyAppend(vault: string, content: string): Promise<void>
 }
 
 /**
+ * Build a JavaScript IIFE expression that appends a row to the rollback log.
+ * Separated from rollbackLog() so the expression construction is testable.
+ */
+export function buildRollbackExpr(header: string, entry: string): string {
+  const jsEntry = encodeForJs(entry);
+  const jsHeader = encodeForJs(header);
+
+  return `(async () => {
+  const path = '_inbox/_rollback-log.md';
+  const dir = '_inbox';
+  if (!app.vault.getAbstractFileByPath(dir)) await app.vault.createFolder(dir);
+  const f = app.vault.getAbstractFileByPath(path);
+  if (f) {
+    await app.vault.append(f, ${jsEntry});
+  } else {
+    await app.vault.create(path, ${jsHeader} + ${jsEntry});
+  }
+  return 'ok';
+})()`;
+}
+
+/**
  * Append a structured entry to `_inbox/_rollback-log.md`.
  * Creates the file with a header row if it does not yet exist.
  *
@@ -306,23 +328,5 @@ export async function rollbackLog(
     '| Timestamp | Operation | Partial State |\n' +
     '|-----------|-----------|---------------|\n';
 
-  const jsEntry = encodeForJs(entry + '\n');
-  const jsHeader = encodeForJs(header);
-
-  /* FIXME: Eval expression construction is brittle — embedding both header and entry
-   * with the entire expression as a single line is fragile and error-prone. */
-  const expr = `(async () => {
-  const path = '_inbox/_rollback-log.md';
-  const dir = '_inbox';
-  if (!app.vault.getAbstractFileByPath(dir)) await app.vault.createFolder(dir);
-  const f = app.vault.getAbstractFileByPath(path);
-  if (f) {
-    await app.vault.append(f, ${jsEntry});
-  } else {
-    await app.vault.create(path, ${jsHeader} + ${jsEntry});
-  }
-  return 'ok';
-})()`;
-
-  await obEval(vault, expr);
+  await obEval(vault, buildRollbackExpr(header, entry + '\n'));
 }
