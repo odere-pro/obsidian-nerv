@@ -13,12 +13,9 @@
  * Idempotent: updates `updated:` date in ontology artifact file on every run.
  */
 
-import type { Command } from '../cli';
-import { logError } from '../lib/logger';
-import { resolveVault } from '../lib/obsidian';
 import { getVaultOps } from '../ports/provider';
+import { Slug } from '../types/slug';
 import { getRelations } from './cli-relations';
-import { extractVaultFlag } from '../lib/vault-registry';
 
 /* ---------------------------------------------------------------------------
  * Types
@@ -151,50 +148,36 @@ export async function syncOntology(vault: string, slug: string): Promise<Ontolog
  * CLI Command
  * --------------------------------------------------------------------------- */
 
-const command: Command = {
-  name: 'sync-ontology',
-  description: 'Produce ontology health report for a project',
+import { BaseCommand, type CommandContext } from './base-command';
 
-  async run(args: string[]): Promise<void> {
-    let jsonOutput = false;
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
+class SyncOntologyCommand extends BaseCommand {
+  readonly name = 'sync-ontology';
+  readonly description = 'Produce ontology health report for a project';
+  readonly usage = 'nerv sync-ontology [--vault <name>] <project_slug> [--json]';
+  readonly minPositional = 1;
 
-    const positional: string[] = [];
-    for (const a of rest) {
-      if (a === '--json') jsonOutput = true;
-      else positional.push(a);
-    }
+  protected async execute(ctx: CommandContext): Promise<void> {
+    const slug = ctx.positional[0];
 
-    if (positional.length < 1) {
-      process.stderr.write('Usage: nerv sync-ontology [--vault <name>] <project_slug> [--json]\n');
-      process.exit(1);
-    }
-
-    const vault = await resolveVault(vaultArg);
-    const slug = positional[0];
-
-    if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
-      logError(
+    if (!Slug.PATTERN.test(slug)) {
+      ctx.out.error(
         `sync-ontology: project slug must be lowercase alphanumeric with hyphens (got: ${slug})`
       );
     }
 
     const ops = getVaultOps();
 
-    /* Fetch relations via getRelations (no subprocess) */
-    const relResult = await getRelations(vault, slug).catch(() => ({
+    const relResult = await getRelations(ctx.vault, slug).catch(() => ({
       project: slug,
-      edges: [],
-      summary: {},
-      unknownTypes: [],
+      edges: [] as { source: string; target: string; rel: string; context: string }[],
+      summary: {} as Record<string, number>,
+      unknownTypes: [] as string[],
     }));
 
-    /* Fetch metadata via VaultOps */
-    const allFiles = await ops.listFiles(vault);
+    const allFiles = await ops.listFiles(ctx.vault);
     const meta = fetchMeta(allFiles, slug);
     if (meta.noteCount === 0) {
-      process.stderr.write('ERROR: sync-ontology: no notes found or vault not reachable\n');
-      process.exit(1);
+      ctx.out.error('sync-ontology: no notes found or vault not reachable');
     }
 
     const edges = relResult.edges;
@@ -202,25 +185,22 @@ const command: Command = {
     const missingInverses = detectMissingInverses(edges).slice(0, 20);
     const avgEdges = edgeCount / Math.max(meta.noteCount, 1);
 
-    /* Update updated: date in ontology file */
     const ontoPath = `projects/${slug}/_ontology.${slug}.md`;
     const today = new Date().toISOString().split('T')[0];
     if (allFiles.some(e => e.path === ontoPath)) {
-      await ops.updateFrontmatter(vault, ontoPath, { updated: today }).catch(() => undefined);
+      await ops.updateFrontmatter(ctx.vault, ontoPath, { updated: today }).catch(() => undefined);
     }
 
-    if (jsonOutput) {
-      const result: OntologyResult = {
+    if (ctx.jsonOutput) {
+      ctx.out.success({
         entities: meta.entities,
         edges: edgeCount,
         missingInverses,
         incomplete: meta.incomplete,
-      };
-      process.stdout.write(JSON.stringify(result) + '\n');
+      } satisfies OntologyResult);
       return;
     }
 
-    /* Human-readable report */
     process.stdout.write(`=== Ontology Health Report: ${slug} ===\n\n`);
 
     process.stdout.write('--- Entity Distribution ---\n');
@@ -275,7 +255,7 @@ const command: Command = {
     process.stdout.write(
       `Total: ${meta.noteCount} notes, ${edgeCount} edges, avg ${avgEdges.toFixed(1)} edges/note, ${meta.incomplete} incomplete, ${missingInverses.length} missing inverses\n`
     );
-  },
-};
+  }
+}
 
-export default command;
+export default new SyncOntologyCommand();

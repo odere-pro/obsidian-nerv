@@ -9,11 +9,10 @@
 import type { Command } from '../../cli';
 import { resolveVault } from '../../lib/obsidian';
 import type { CommandResult } from '../../types/result';
+import { Slug } from '../../types/slug';
 import { createEntity } from '../create-entity';
 import { extractVaultFlag } from '../../lib/vault-registry';
 import { getVaultOps } from '../../ports/provider';
-
-const ADR_SLUG_RE = /^[a-z0-9-]+$/;
 
 export function generateAdrSlug(title: string): string {
   const dateCompact = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -73,7 +72,7 @@ export async function createAdr(params: AdrParams): Promise<CommandResult<AdrDat
   const slug = generateAdrSlug(title);
   const today = new Date().toISOString().slice(0, 10);
 
-  if (!ADR_SLUG_RE.test(slug)) {
+  if (!Slug.PATTERN.test(slug)) {
     return {
       ok: false,
       data: { path: '', slug, decisionDate: today, decisionStatus: 'proposed' },

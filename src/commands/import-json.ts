@@ -8,11 +8,11 @@ import type { Command } from '../cli';
 import { logError } from '../lib/logger';
 import { resolveVault } from '../lib/obsidian';
 import { getVaultOps } from '../ports/provider';
+import { EntityTypes } from '../types/entity';
 import type { EntityType } from '../types/entity';
+import { Slug } from '../types/slug';
 import { createEntity } from './create-entity';
 import { extractVaultFlag } from '../lib/vault-registry';
-
-const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 const STANDARD_FIELDS = new Set(['name', 'type', 'kind', 'spine', 'parent']);
 
 interface ImportEntry {
@@ -64,7 +64,14 @@ export async function importJson(params: {
       continue;
     }
 
-    const type = (entry.type ?? 'LEAF').toUpperCase() as EntityType;
+    let type: EntityType;
+    try {
+      type = EntityTypes.parse(entry.type ?? 'LEAF');
+    } catch {
+      process.stderr.write(`WARN: skipping entry "${entry.name}" — invalid type: ${entry.type}\n`);
+      skipped++;
+      continue;
+    }
     const kind = entry.kind ?? 'concept';
     const spine = entry.spine ?? '';
     const parentSlug = entry.parent ?? 'ROOT';
@@ -128,7 +135,7 @@ const command: Command = {
     const projectSlug = rest[0];
     const jsonFile = rest[1];
 
-    if (!SLUG_RE.test(projectSlug)) {
+    if (!Slug.PATTERN.test(projectSlug)) {
       logError(
         `import-json: project slug must be lowercase alphanumeric with optional hyphens (got: ${projectSlug})`
       );

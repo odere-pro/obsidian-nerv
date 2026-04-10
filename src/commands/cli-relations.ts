@@ -12,11 +12,8 @@
  *    "summary":{...},"unknownTypes":[...]}
  */
 
-import type { Command } from '../cli';
-import { resolveVault } from '../lib/obsidian';
+import { extractSection, stripFrontmatter } from '../lib/markdown';
 import { getVaultOps } from '../ports/provider';
-import { extractSection } from './cli-lint';
-import { extractVaultFlag } from '../lib/vault-registry';
 
 /* ---------------------------------------------------------------------------
  * Types
@@ -81,10 +78,6 @@ export function extractEdges(
 /* ---------------------------------------------------------------------------
  * VaultOps data fetch + ontology parsing in TypeScript
  * --------------------------------------------------------------------------- */
-
-function stripFrontmatter(content: string): string {
-  return content.replace(/^---[\s\S]*?---\n?/, '');
-}
 
 /** Parse valid relationship types from an _ontology file's ## Relationship Types table. */
 function parseValidTypes(content: string): string[] {
@@ -157,27 +150,20 @@ export async function getRelations(vault: string, project: string): Promise<Rela
  * CLI Command
  * --------------------------------------------------------------------------- */
 
-const command: Command = {
-  name: 'cli-relations',
-  description: 'Enumerate typed connections and validate against ontology',
+import { BaseCommand, type CommandContext } from './base-command';
 
-  async run(args: string[]): Promise<void> {
-    let jsonOutput = false;
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
+class CliRelationsCommand extends BaseCommand {
+  readonly name = 'cli-relations';
+  readonly description = 'Enumerate typed connections and validate against ontology';
+  readonly usage = 'nerv cli-relations [--vault <name>] [<project>] [--json]';
+  readonly minPositional = 0;
 
-    const positional: string[] = [];
-    for (const a of rest) {
-      if (a === '--json') jsonOutput = true;
-      else positional.push(a);
-    }
+  protected async execute(ctx: CommandContext): Promise<void> {
+    const rawFolder = ctx.positional[0] ?? '';
+    const fullResult = await getRelations(ctx.vault, rawFolder);
 
-    const vault = await resolveVault(vaultArg);
-    const rawFolder = positional[0] ?? '';
-
-    const fullResult = await getRelations(vault, rawFolder);
-
-    if (jsonOutput) {
-      process.stdout.write(JSON.stringify(fullResult) + '\n');
+    if (ctx.jsonOutput) {
+      ctx.out.success(fullResult);
     } else {
       for (const e of fullResult.edges) {
         process.stdout.write(`${e.source} --${e.rel}--> ${e.target}\n`);
@@ -195,7 +181,7 @@ const command: Command = {
         `\nRelations complete. ${fullResult.edges.length} edge(s) across ${Object.keys(fullResult.summary).length} relationship type(s).\n`
       );
     }
-  },
-};
+  }
+}
 
-export default command;
+export default new CliRelationsCommand();

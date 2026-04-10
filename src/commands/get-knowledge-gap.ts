@@ -21,6 +21,7 @@
 import type { Command } from '../cli';
 import { encodeForJs, parseJson } from '../lib/json';
 import { obEval, resolveVault } from '../lib/obsidian';
+import { ENTITY_REQUIRED_FIELDS } from '../types/entity';
 import { extractVaultFlag } from '../lib/vault-registry';
 
 /* ---------------------------------------------------------------------------
@@ -82,7 +83,7 @@ export interface KnowledgeGapResult {
  * Pure gap analysis function
  * --------------------------------------------------------------------------- */
 
-const REQUIRED_FIELDS = ['title', 'type', 'kind', 'spine', 'status', 'created', 'aliases'];
+const REQUIRED_FIELDS: readonly string[] = ENTITY_REQUIRED_FIELDS;
 
 /**
  * Analyse a list of notes and return all gap categories.

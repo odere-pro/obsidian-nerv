@@ -14,9 +14,8 @@ import {
   renderTopk,
   renderVocab,
 } from '../templates/index';
+import { Slug } from '../types/slug';
 import { extractVaultFlag } from '../lib/vault-registry';
-
-const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 
 export interface CreateProjectParams {
   vault: string;
@@ -30,7 +29,7 @@ export interface CreateProjectParams {
 export async function createProject(params: CreateProjectParams): Promise<void> {
   const { vault, slug, title } = params;
 
-  if (!SLUG_RE.test(slug)) {
+  if (!Slug.PATTERN.test(slug)) {
     throw new Error(
       `create-project: slug must be lowercase alphanumeric with optional hyphens (got: ${slug})`
     );

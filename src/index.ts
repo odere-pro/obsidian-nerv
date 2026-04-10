@@ -4,6 +4,8 @@
  */
 
 export * from './types/entity';
+export * from './types/errors';
+export * from './types/slug';
 export * from './types/project';
 export * from './types/connection';
 export * from './types/result';

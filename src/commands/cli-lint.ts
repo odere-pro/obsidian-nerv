@@ -8,10 +8,9 @@
  *   - default Command — CLI entry point for the dispatcher
  */
 
-import type { Command } from '../cli';
-import { resolveVault } from '../lib/obsidian';
+import { extractSection, stripFrontmatter } from '../lib/markdown';
 import { getVaultOps } from '../ports/provider';
-import { extractVaultFlag } from '../lib/vault-registry';
+import { ENTITY_REQUIRED_FIELDS } from '../types/entity';
 
 /* ---------------------------------------------------------------------------
  * Types
@@ -50,20 +49,12 @@ export interface LintResult {
   noteCount: number;
 }
 
+/* Re-export from shared module for backward compatibility */
+export { extractSection } from '../lib/markdown';
+
 /* ---------------------------------------------------------------------------
  * Body parsing helpers
  * --------------------------------------------------------------------------- */
-
-/** Extract the body of a named ## section from note body text. */
-export function extractSection(body: string, heading: string): string {
-  const sections = body.split(/\n(?=## )/);
-  for (const sec of sections) {
-    if (new RegExp(`^## ${heading}\\b`).test(sec)) {
-      return sec.replace(new RegExp(`^## ${heading}\\n?`), '');
-    }
-  }
-  return '';
-}
 
 /** Parse typed and untyped connection lines from the ## Connections section body. */
 export function parseConnections(body: string): ConnectionLine[] {
@@ -88,7 +79,7 @@ export function parseConnections(body: string): ConnectionLine[] {
  * The 11 violation rules — pure functions on NoteData
  * --------------------------------------------------------------------------- */
 
-const REQUIRED_FIELDS = ['title', 'type', 'kind', 'spine', 'status', 'created', 'aliases'];
+const REQUIRED_FIELDS: readonly string[] = ENTITY_REQUIRED_FIELDS;
 
 function fm(note: NoteData, key: string): string {
   const v = note.frontmatter[key];
@@ -247,10 +238,6 @@ export const VIOLATION_RULES: ViolationRule[] = [
 
 const EXCLUDED_PREFIXES = ['tpl-', '_vocab', '_topk', '_ontology'];
 
-function stripFrontmatter(content: string): string {
-  return content.replace(/^---[\s\S]*?---\n?/, '');
-}
-
 /* ---------------------------------------------------------------------------
  * Programmatic API
  * --------------------------------------------------------------------------- */
@@ -294,33 +281,25 @@ export async function lintProject(vault: string, folder = ''): Promise<LintResul
  * CLI Command
  * --------------------------------------------------------------------------- */
 
-const command: Command = {
-  name: 'cli-lint',
-  description: 'Validate frontmatter and structure of vault notes',
+import { BaseCommand, type CommandContext } from './base-command';
 
-  async run(args: string[]): Promise<void> {
-    let jsonOutput = false;
-    const { vault: vaultArg, rest } = extractVaultFlag(args);
+class CliLintCommand extends BaseCommand {
+  readonly name = 'cli-lint';
+  readonly description = 'Validate frontmatter and structure of vault notes';
+  readonly usage = 'nerv cli-lint [--vault <name>] [<folder>] [--json]';
+  readonly minPositional = 0;
 
-    const positional: string[] = [];
-    for (const a of rest) {
-      if (a === '--json') jsonOutput = true;
-      else positional.push(a);
-    }
+  protected async execute(ctx: CommandContext): Promise<void> {
+    const folder = ctx.positional[0] ?? '';
+    const result = await lintProject(ctx.vault, folder);
 
-    const vault = await resolveVault(vaultArg);
-    const folder = positional[0] ?? '';
-    const result = await lintProject(vault, folder);
-
-    if (jsonOutput) {
-      process.stdout.write(
-        JSON.stringify({
-          vault: result.vault,
-          folder: result.folder,
-          issues: result.issues,
-          count: result.count,
-        }) + '\n'
-      );
+    if (ctx.jsonOutput) {
+      ctx.out.success({
+        vault: result.vault,
+        folder: result.folder,
+        issues: result.issues,
+        count: result.count,
+      });
     } else {
       for (const iss of result.issues) {
         process.stdout.write(`⚠ ${iss.note}: [${iss.rule}] ${iss.detail}\n`);
@@ -329,7 +308,7 @@ const command: Command = {
         `Lint complete. ${result.count} issue(s) in ${result.noteCount} note(s).\n`
       );
     }
-  },
-};
+  }
+}
 
-export default command;
+export default new CliLintCommand();
