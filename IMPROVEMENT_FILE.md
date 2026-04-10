@@ -28,6 +28,10 @@
 │             FrontmatterOps | DailyOps | LinkOps    │
 │  OutputStrategy, Clock, DevOps                     │
 ├──────────────────────────────────────────────────┤
+│               Performance Layer                   │
+│  VaultSnapshot (caching decorator for VaultOps)    │
+│  readFiles() batch method on FileReadOps           │
+├──────────────────────────────────────────────────┤
 │                 Adapters Layer                     │
 │  ObsidianCliAdapter (production — IPC via shell)   │
 │  MockVaultOps (testing — in-memory)                │
@@ -49,17 +53,19 @@
 
 ### Design Patterns
 
-| Pattern                   | Where                               | Purpose                       |
-| ------------------------- | ----------------------------------- | ----------------------------- |
-| **Template Method**       | `BaseCommand` → 40+ commands        | Standardized CLI lifecycle    |
-| **Strategy**              | `OutputStrategy` (Text/JSON)        | Swappable output formatting   |
-| **Port & Adapter**        | `VaultOps` interface + adapters     | Decouple domain from Obsidian |
-| **Interface Segregation** | `FileReadOps`, `FileWriteOps`, etc. | Narrow dependencies           |
-| **Dependency Injection**  | `provider.ts` → `getVaultOps()`     | Testability                   |
-| **Command**               | CLI dispatcher + dynamic imports    | Extensible command registry   |
-| **Result Type**           | `CommandResult<T>`                  | Explicit success/failure      |
-| **Rich Domain Model**     | `NoteEntityModel` with invariants   | Business rule enforcement     |
-| **Contract Testing**      | `vault-ops-contract.ts`             | Shared adapter validation     |
+| Pattern                   | Where                                 | Purpose                               |
+| ------------------------- | ------------------------------------- | ------------------------------------- |
+| **Template Method**       | `BaseCommand` → 40+ commands          | Standardized CLI lifecycle            |
+| **Strategy**              | `OutputStrategy` (Text/JSON)          | Swappable output formatting           |
+| **Port & Adapter**        | `VaultOps` interface + adapters       | Decouple domain from Obsidian         |
+| **Interface Segregation** | `FileReadOps`, `FileWriteOps`, etc.   | Narrow dependencies                   |
+| **Dependency Injection**  | `provider.ts` → `getVaultOps()`       | Testability                           |
+| **Command**               | CLI dispatcher + dynamic imports      | Extensible command registry           |
+| **Result Type**           | `CommandResult<T>`                    | Explicit success/failure              |
+| **Rich Domain Model**     | `NoteEntityModel` with invariants     | Business rule enforcement             |
+| **Contract Testing**      | `vault-ops-contract.ts`               | Shared adapter validation             |
+| **Caching Decorator**     | `VaultSnapshot` wrapping `VaultOps`   | Eliminates redundant IPC in workflows |
+| **Value Object**          | `RelationType`, `Slug`, `EntityKinds` | Domain validation at construction     |
 
 ### SOLID Compliance
 
@@ -79,19 +85,19 @@
 
 ### Key Directories
 
-| Path                           | Purpose                                     |
-| ------------------------------ | ------------------------------------------- |
-| `src/cli.ts`                   | Entry point, command dispatcher             |
-| `src/commands/`                | 40+ command implementations                 |
-| `src/commands/base-command.ts` | Template Method base class                  |
-| `src/ports/vault-ops.ts`       | Port interfaces (ISP)                       |
-| `src/adapters/`                | Obsidian CLI + Dev adapters                 |
-| `src/types/`                   | Domain types, errors, result                |
-| `src/templates/`               | 14 note/entity templates                    |
-| `src/lib/`                     | Utilities (markdown, shell, clock, etc.)    |
-| `tests/unit/`                  | 40 unit test files                          |
-| `tests/integration/`           | 15 integration test files                   |
-| `docs/`                        | Architecture, CLI guide, Obsidian reference |
+| Path                           | Purpose                                                  |
+| ------------------------------ | -------------------------------------------------------- |
+| `src/cli.ts`                   | Entry point, command dispatcher                          |
+| `src/commands/`                | 40+ command implementations                              |
+| `src/commands/base-command.ts` | Template Method base class                               |
+| `src/ports/vault-ops.ts`       | Port interfaces (ISP)                                    |
+| `src/adapters/`                | Obsidian CLI + Dev adapters                              |
+| `src/types/`                   | Domain types, value objects, errors, result              |
+| `src/templates/`               | 14 note/entity templates                                 |
+| `src/lib/`                     | Utilities (markdown, shell, clock, vault-snapshot, etc.) |
+| `tests/unit/`                  | 40+ unit test files                                      |
+| `tests/integration/`           | 15 integration test files                                |
+| `docs/`                        | Architecture, CLI guide, Obsidian reference              |
 
 ### Scale
 
@@ -101,47 +107,31 @@
 
 ## Bottlenecks
 
-### 1. N+1 IPC Problem (CRITICAL)
+### ~~1. N+1 IPC Problem~~ — RESOLVED
 
-Every vault operation = one shell subprocess (`obEval`). Commands that scan the vault loop sequentially:
+~~Every vault operation = one shell subprocess. Commands that scan the vault looped sequentially.~~
 
-| Command          | Pattern                              | Cost (1K-file vault) |
-| ---------------- | ------------------------------------ | -------------------- |
-| `cli-lint`       | `listFiles()` + N x `readFile()`     | ~1,001 shell spawns  |
-| `cli-relations`  | `listFiles()` + N x `readFile()`     | ~1,001 shell spawns  |
-| `sync-topk`      | `listFiles()` + N x `readFile()`     | ~1,001 shell spawns  |
-| `weekly-review`  | Orchestrates 6 commands sequentially | ~6,000+ shell spawns |
-| `web-ingest/add` | 3 x `listFiles()` for one URL        | 3 full vault scans   |
+**Fixed:** Added `readFiles(vault, paths[])` batch method to `VaultOps` port, `ObsidianCliAdapter`, and `MockVaultOps`. Refactored 4 commands (`cli-lint`, `cli-relations`, `explain-topic`, `sync-topk`) to use batch reads. A 1K-file lint now uses 2 IPC calls (list + batch read) instead of ~1,001.
 
-At ~50-100ms per `obEval`, a 1K-file lint takes **50-100 seconds** of pure IPC overhead.
+**Key files:** `src/ports/vault-ops.ts` (batch method on `FileReadOps`), `src/adapters/obsidian-cli.ts:30-40`
 
-**Key files:** `src/adapters/obsidian-cli.ts` (every method = 1 shell exec), `src/commands/cli-lint.ts:246-267`, `src/commands/cli-relations.ts:110-143`
+### ~~2. No Batching in Adapter~~ — RESOLVED
 
-### 2. No Batching in Adapter
+**Fixed:** `readFiles()` added to `FileReadOps` interface and both adapters. Single `obEval` call reads N files.
 
-`ObsidianCliAdapter` exposes 1-call-per-method. No `readFiles(paths[])` batch method exists. Creating one entity = 3-4 sequential IPC calls (exists check, listFiles, createFile, updateFrontmatter).
+### ~~3. No Caching Across Commands~~ — RESOLVED
 
-### 3. No Caching Across Commands
+**Fixed:** `VaultSnapshot` caching decorator (`src/lib/vault-snapshot.ts`) wraps `VaultOps` and caches `listFiles()` and `readFile()`/`readFiles()` results. Write operations pass through and invalidate cache. Integrated into `weekly-review.ts` — all 6 sub-commands now share one cached snapshot instead of each calling `listFiles()` independently.
 
-`weekly-review` calls `listFiles()` **6 separate times** on the same vault, each spawning a shell process and parsing the full JSON response. No shared cache or transaction scope.
+### 4. Sequential Async Loops — PARTIALLY RESOLVED
 
-### 4. Sequential Async Loops
+Batch reads replaced the worst N+1 loops (4 commands), but no `Promise.allSettled()` or concurrency control exists for remaining parallel opportunities. Creating one entity still requires 3-4 sequential IPC calls.
 
-All file-reading loops use `for...await` with no parallelism:
-
-```
-for (const entry of entries) {
-  const file = await ops.readFile(vault, entry.path);  /* sequential */
-}
-```
-
-No `Promise.allSettled()` or concurrency control anywhere.
-
-### 5. `listFiles()` Loads Everything
+### 5. `listFiles()` Loads Everything — OPEN
 
 Single call returns **all markdown files + all frontmatter** as one JSON blob. For a 10K-file vault, this is 10-50MB per invocation. No pagination, filtering, or streaming.
 
-### 6. Fixed 30s Timeout, No Retry
+### 6. Fixed 30s Timeout, No Retry — OPEN
 
 `src/lib/shell.ts` has a hard 30s timeout with no retry/backoff. Large vaults or slow Obsidian instances fail without recovery.
 
@@ -149,63 +139,90 @@ Single call returns **all markdown files + all frontmatter** as one JSON blob. F
 
 ## Architectural Debt
 
-### 1. Inconsistent Command Hierarchy
+### ~~1. Inconsistent Command Hierarchy~~ — RESOLVED
 
-Only 3 of 38 commands extend `BaseCommand`. The rest are plain objects or procedural functions, bypassing the Template Method lifecycle. No unified arg parsing, error handling, or output formatting.
+**Fixed:** All 28+ non-vault-management commands now extend `BaseCommand` (Template Method). Vault management commands (`add-vault`, `list-vaults`, `current-vault`, `switch-vault`, `remove-vault`) are intentionally excluded since they don't use standard vault resolution. Unified arg parsing, `--vault`/`--json` flag handling, and vault resolution across the entire codebase.
 
-### 2. Service Locator, Not DI
+### 2. Service Locator, Not DI — OPEN
 
 `src/ports/provider.ts` is global mutable state (`let vaultOps = ...`). No scoping, lifecycle management, or async initialization. Tests must remember to call `setVaultOps()`.
 
-### 3. Stringly-Typed Domain
+**Mitigation:** Sub-commands now accept an optional `injectedOps` parameter, allowing `weekly-review` to pass a shared `VaultSnapshot`. This provides workflow-scoped DI without a full container.
 
-- `Connection.rel` is `string` (not validated against ontology)
-- `EntityKind` is `string` (no constrained set)
-- `Connection.target` is `string` (not a validated `Slug`)
-- Relationship inversions and symmetry are documented in markdown, not encoded in types
+### ~~3. Stringly-Typed Domain~~ — PARTIALLY RESOLVED
 
-### 4. Template Duplication
+**Fixed:**
 
-14 template files with duplicated frontmatter rendering. `leaf.ts`, `branch.ts`, `root.ts` share 13+ identical lines. No shared frontmatter builder.
+- `RelationType` value object (`src/types/relation-type.ts`) with validation, builtin registry (19 entries), inverse/symmetry metadata
+- `EntityKinds` validation companion (`src/types/entity.ts`) with `parse()`, `isValid()`, pattern enforcement
+- `NoteEntityModel` enriched with `removeChild()`, `updateStatus()`, `withModified()`, `toEntity()`
 
-### 5. Hardcoded Command Registry
+**Remaining:**
 
-`src/cli.ts` maintains a manual `COMMANDS` array. Adding a command requires editing two files. No auto-discovery.
+- `Connection.rel` is still `string` at runtime (not `RelationType`) — runtime code doesn't use the value object yet
+- `Connection.target` is still `string` — not validated as `Slug` at the type level
 
-### 6. Mock Drift Risk
+### ~~4. Template Duplication~~ — RESOLVED
 
-`MockVaultOps` implements all 20+ methods, many as no-ops. Contract tests exist but mock behavior can silently diverge (e.g., `listUnresolved()` always returns `[]`, `appendToFile()` doesn't check file existence).
+**Fixed:** Shared frontmatter builders in `src/templates/frontmatter.ts`:
+
+- `renderEntityFrontmatter()` — used by leaf, branch, root templates
+- `renderProjectFrontmatter()` — used by ontology, vocab, topk templates
+- `renderVaultFrontmatter()` — used by vault-level templates
+- `renderEntityBody()` — shared body section registry
+
+### 5. Hardcoded Command Registry — OPEN
+
+`src/cli.ts` maintains a manual `COMMANDS` array. Adding a command requires editing two files. No auto-discovery. Low severity since command count is manageable.
+
+### 6. Mock Drift Risk — OPEN
+
+`MockVaultOps` implements all methods, some as no-ops. Contract tests exist but mock behavior can silently diverge (e.g., `listUnresolved()` always returns `[]`). No spy tracking for call counts or argument capture.
 
 ---
 
-## How to Scale — Prioritized Improvements
+## How to Scale — Remaining Pattern-Based Improvements
 
-### Tier 1: Performance (highest impact)
+### Tier 1: Performance (remaining items)
 
-| Change             | What                                                                                           | Impact                                                 |
-| ------------------ | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| **Batch IPC**      | Add `readFiles(vault, paths[])` to `VaultOps` that reads N files in one `obEval` call          | Reduces 1,000 shell spawns to 1                        |
-| **Scoped Cache**   | Create `VaultSnapshot` that caches `listFiles()` result within a command/workflow scope        | Eliminates 5+ redundant vault scans in `weekly-review` |
-| **Parallel Reads** | Use `Promise.allSettled()` with concurrency limiter (e.g., 10 concurrent) for file loops       | 10-50x speedup on vault scans                          |
-| **Filtered List**  | Add `listFiles(vault, { folder?, glob? })` to filter server-side instead of loading everything | Reduces memory from 50MB to <1MB per query             |
+| Change                 | Pattern                     | What                                                                    | Impact                              |
+| ---------------------- | --------------------------- | ----------------------------------------------------------------------- | ----------------------------------- |
+| **Filtered List**      | Repository                  | Add `listFiles(vault, { folder?, glob? })` to filter server-side        | Reduces memory from 50MB to <1MB    |
+| **Retry with Backoff** | Circuit Breaker + Decorator | Wrap `spawnCapture()` with configurable retry (3 attempts, exponential) | Graceful degradation on slow vaults |
 
-### Tier 2: Architecture (consistency & maintainability)
+### Tier 2: Architecture (remaining items)
 
-| Change                                  | What                                                                        | Impact                                         |
-| --------------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------- |
-| **Migrate all commands to BaseCommand** | Unify 35 loose commands under Template Method                               | Single lifecycle, consistent error handling    |
-| **Typed relationships**                 | Encode `RelationType` as discriminated union with inverse/symmetry metadata | Compile-time safety, enables migration tooling |
-| **Branded EntityKind**                  | Constrain `EntityKind` to a validated set                                   | Prevents invalid data at creation time         |
-| **Lightweight DI container**            | Replace service locator with scoped container supporting async init         | Better testability, clearer dependency graph   |
+| Change                        | Pattern                      | What                                                                  | Impact                                       |
+| ----------------------------- | ---------------------------- | --------------------------------------------------------------------- | -------------------------------------------- |
+| **Runtime RelationType**      | Value Object (DDD)           | Update `Connection.rel` to use `RelationType` value object at runtime | Compile-time safety, catches invalid rels    |
+| **Branded Connection.target** | Value Object (DDD)           | Use `Slug` type for `Connection.target`                               | Prevents invalid wiki-link targets           |
+| **Lightweight DI container**  | DI replacing Service Locator | Replace service locator with scoped container supporting async init   | Better testability, clearer dependency graph |
+| **Command auto-discovery**    | Factory Method + Registry    | Glob `src/commands/**/*.ts`, extract metadata from exports            | Adding a command = creating one file         |
 
-### Tier 3: Developer Experience
+### Tier 3: Developer Experience (not pattern-based)
 
-| Change                         | What                                                                    | Impact                                |
-| ------------------------------ | ----------------------------------------------------------------------- | ------------------------------------- |
-| **Command auto-discovery**     | Glob `src/commands/**/*.ts`, extract metadata from exports              | Adding a command = creating one file  |
-| **Shared frontmatter builder** | Extract `renderFrontmatter()` used by all entity templates              | Schema changes in one place           |
-| **Spy-friendly MockVaultOps**  | Add call tracking (method name, args, count)                            | Better assertions, catch N+1 in tests |
-| **Retry with backoff**         | Wrap `spawnCapture()` with configurable retry (3 attempts, exponential) | Graceful degradation on slow vaults   |
+These are valid improvements but don't map to specific design patterns:
+
+| Change                        | What                                                      | Impact                                |
+| ----------------------------- | --------------------------------------------------------- | ------------------------------------- |
+| **Spy-friendly MockVaultOps** | Add call tracking (method name, args, count)              | Better assertions, catch N+1 in tests |
+| **Parallel async loops**      | Use `Promise.allSettled()` for remaining sequential loops | 10-50x speedup on independent reads   |
+| **Standardized error output** | Use `ctx.out.error()` consistently across all commands    | Uniform error formatting              |
+
+---
+
+## Completed Improvements — Summary
+
+| Phase | Commit    | What                                                             | Impact                                    |
+| ----- | --------- | ---------------------------------------------------------------- | ----------------------------------------- |
+| 1     | `f089b7d` | Fixed `addChild()` data loss bug                                 | Preserves all entity metadata             |
+| 2     | `59037f4` | Extracted shared utilities, centralized magic numbers            | 12+ files cleaned, single source of truth |
+| 3     | `4b2875c` | Deduplicated template frontmatter                                | Schema changes in one place               |
+| 4     | `61fba55` | Type safety: RelationType, EntityKinds, NoteEntityModel          | Validation at construction time           |
+| 5     | `0c84c9b` | Split god objects: migrate, explain-topic, obEval                | Testable pure functions extracted         |
+| 6     | `d0e401e` | Migrated 28 commands to BaseCommand                              | Unified lifecycle, -174 net lines         |
+| 7     | `13e0394` | Batch readFiles, VaultSnapshot, N+1 elimination                  | ~500x fewer IPC calls for vault scans     |
+| 8     | `4113fa6` | Antipattern fixes: dedup, magic numbers, silent catches, nesting | 17 files, 169 insertions, 118 deletions   |
 
 ---
 
@@ -470,12 +487,19 @@ Only 3 of 38 commands extend `BaseCommand`. The rest are plain objects or proced
 
 10. **RetryShell (Circuit Breaker)** — Wraps `spawnCapture()` with 3-attempt exponential backoff. A circuit breaker trips after 5 consecutive timeouts, failing fast instead of waiting 30s per call when Obsidian is unresponsive. Configurable timeouts per operation type (quick reads vs. heavy batch reads).
 
-**Key performance gains in the scaled design:**
+### Key Performance Gains (Implemented)
 
-| Metric                      | Current              | Scaled                     | Improvement              |
-| --------------------------- | -------------------- | -------------------------- | ------------------------ |
-| Shell spawns (1K-file lint) | ~1,001               | ~2 (list + batch read)     | **500x fewer**           |
-| `weekly-review` vault scans | 6+                   | 1 (cached)                 | **6x fewer**             |
-| Sequential file reads       | Serial (100s)        | Parallel with limit (2-5s) | **20-50x faster**        |
-| Memory per list query       | Full vault (10-50MB) | Filtered subset (<1MB)     | **10-50x smaller**       |
-| Failure recovery            | Hard crash at 30s    | Retry + circuit breaker    | **Graceful degradation** |
+| Metric                      | Before                | After                        | Improvement        |
+| --------------------------- | --------------------- | ---------------------------- | ------------------ |
+| Shell spawns (1K-file lint) | ~1,001                | ~2 (list + batch read)       | **500x fewer**     |
+| `weekly-review` vault scans | 6+                    | 1 (cached via VaultSnapshot) | **6x fewer**       |
+| Template duplication        | ~150 lines duplicated | Shared builders              | **Single source**  |
+| Command boilerplate         | ~10 lines/command     | 0 (BaseCommand handles)      | **-174 net lines** |
+
+### Key Performance Gains (Target — Not Yet Implemented)
+
+| Metric                | Current              | Target                     | Improvement              |
+| --------------------- | -------------------- | -------------------------- | ------------------------ |
+| Sequential file reads | Serial (100s)        | Parallel with limit (2-5s) | **20-50x faster**        |
+| Memory per list query | Full vault (10-50MB) | Filtered subset (<1MB)     | **10-50x smaller**       |
+| Failure recovery      | Hard crash at 30s    | Retry + circuit breaker    | **Graceful degradation** |
