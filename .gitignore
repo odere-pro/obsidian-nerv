@@ -1,6 +1,7 @@
 node_modules/
 dist/
 bin/
+tmp/
 *.js.map
 .env
 .env.local
