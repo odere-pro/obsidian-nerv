@@ -62,41 +62,26 @@ describe('registerVault', () => {
   });
 
   test('rejects a path outside the git root with a descriptive error message', async () => {
-    // Restore the real registryPath so findGitRoot path-check can run
     mock.restore();
     delete process.env['NERV_SKIP_GIT_ROOT_CHECK'];
 
-    // Override findGitRoot to return a known fake root inside the tmp dir
     const fakeGitRoot = join(testDir, 'repo');
     await mkdir(fakeGitRoot, { recursive: true });
     spyOn(registry, 'findGitRoot').mockImplementation(async () => fakeGitRoot);
-    // Also re-mock registry path to use our test dir
     spyOn(registry, 'registryPath').mockImplementation(async () => join(testDir, 'vaults.json'));
 
-    // outsidePath is sibling of fakeGitRoot — definitely outside it
     const outsidePath = join(testDir, 'outside-vault');
     await mkdir(outsidePath, { recursive: true });
 
-    const logErrorMock = spyOn(process.stderr, 'write').mockImplementation(() => true);
-    let exited = false;
-    const exitSpy = spyOn(process, 'exit').mockImplementation(() => {
-      exited = true;
-      throw new Error('process.exit called');
-    });
-
     try {
       await registry.registerVault(join(outsidePath, 'outside'));
-    } catch {
-      // expected
+      throw new Error('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(Error);
+      const msg = (err as Error).message;
+      expect(msg).toContain('path must be inside the git repository');
+      expect(msg).toContain(outsidePath);
     }
-
-    expect(exited).toBe(true);
-    const writtenMsg = (logErrorMock.mock.calls[0]?.[0] as string) ?? '';
-    expect(writtenMsg).toContain('path must be inside the git repository');
-    expect(writtenMsg).toContain(outsidePath);
-
-    exitSpy.mockRestore();
-    logErrorMock.mockRestore();
   });
 });
 
@@ -112,23 +97,15 @@ describe('lookupVault', () => {
   });
 
   test('throws with an actionable message for an unregistered name', async () => {
-    const stderrSpy = spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const exitSpy = spyOn(process, 'exit').mockImplementation(() => {
-      throw new Error('process.exit called');
-    });
-
     try {
       await registry.lookupVault('ghost');
-    } catch {
-      // expected
+      throw new Error('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(Error);
+      const msg = (err as Error).message;
+      expect(msg).toContain('"ghost"');
+      expect(msg).toContain('nerv list-vaults');
     }
-
-    const msg = (stderrSpy.mock.calls[0]?.[0] as string) ?? '';
-    expect(msg).toContain('"ghost"');
-    expect(msg).toContain('nerv list-vaults');
-
-    exitSpy.mockRestore();
-    stderrSpy.mockRestore();
   });
 });
 
@@ -156,40 +133,19 @@ describe('unregisterVault', () => {
     await registry.registerVault(join(testDir, 'temp'));
     await registry.unregisterVault('temp');
 
-    const stderrSpy = spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const exitSpy = spyOn(process, 'exit').mockImplementation(() => {
-      throw new Error('process.exit called');
-    });
-
-    try {
-      await registry.lookupVault('temp');
-    } catch {
-      // expected
-    }
-
-    expect(stderrSpy.mock.calls.length).toBeGreaterThan(0);
-    exitSpy.mockRestore();
-    stderrSpy.mockRestore();
+    expect(registry.lookupVault('temp')).rejects.toThrow();
   });
 
   test('throws descriptive error for an unknown name', async () => {
-    const stderrSpy = spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const exitSpy = spyOn(process, 'exit').mockImplementation(() => {
-      throw new Error('process.exit called');
-    });
-
     try {
       await registry.unregisterVault('nonexistent');
-    } catch {
-      // expected
+      throw new Error('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(Error);
+      const msg = (err as Error).message;
+      expect(msg).toContain('"nonexistent"');
+      expect(msg).toContain('not registered');
     }
-
-    const msg = (stderrSpy.mock.calls[0]?.[0] as string) ?? '';
-    expect(msg).toContain('"nonexistent"');
-    expect(msg).toContain('not registered');
-
-    exitSpy.mockRestore();
-    stderrSpy.mockRestore();
   });
 });
 
@@ -210,22 +166,7 @@ describe('extractVaultFlag', () => {
     expect(result.rest).toEqual(['other']);
   });
 
-  test("['--vault'] calls logError", () => {
-    const stderrSpy = spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const exitSpy = spyOn(process, 'exit').mockImplementation(() => {
-      throw new Error('process.exit called');
-    });
-
-    try {
-      registry.extractVaultFlag(['--vault']);
-    } catch {
-      // expected
-    }
-
-    const msg = (stderrSpy.mock.calls[0]?.[0] as string) ?? '';
-    expect(msg).toContain('--vault flag requires a value');
-
-    exitSpy.mockRestore();
-    stderrSpy.mockRestore();
+  test("['--vault'] throws ValidationError", () => {
+    expect(() => registry.extractVaultFlag(['--vault'])).toThrow('--vault flag requires a value');
   });
 });

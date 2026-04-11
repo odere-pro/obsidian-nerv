@@ -4,6 +4,7 @@
  * Calls createEntity() directly (no subprocess) for each entry.
  */
 
+import { projectDir } from '../lib/project-paths';
 import { getVaultOps } from '../ports/provider';
 import { EntityTypes } from '../types/entity';
 import type { EntityType } from '../types/entity';
@@ -146,8 +147,8 @@ class ImportJsonCommand extends BaseCommand {
     }
 
     /* Verify the project exists */
-    const projDir = `projects/${projectSlug}`;
-    const projExists = await ctx.ops.fileExists(ctx.vault, projDir).catch(() => false);
+    const projDirPath = projectDir(projectSlug);
+    const projExists = await ctx.ops.fileExists(ctx.vault, projDirPath).catch(() => false);
 
     if (!projExists) {
       return ctx.out.error(

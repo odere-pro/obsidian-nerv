@@ -1,6 +1,6 @@
 import type { Command } from '../types/command';
-import { logError } from '../lib/logger';
 import { extractVaultFlag, lookupVault, setDefaultVault } from '../lib/vault-registry';
+import { ValidationError } from '../types/errors';
 
 const HELP =
   'Usage: nerv switch-vault --vault <name>\n  Sets <name> as the default vault for all commands.\n  <name> must already be registered. Run: nerv list-vaults\n';
@@ -17,7 +17,7 @@ const command: Command = {
     const { vault: name } = extractVaultFlag(args);
 
     if (!name) {
-      logError('switch-vault: --vault <name> is required');
+      throw new ValidationError('switch-vault: --vault <name> is required', 'vault');
     }
 
     await setDefaultVault(name);

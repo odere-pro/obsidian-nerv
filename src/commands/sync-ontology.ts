@@ -15,6 +15,7 @@
 
 import { isEntityNote } from '../constants/limits';
 import { logWarn } from '../lib/logger';
+import { ontologyPath, projectDir } from '../lib/project-paths';
 import { getVaultOps } from '../ports/provider';
 import type { VaultOps } from '../ports/vault-ops';
 import { Slug } from '../types/slug';
@@ -131,14 +132,14 @@ export async function syncOntology(
     unknownTypes: [],
   }));
 
-  const allFiles = await ops.listFiles(vault, { folder: `projects/${slug}` });
+  const allFiles = await ops.listFiles(vault, { folder: projectDir(slug) });
   const meta = fetchMeta(allFiles);
   if (meta.noteCount === 0) throw new Error('sync-ontology: no notes found or vault not reachable');
 
   const edges = relResult.edges;
   const missingInverses = detectMissingInverses(edges).slice(0, 20);
 
-  const ontoPath = `projects/${slug}/_ontology.${slug}.md`;
+  const ontoPath = ontologyPath(slug);
   const today = new Date().toISOString().split('T')[0];
   if (allFiles.some(e => e.path === ontoPath)) {
     await ops.updateFrontmatter(vault, ontoPath, { updated: today }).catch(() => {

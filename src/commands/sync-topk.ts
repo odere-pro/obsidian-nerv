@@ -21,10 +21,12 @@ import {
   OVERFLOW_LOG_CAP,
   isEntityNote,
 } from '../constants/limits';
-import { logError, logWarn } from '../lib/logger';
+import { logWarn } from '../lib/logger';
 import { stripFrontmatter } from '../lib/markdown';
+import { projectDir, topkPath } from '../lib/project-paths';
 import { getVaultOps } from '../ports/provider';
 import type { VaultOps } from '../ports/vault-ops';
+import { Slug } from '../types/slug';
 import { BaseCommand, type CommandContext } from './base-command';
 
 /* ---------------------------------------------------------------------------
@@ -95,8 +97,8 @@ async function runSync(
   injectedOps?: VaultOps
 ): Promise<{ noteCount: number; appended: number; warning: string }> {
   const ops = injectedOps ?? getVaultOps();
-  const projDir = `projects/${slug}`;
-  const topkPath = `${projDir}/_topk.${slug}.md`;
+  const projDir = projectDir(slug);
+  const tkPath = topkPath(slug);
   const today = new Date().toISOString().split('T')[0];
 
   /* List all project notes */
@@ -151,16 +153,16 @@ async function runSync(
   }
 
   /* Read existing topk file */
-  const topkExists = await ops.fileExists(vault, topkPath);
+  const topkExists = await ops.fileExists(vault, tkPath);
   if (!topkExists) {
     return {
       noteCount: noteEntries.length,
       appended: 0,
-      warning: `topk file not found: ${topkPath}`,
+      warning: `topk file not found: ${tkPath}`,
     };
   }
 
-  const topkFile = await ops.readFile(vault, topkPath);
+  const topkFile = await ops.readFile(vault, tkPath);
   let content = topkFile.content;
 
   const logHeader = '## Overflow Log';
@@ -199,10 +201,10 @@ async function runSync(
     } else {
       content = content.trimEnd() + newRows + '\n';
     }
-    await ops.replaceFileContent(vault, topkPath, content);
+    await ops.replaceFileContent(vault, tkPath, content);
   }
 
-  await ops.updateFrontmatter(vault, topkPath, { updated: today }).catch(() => {
+  await ops.updateFrontmatter(vault, tkPath, { updated: today }).catch(() => {
     logWarn('sync-topk: failed to update topk frontmatter date');
   });
 
@@ -241,8 +243,8 @@ class SyncTopkCommand extends BaseCommand {
   protected async execute(ctx: CommandContext): Promise<void> {
     const slug = ctx.positional[0];
 
-    if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
-      logError(
+    if (!Slug.PATTERN.test(slug)) {
+      ctx.out.error(
         `sync-topk: project slug must be lowercase alphanumeric with hyphens (got: ${slug})`
       );
     }

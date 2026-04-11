@@ -100,50 +100,34 @@ describe('resolveVault', () => {
     expect(name).toBe('my-vault');
   });
 
-  test('resolveVault(name) with vault not in registry → logError called', async () => {
-    const stderrSpy = spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const exitSpy = spyOn(process, 'exit').mockImplementation(() => {
-      throw new Error('process.exit called');
-    });
-
+  test('resolveVault(name) with vault not in registry → throws NotFoundError', async () => {
     try {
       await resolveVault('missing');
-    } catch {
-      // expected
+      throw new Error('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(Error);
+      expect((err as Error).message).toContain('missing');
     }
-
-    const msg = (stderrSpy.mock.calls[0]?.[0] as string) ?? '';
-    expect(msg).toContain('missing');
-    exitSpy.mockRestore();
-    stderrSpy.mockRestore();
   });
 
-  test('resolveVault(name) with vault registered but path missing from disk → logError with path', async () => {
+  test('resolveVault(name) with vault registered but path missing from disk → throws with path', async () => {
     const missingPath = join(testDir, 'phantom');
-    // Write registry entry directly with a non-existent path
     const registryFile = join(testDir, 'vaults.json');
     await Bun.write(
       registryFile,
       JSON.stringify({ vaults: [{ path: missingPath, isDefault: true }] })
     );
 
-    const stderrSpy = spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const exitSpy = spyOn(process, 'exit').mockImplementation(() => {
-      throw new Error('process.exit called');
-    });
-
     try {
       await resolveVault('phantom');
-    } catch {
-      // expected
+      throw new Error('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(Error);
+      const msg = (err as Error).message;
+      expect(msg).toContain('phantom');
+      expect(msg).toContain(missingPath);
+      expect(msg).toContain('does not exist');
     }
-
-    const msg = (stderrSpy.mock.calls[0]?.[0] as string) ?? '';
-    expect(msg).toContain('phantom');
-    expect(msg).toContain(missingPath);
-    expect(msg).toContain('does not exist');
-    exitSpy.mockRestore();
-    stderrSpy.mockRestore();
   });
 
   test('resolveVault(undefined) with NERV_DEFAULT_VAULT set and vault registered → returns name', async () => {
@@ -164,24 +148,17 @@ describe('resolveVault', () => {
     expect(name).toBe('default-vault');
   });
 
-  test('resolveVault(undefined) with no env and no registry default → logError with actionable message', async () => {
-    const stderrSpy = spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const exitSpy = spyOn(process, 'exit').mockImplementation(() => {
-      throw new Error('process.exit called');
-    });
-
+  test('resolveVault(undefined) with no env and no registry default → throws with actionable message', async () => {
     try {
       await resolveVault(undefined);
-    } catch {
-      // expected
+      throw new Error('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(Error);
+      const msg = (err as Error).message;
+      expect(msg).toContain('No vault specified');
+      expect(msg).toContain('--vault');
+      expect(msg).toContain('NERV_DEFAULT_VAULT');
     }
-
-    const msg = (stderrSpy.mock.calls[0]?.[0] as string) ?? '';
-    expect(msg).toContain('No vault specified');
-    expect(msg).toContain('--vault');
-    expect(msg).toContain('NERV_DEFAULT_VAULT');
-    exitSpy.mockRestore();
-    stderrSpy.mockRestore();
   });
 });
 

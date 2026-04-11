@@ -1,6 +1,6 @@
 import type { Command } from '../types/command';
-import { logError } from '../lib/logger';
 import { extractVaultFlag, lookupVault, unregisterVault } from '../lib/vault-registry';
+import { ValidationError } from '../types/errors';
 
 const HELP =
   'Usage: nerv remove-vault --vault <name> --force\n  Removes <name> from the vault registry. Does NOT delete vault files.\n  --force  Required to confirm the removal.\n';
@@ -18,7 +18,7 @@ const command: Command = {
     const force = args.includes('--force');
 
     if (!name) {
-      logError('remove-vault: --vault <name> is required');
+      throw new ValidationError('remove-vault: --vault <name> is required', 'vault');
     }
 
     if (!force) {

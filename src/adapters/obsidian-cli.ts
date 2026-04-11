@@ -6,9 +6,9 @@
  */
 
 import { encodeForJs, parseJson } from '../lib/json';
-import { logError } from '../lib/logger';
 import { dailyAppend, obEval } from '../lib/obsidian';
 import { retrySpawn } from '../lib/shell';
+import { VaultIOError } from '../types/errors';
 import type { ListFilesFilter, VaultFile, VaultFileEntry, VaultOps } from '../ports/vault-ops';
 
 const e = encodeForJs;
@@ -34,7 +34,7 @@ export class ObsidianCliAdapter implements VaultOps {
     );
     const parsed = parseJson<{ content: string; frontmatter: Record<string, unknown> }>(raw);
     if (!parsed) {
-      logError(`readFile: failed to parse response for ${path}`);
+      throw new VaultIOError(`readFile: failed to parse response for ${path}`, path);
     }
     return { path, ...parsed };
   }

@@ -5,8 +5,8 @@
  * programmatic callers (import-json, adr).
  */
 
-import { logError } from '../lib/logger';
 import { rollbackLog } from '../lib/obsidian';
+import { entityNotePath, projectDir } from '../lib/project-paths';
 import { getVaultOps } from '../ports/provider';
 import { renderBranch, renderLeaf, renderRoot } from '../templates/index';
 import { EntityTypes } from '../types/entity';
@@ -37,8 +37,7 @@ export interface CreateEntityData {
  * Pure function — no I/O; unit-testable without mocks.
  */
 export function resolveNotePath(project: string, slug: string, title: string): string {
-  const projUpper = project.toUpperCase();
-  return `projects/${project}/${projUpper}.${slug} - ${title}.md`;
+  return entityNotePath(project, slug, title);
 }
 
 /**
@@ -77,9 +76,9 @@ export async function createEntity(
   const ops = getVaultOps();
   const today = new Date().toISOString().slice(0, 10);
   const projUpper = project.toUpperCase();
-  const projDir = `projects/${project}`;
+  const projDir = projectDir(project);
   const entityBasename = `${projUpper}.${slug} - ${title}`;
-  const entityPath = `${projDir}/${entityBasename}.md`;
+  const entityPath = entityNotePath(project, slug, title);
 
   /* Idempotency check */
   const exists = await ops.fileExists(vault, entityPath).catch(() => false);
@@ -203,12 +202,7 @@ class CreateEntityCommand extends BaseCommand {
       type = EntityTypes.parse(ctx.positional[1]);
     } catch {
       const msg = `TYPE must be LEAF, BRANCH, or ROOT (got: ${ctx.positional[1]})`;
-      if (ctx.jsonOutput) {
-        process.stdout.write(JSON.stringify({ created: false, error: msg }) + '\n');
-      } else {
-        logError(`create-entity: ${msg}`);
-      }
-      return;
+      ctx.out.error(`create-entity: ${msg}`);
     }
 
     const result = await createEntity({

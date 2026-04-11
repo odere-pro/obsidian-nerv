@@ -3,8 +3,8 @@
  * Each method translates a domain-level dev operation into a spawnCapture call.
  */
 
-import { logError } from '../lib/logger';
 import { spawnCapture } from '../lib/shell';
+import { VaultIOError } from '../types/errors';
 import type { DevOps } from '../ports/dev-ops';
 
 export class ObsidianDevAdapter implements DevOps {
@@ -16,7 +16,9 @@ export class ObsidianDevAdapter implements DevOps {
       `plugin=${pluginId}`,
     ]);
     if (exitCode !== 0) {
-      logError(`plugin:reload failed for "${pluginId}"${stderr ? `: ${stderr.trim()}` : ''}`);
+      throw new VaultIOError(
+        `plugin:reload failed for "${pluginId}"${stderr ? `: ${stderr.trim()}` : ''}`
+      );
     }
   }
 

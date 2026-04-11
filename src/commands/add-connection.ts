@@ -7,6 +7,7 @@
 
 import { CONNECTION_LIMIT } from '../constants/limits';
 import { logWarn } from '../lib/logger';
+import { ontologyPath, projectSlugFromPath } from '../lib/project-paths';
 import { getVaultOps } from '../ports/provider';
 import { BUILTIN_RELATIONS, RelationType } from '../types/relation-type';
 import { BaseCommand, type CommandContext } from './base-command';
@@ -114,16 +115,15 @@ export async function addConnection(
   }
 
   /* Derive project slug from source path (projects/<slug>/...) */
-  const slugMatch = /^projects\/([^/]+)\//.exec(sourcePath);
-  if (!slugMatch) {
+  const projectSlug = projectSlugFromPath(sourcePath);
+  if (!projectSlug) {
     return {
       ok: false,
       data: { forwardWritten: false, inverseWritten: false, inverseError: '' },
       error: `add-connection: cannot derive project slug from path: ${sourcePath}`,
     };
   }
-  const projectSlug = slugMatch[1];
-  const ontologyPath = `projects/${projectSlug}/_ontology.${projectSlug}.md`;
+  const ontoPath = ontologyPath(projectSlug);
 
   const ops = getVaultOps();
 
@@ -132,7 +132,7 @@ export async function addConnection(
   let symmetric = false;
 
   try {
-    const ontFile = await ops.readFile(vault, ontologyPath);
+    const ontFile = await ops.readFile(vault, ontoPath);
     const lines = ontFile.content.split('\n');
     for (const line of lines) {
       if (line.charAt(0) !== '|') continue;
@@ -222,12 +222,6 @@ class AddConnectionCommand extends BaseCommand {
     const relType = ctx.positional[1];
     const targetPath = ctx.positional[2];
     const context = ctx.positional[3] ?? '';
-
-    if (!RelationType.parse(relType)) {
-      return ctx.out.error(
-        `add-connection: rel_type must be lowercase alphanumeric with hyphens (got: ${relType})`
-      );
-    }
 
     const result = await addConnection({
       vault: ctx.vault,

@@ -5,6 +5,7 @@
  */
 
 import pkg from '../package.json';
+import { NervError } from './types/errors';
 
 export type { Command } from './types/command';
 
@@ -81,7 +82,15 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  await mod.default.run(argv.slice(1));
+  try {
+    await mod.default.run(argv.slice(1));
+  } catch (err) {
+    if (err instanceof NervError) {
+      process.stderr.write(`ERROR: ${err.message}\n`);
+      process.exit(1);
+    }
+    throw err;
+  }
 }
 
 await main();

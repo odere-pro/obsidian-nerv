@@ -1,17 +1,11 @@
 import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test';
 import * as shellLib from '../../../src/lib/shell';
-import * as loggerLib from '../../../src/lib/logger';
 import { ObsidianDevAdapter } from '../../../src/adapters/obsidian-dev';
-
-// ---------------------------------------------------------------------------
-// Tests — uses spyOn on live ESM exports instead of mock.module to avoid
-// cross-file contamination in Bun's test runner.
-// ---------------------------------------------------------------------------
+import { VaultIOError } from '../../../src/types/errors';
 
 describe('ObsidianDevAdapter', () => {
   let adapter: ObsidianDevAdapter;
   let mockSpawnCapture: ReturnType<typeof spyOn<typeof shellLib, 'spawnCapture'>>;
-  let mockLogError: ReturnType<typeof spyOn<typeof loggerLib, 'logError'>>;
 
   beforeEach(() => {
     mockSpawnCapture = spyOn(shellLib, 'spawnCapture').mockResolvedValue({
@@ -19,9 +13,6 @@ describe('ObsidianDevAdapter', () => {
       exitCode: 0,
       stderr: '',
     });
-    mockLogError = spyOn(loggerLib, 'logError').mockImplementation(((msg: string) => {
-      throw new Error(msg);
-    }) as unknown as typeof loggerLib.logError);
     adapter = new ObsidianDevAdapter();
   });
 
@@ -40,15 +31,16 @@ describe('ObsidianDevAdapter', () => {
     ]);
   });
 
-  test('reloadPlugin calls logError on non-zero exit code', async () => {
+  test('reloadPlugin throws VaultIOError on non-zero exit code', async () => {
     mockSpawnCapture.mockResolvedValue({ stdout: '', exitCode: 1, stderr: 'fail' });
-    mockLogError.mockImplementation((() => {
-      throw new Error('exit');
-    }) as unknown as typeof loggerLib.logError);
-    expect(() => adapter.reloadPlugin('v', 'my-plugin')).toThrow('exit');
-    // Wait for the async rejection to settle
-    await Bun.sleep(0);
-    expect(mockLogError).toHaveBeenCalled();
+    try {
+      await adapter.reloadPlugin('v', 'my-plugin');
+      throw new Error('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(VaultIOError);
+      expect((err as Error).message).toContain('plugin:reload failed');
+      expect((err as Error).message).toContain('fail');
+    }
   });
 
   test('captureErrors calls spawnCapture and returns stdout', async () => {

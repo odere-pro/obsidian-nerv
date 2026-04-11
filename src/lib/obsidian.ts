@@ -7,8 +7,8 @@ import { access, readFile, unlink, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { randomBytes } from 'node:crypto';
+import { NotFoundError, TimeoutError, ValidationError, VaultIOError } from '../types/errors';
 import { encodeForJs } from './json';
-import { logError } from './logger';
 import { retrySpawn, spawnCapture } from './shell';
 import { type VaultEntry, getDefaultVault, lookupVault, vaultName } from './vault-registry';
 
@@ -98,7 +98,7 @@ async function registerVaultInObsidian(vaultPath: string): Promise<boolean> {
  *
  * @param vault     - Vault name (must already be resolved / registered in nerv).
  * @param vaultPath - Absolute path to the vault root on disk.
- * @throws via logError if the vault cannot be reached within the timeout.
+ * @throws TimeoutError if the vault cannot be reached within the timeout.
  */
 export async function ensureObsidian(vault: string, vaultPath: string): Promise<void> {
   if (await isVaultReachable(vault)) return;
@@ -114,9 +114,10 @@ export async function ensureObsidian(vault: string, vaultPath: string): Promise<
     if (await isVaultReachable(vault)) return;
   }
 
-  logError(
+  throw new TimeoutError(
     `Timed out waiting for vault '${vault}' to become accessible via Obsidian CLI.\n` +
-      `  Ensure Obsidian is installed and can open: ${vaultPath}`
+      `  Ensure Obsidian is installed and can open: ${vaultPath}`,
+    'obsidian'
   );
 }
 
@@ -133,7 +134,8 @@ export async function ensureObsidian(vault: string, vaultPath: string): Promise<
  *
  * @param vault - Optional: a vault name (typically extracted via --vault flag), or undefined.
  * @returns The resolved vault name.
- * @throws via logError if no vault can be determined.
+ * @throws NotFoundError if no vault can be determined.
+ * @throws VaultIOError if the vault path does not exist on disk.
  */
 export async function resolveVault(vault?: string): Promise<string> {
   let entry: VaultEntry | undefined;
@@ -158,7 +160,7 @@ export async function resolveVault(vault?: string): Promise<string> {
 
   /* Priority 4 — error */
   if (!entry) {
-    logError(
+    throw new NotFoundError(
       'No vault specified. Pass --vault <name>, set NERV_DEFAULT_VAULT, or run: nerv switch-vault <name>'
     );
   }
@@ -171,8 +173,9 @@ export async function resolveVault(vault?: string): Promise<string> {
     pathExists = false;
   }
   if (!pathExists) {
-    logError(
-      `Vault "${vaultName(entry)}" is registered but its path does not exist: ${entry.path}. Run: nerv add-vault --vault ${vaultName(entry)} --path ${entry.path}`
+    throw new VaultIOError(
+      `Vault "${vaultName(entry)}" is registered but its path does not exist: ${entry.path}. Run: nerv add-vault --vault ${vaultName(entry)} --path ${entry.path}`,
+      entry.path
     );
   }
 
@@ -241,8 +244,8 @@ function parseObEvalOutput(stdout: string): string {
 }
 
 export async function obEval(vault: string, expr: string): Promise<string> {
-  if (!vault) logError('obEval: vault argument is required');
-  if (!expr) logError('obEval: expr argument is required');
+  if (!vault) throw new ValidationError('obEval: vault argument is required', 'vault');
+  if (!expr) throw new ValidationError('obEval: expr argument is required', 'expr');
 
   const { codeArg, tmpFile } = await prepareCodeArg(expr);
 
@@ -256,7 +259,7 @@ export async function obEval(vault: string, expr: string): Promise<string> {
   }
 
   if (result.exitCode !== 0) {
-    logError(
+    throw new VaultIOError(
       `obEval failed (exit ${result.exitCode}): ${result.stderr.trim() || result.stdout.trim()}`
     );
   }
@@ -279,7 +282,7 @@ export async function dailyAppend(vault: string, content: string): Promise<void>
   ]);
 
   if (exitCode !== 0) {
-    logError(`dailyAppend failed: ${stderr.trim()}`);
+    throw new VaultIOError(`dailyAppend failed: ${stderr.trim()}`);
   }
 }
 

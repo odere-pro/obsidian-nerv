@@ -10,8 +10,8 @@
 
 import { BaseCommand, type CommandContext } from './base-command';
 import { encodeForJs, parseJson } from '../lib/json';
-import { Slug } from '../types/slug';
 import { obEval } from '../lib/obsidian';
+import { Slug } from '../types/slug';
 
 /* ---------------------------------------------------------------------------
  * Types

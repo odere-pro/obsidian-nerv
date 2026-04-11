@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { basename, dirname, resolve, sep } from 'node:path';
-import { logError } from './logger';
+import { NotFoundError, ValidationError, VaultIOError } from '../types/errors';
 import { spawnCapture } from './shell';
 
 /* ---------------------------------------------------------------------------
@@ -31,7 +31,7 @@ export async function findGitRoot(): Promise<string> {
   if (cachedGitRoot !== null) return cachedGitRoot;
   const { stdout, exitCode } = await spawnCapture(['git', 'rev-parse', '--show-toplevel']);
   if (exitCode !== 0) {
-    logError('vault-registry: not inside a git repository');
+    throw new VaultIOError('vault-registry: not inside a git repository');
   }
   cachedGitRoot = stdout.trim();
   return cachedGitRoot;
@@ -60,7 +60,7 @@ export async function readRegistry(): Promise<VaultRegistry> {
   try {
     return JSON.parse(raw) as VaultRegistry;
   } catch {
-    logError(`vault-registry: malformed JSON in ${path}`);
+    throw new VaultIOError(`vault-registry: malformed JSON in ${path}`, path);
   }
 }
 
@@ -78,7 +78,10 @@ export async function registerVault(vaultPath: string): Promise<void> {
     const gitRoot = await findGitRoot();
     const inside = resolvedPath === gitRoot || resolvedPath.startsWith(gitRoot + sep);
     if (!inside) {
-      logError(`add-vault: path must be inside the git repository. Got: ${vaultPath}`);
+      throw new ValidationError(
+        `add-vault: path must be inside the git repository. Got: ${vaultPath}`,
+        'path'
+      );
     }
   }
 
@@ -91,8 +94,9 @@ export async function registerVault(vaultPath: string): Promise<void> {
       /* Idempotent — already registered at the same path */
       return;
     }
-    logError(
-      `add-vault: vault "${name}" is already registered at a different path: ${existing.path}`
+    throw new ValidationError(
+      `add-vault: vault "${name}" is already registered at a different path: ${existing.path}`,
+      'path'
     );
   }
 
@@ -109,7 +113,7 @@ export async function unregisterVault(name: string): Promise<void> {
   const registry = await readRegistry();
   const idx = registry.vaults.findIndex(v => basename(v.path) === name);
   if (idx === -1) {
-    logError(`remove-vault: vault "${name}" is not registered`);
+    throw new NotFoundError(`remove-vault: vault "${name}" is not registered`, name);
   }
   registry.vaults.splice(idx, 1);
   await writeRegistry(registry);
@@ -119,7 +123,7 @@ export async function lookupVault(name: string): Promise<VaultEntry> {
   const registry = await readRegistry();
   const entry = registry.vaults.find(v => basename(v.path) === name);
   if (!entry) {
-    logError(`No vault named "${name}" is registered. Run: nerv list-vaults`);
+    throw new NotFoundError(`No vault named "${name}" is registered. Run: nerv list-vaults`, name);
   }
   return entry;
 }
@@ -133,7 +137,7 @@ export async function setDefaultVault(name: string): Promise<void> {
   const registry = await readRegistry();
   const entry = registry.vaults.find(v => basename(v.path) === name);
   if (!entry) {
-    logError(`No vault named "${name}" is registered. Run: nerv list-vaults`);
+    throw new NotFoundError(`No vault named "${name}" is registered. Run: nerv list-vaults`, name);
   }
   for (const v of registry.vaults) {
     delete v.isDefault;
@@ -153,7 +157,7 @@ export function extractVaultFlag(args: string[]): { vault: string | undefined; r
   }
   const value = args[idx + 1];
   if (value === undefined || value.startsWith('--')) {
-    logError('--vault flag requires a value');
+    throw new ValidationError('--vault flag requires a value', 'vault');
   }
   const rest = [...args.slice(0, idx), ...args.slice(idx + 2)];
   return { vault: value, rest };

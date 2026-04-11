@@ -5,6 +5,7 @@
 
 import { BaseCommand, type CommandContext } from './base-command';
 import { rollbackLog } from '../lib/obsidian';
+import { ontologyPath, projectDir, topkPath, vocabPath } from '../lib/project-paths';
 import { getVaultOps } from '../ports/provider';
 import {
   renderBase,
@@ -44,12 +45,12 @@ export async function createProject(
   const ops = getVaultOps();
   const today = new Date().toISOString().slice(0, 10);
   const slugUpper = slug.toUpperCase();
-  const projDir = `projects/${slug}`;
-  const rootPath = `${projDir}/${slugUpper}.ROOT - ${title}.md`;
-  const ontoPath = `${projDir}/_ontology.${slug}.md`;
-  const vocabPath = `${projDir}/_vocab.${slug}.md`;
-  const topkPath = `${projDir}/_topk.${slug}.md`;
-  const basePath = `${projDir}/${slug}.base`;
+  const projDirPath = projectDir(slug);
+  const rootPath = `${projDirPath}/${slugUpper}.ROOT - ${title}.md`;
+  const ontoPath = ontologyPath(slug);
+  const vocPath = vocabPath(slug);
+  const tkPath = topkPath(slug);
+  const basePath = `${projDirPath}/${slug}.base`;
 
   /* Idempotency check */
   const existing = await ops.fileExists(vault, rootPath).catch(() => false);
@@ -76,7 +77,7 @@ export async function createProject(
       await rollbackLog(
         vault,
         'create-project',
-        `folder created: ${projDir}; ROOT creation failed`
+        `folder created: ${projDirPath}; ROOT creation failed`
       );
       throw e;
     });
@@ -93,7 +94,7 @@ export async function createProject(
     });
 
   await ops
-    .createFile(vault, vocabPath, renderVocab({ project: slug, updated: today }))
+    .createFile(vault, vocPath, renderVocab({ project: slug, updated: today }))
     .catch(async (e: unknown) => {
       await rollbackLog(
         vault,
@@ -104,7 +105,7 @@ export async function createProject(
     });
 
   await ops
-    .createFile(vault, topkPath, renderTopk({ project: slug, updated: today }))
+    .createFile(vault, tkPath, renderTopk({ project: slug, updated: today }))
     .catch(async (e: unknown) => {
       await rollbackLog(
         vault,
@@ -125,7 +126,7 @@ export async function createProject(
 
   return {
     ok: true,
-    data: { created: true, files: [rootPath, ontoPath, vocabPath, topkPath, basePath] },
+    data: { created: true, files: [rootPath, ontoPath, vocPath, tkPath, basePath] },
   };
 }
 

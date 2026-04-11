@@ -10,6 +10,7 @@
  */
 
 import { CHILDREN_LIMIT, isEntityNote } from '../constants/limits';
+import { projectDir, vocabPath } from '../lib/project-paths';
 import { getVaultOps } from '../ports/provider';
 import type { VaultOps } from '../ports/vault-ops';
 import { Slug } from '../types/slug';
@@ -122,22 +123,22 @@ export async function syncVocab(
   injectedOps?: VaultOps
 ): Promise<VocabResult> {
   const ops = injectedOps ?? getVaultOps();
-  const allFiles = await ops.listFiles(vault, { folder: `projects/${slug}` });
+  const allFiles = await ops.listFiles(vault, { folder: projectDir(slug) });
   const notes = fetchVocabNotes(allFiles);
   if (notes.length === 0) throw new Error('sync-vocab: no notes found or vault not reachable');
 
   const newBody = buildVocabContent(notes, slug);
-  const vocabPath = `projects/${slug}/_vocab.${slug}.md`;
+  const vocPath = vocabPath(slug);
   const today = new Date().toISOString().split('T')[0];
 
-  const exists = await ops.fileExists(vault, vocabPath);
+  const exists = await ops.fileExists(vault, vocPath);
   if (exists) {
-    await ops.replaceFileContent(vault, vocabPath, newBody);
+    await ops.replaceFileContent(vault, vocPath, newBody);
   } else {
-    await ops.createFile(vault, vocabPath, newBody);
+    await ops.createFile(vault, vocPath, newBody);
   }
-  if (await ops.fileExists(vault, vocabPath)) {
-    await ops.updateFrontmatter(vault, vocabPath, { updated: today });
+  if (await ops.fileExists(vault, vocPath)) {
+    await ops.updateFrontmatter(vault, vocPath, { updated: today });
   }
 
   const entryCount = notes.filter(n => n.spine).length;
