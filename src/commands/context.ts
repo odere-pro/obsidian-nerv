@@ -286,11 +286,11 @@ class ContextCommand extends BaseCommand {
     const limit = parseInt(limitStr, 10);
 
     if (isNaN(limit) || limit < 1) {
-      ctx.out.error(`context: limit must be a positive integer (got: ${limitStr})`);
+      return ctx.out.error(`context: limit must be a positive integer (got: ${limitStr})`);
     }
 
     const output = await contextSearch(ctx.vault, query, limit);
-    process.stdout.write(JSON.stringify(output) + '\n');
+    ctx.out.success(output);
   }
 }
 

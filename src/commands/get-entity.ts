@@ -249,11 +249,11 @@ class GetEntityCommand extends BaseCommand {
     const result = await getEntity(ctx.vault, query);
 
     if (!result) {
-      process.stdout.write(JSON.stringify({ found: false, query }) + '\n');
+      ctx.out.success({ found: false, query });
       return;
     }
 
-    process.stdout.write(JSON.stringify(result) + '\n');
+    ctx.out.success(result);
   }
 }
 

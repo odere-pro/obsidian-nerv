@@ -6,7 +6,7 @@
  */
 
 import { resolve, sep } from 'node:path';
-import type { Command } from '../cli';
+import type { Command } from '../types/command';
 import { extractVaultFlag, findGitRoot, registerVault } from '../lib/vault-registry';
 import { deployAgentFiles, ensureZprofilePath, initVault } from './init-vault';
 

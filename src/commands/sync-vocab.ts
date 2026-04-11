@@ -10,9 +10,9 @@
  */
 
 import { CHILDREN_LIMIT, isEntityNote } from '../constants/limits';
-import { logError } from '../lib/logger';
 import { getVaultOps } from '../ports/provider';
 import type { VaultOps } from '../ports/vault-ops';
+import { Slug } from '../types/slug';
 import { BaseCommand, type CommandContext } from './base-command';
 
 /* ---------------------------------------------------------------------------
@@ -158,16 +158,16 @@ class SyncVocabCommand extends BaseCommand {
   protected async execute(ctx: CommandContext): Promise<void> {
     const slug = ctx.positional[0];
 
-    if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
-      logError(
+    if (!Slug.PATTERN.test(slug)) {
+      return ctx.out.error(
         `sync-vocab: project slug must be lowercase alphanumeric with hyphens (got: ${slug})`
       );
     }
 
     try {
       const result = await syncVocab(ctx.vault, slug);
-      process.stdout.write(
-        `sync-vocab: ${result.noteCount} note(s) scanned, ${result.entryCount} vocab entries, ${result.orphanCount} orphan(s) written to _vocab.${slug}.md\n`
+      ctx.out.success(
+        `sync-vocab: ${result.noteCount} note(s) scanned, ${result.entryCount} vocab entries, ${result.orphanCount} orphan(s) written to _vocab.${slug}.md`
       );
     } catch (err) {
       ctx.out.error(err instanceof Error ? err.message : String(err));

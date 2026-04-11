@@ -36,15 +36,18 @@ describe('create-project', () => {
     });
 
     test('rejects a slug with uppercase letters', async () => {
-      expect(createProject({ vault: 'v', slug: 'BadSlug', title: 'T' })).rejects.toThrow();
+      const result = await createProject({ vault: 'v', slug: 'BadSlug', title: 'T' });
+      expect(result.ok).toBe(false);
     });
 
     test('rejects a slug with path traversal characters', async () => {
-      expect(createProject({ vault: 'v', slug: '../etc', title: 'T' })).rejects.toThrow();
+      const result = await createProject({ vault: 'v', slug: '../etc', title: 'T' });
+      expect(result.ok).toBe(false);
     });
 
     test('rejects an empty slug', async () => {
-      expect(createProject({ vault: 'v', slug: '', title: 'T' })).rejects.toThrow();
+      const result = await createProject({ vault: 'v', slug: '', title: 'T' });
+      expect(result.ok).toBe(false);
     });
   });
 
@@ -53,23 +56,14 @@ describe('create-project', () => {
   // ---------------------------------------------------------------------------
   describe('idempotency', () => {
     test('exits 0 without modification when ROOT already exists', async () => {
-      // Seed the ROOT file so it already exists
       mockOps.seedFile('v', 'projects/my-proj/MY-PROJ.ROOT - T.md', '', {});
-      const out: string[] = [];
-      const orig = process.stdout.write.bind(process.stdout);
-      process.stdout.write = (s: string): boolean => {
-        out.push(s);
-        return true;
-      };
-      try {
-        await createProject({ vault: 'v', slug: 'my-proj', title: 'T' });
-      } finally {
-        process.stdout.write = orig;
+      const result = await createProject({ vault: 'v', slug: 'my-proj', title: 'T' });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.created).toBe(false);
       }
-      // Only the seeded ROOT should exist — no additional files created
       const files = await mockOps.listFiles('v');
       expect(files.length).toBe(1);
-      expect(out.join('')).toContain('already exists');
     });
   });
 

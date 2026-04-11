@@ -1,4 +1,4 @@
-import type { Command } from '../cli';
+import type { Command } from '../types/command';
 import { logError } from '../lib/logger';
 import { extractVaultFlag, lookupVault, unregisterVault } from '../lib/vault-registry';
 

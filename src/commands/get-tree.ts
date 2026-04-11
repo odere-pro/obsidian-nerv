@@ -10,6 +10,7 @@
 
 import { BaseCommand, type CommandContext } from './base-command';
 import { encodeForJs, parseJson } from '../lib/json';
+import { Slug } from '../types/slug';
 import { obEval } from '../lib/obsidian';
 
 /* ---------------------------------------------------------------------------
@@ -189,7 +190,7 @@ class GetTreeCommand extends BaseCommand {
       if (ctx.positional[i] === '--depth') {
         const d = parseInt(ctx.positional[++i] ?? '', 10);
         if (isNaN(d) || d < 1) {
-          ctx.out.error('get-tree: --depth requires a positive integer');
+          return ctx.out.error('get-tree: --depth requires a positive integer');
         }
         maxDepth = d;
       } else {
@@ -199,12 +200,12 @@ class GetTreeCommand extends BaseCommand {
 
     const slug = filtered[0];
 
-    if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
-      ctx.out.error('get-tree: project slug must be lowercase alphanumeric with hyphens');
+    if (!Slug.PATTERN.test(slug)) {
+      return ctx.out.error('get-tree: project slug must be lowercase alphanumeric with hyphens');
     }
 
     const result = await getTree(ctx.vault, slug, maxDepth);
-    process.stdout.write(JSON.stringify(result) + '\n');
+    ctx.out.success(result);
   }
 }
 

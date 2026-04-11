@@ -26,3 +26,15 @@ export function parseJson<T>(raw: string): T | null {
     return null;
   }
 }
+
+/**
+ * Parse a JSON string, preserving the error message on failure.
+ * Use this when the caller needs to report *why* parsing failed.
+ */
+export function parseJsonVerbose<T>(raw: string): { data: T } | { error: string } {
+  try {
+    return { data: JSON.parse(raw) as T };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : String(e) };
+  }
+}

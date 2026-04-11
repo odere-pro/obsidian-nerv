@@ -24,6 +24,7 @@ import { logWarn } from '../lib/logger';
 import { BaseCommand, type CommandContext } from './base-command';
 import { parseJson } from '../lib/json';
 import { obEval, rollbackLog } from '../lib/obsidian';
+import { Slug } from '../types/slug';
 import { buildMigrateExpr } from './migrate-engine';
 import type { MigrateOp, MigrateResult } from './migrate-spec';
 import { validateSpec } from './migrate-spec';
@@ -55,14 +56,14 @@ class MigrateCommand extends BaseCommand {
     }
 
     if (positional.length < 2) {
-      ctx.out.error(`Usage: ${this.usage}`);
+      return ctx.out.error(`Usage: ${this.usage}`);
     }
 
     const slug = positional[0];
     const specPath = positional[1];
 
-    if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
-      ctx.out.error(
+    if (!Slug.PATTERN.test(slug)) {
+      return ctx.out.error(
         `migrate: project slug must be lowercase alphanumeric with hyphens (got: ${slug})`
       );
     }
@@ -72,56 +73,54 @@ class MigrateCommand extends BaseCommand {
     try {
       spec = await Bun.file(specPath).json();
     } catch {
-      ctx.out.error(`migrate: spec file not found or invalid JSON: ${specPath}`);
+      return ctx.out.error(`migrate: spec file not found or invalid JSON: ${specPath}`);
     }
 
     /* Structural validation */
     const validationErrors = validateSpec(spec);
     if (validationErrors.length > 0) {
-      ctx.out.error(validationErrors.map(e => `migrate: ${e}`).join('\n'));
+      return ctx.out.error(validationErrors.map(e => `migrate: ${e}`).join('\n'));
     }
 
     /* Run migration via Obsidian eval */
     const raw = await obEval(ctx.vault, buildMigrateExpr(spec, slug, dryRun)).catch(
       (e: unknown) => {
-        ctx.out.error(
+        return ctx.out.error(
           `migrate: Obsidian not reachable or eval failed: ${e instanceof Error ? e.message : String(e)}`
         );
       }
     );
     if (!raw) {
-      ctx.out.error('migrate: Obsidian returned empty result');
+      return ctx.out.error('migrate: Obsidian returned empty result');
     }
 
     const data = parseJson<MigrateResult>(raw);
     if (!data) {
-      ctx.out.error('migrate: invalid JSON from eval\nDEBUG raw: ' + JSON.stringify(raw));
+      return ctx.out.error('migrate: invalid JSON from eval\nDEBUG raw: ' + JSON.stringify(raw));
     }
 
     if (data.validationFailed) {
-      ctx.out.error((data.errors ?? []).map(e => `migrate: ${e}`).join('\n'));
+      return ctx.out.error((data.errors ?? []).map(e => `migrate: ${e}`).join('\n'));
     }
 
     /* Print per-operation results */
     for (const op of data.ops) {
       if (op.error) {
-        ctx.out.error(`migrate: ${op.op} — ${op.error}`);
+        return ctx.out.error(`migrate: ${op.op} — ${op.error}`);
       }
       if (dryRun) {
-        process.stdout.write(`Dry-run ${op.op}: ${op.count} note(s) would be modified\n`);
-        if (op.notes.length > 0) {
-          for (const n of op.notes) process.stdout.write(`  ${n}\n`);
-        }
+        ctx.out.info(`Dry-run ${op.op}: ${op.count} note(s) would be modified`);
+        for (const n of op.notes) ctx.out.info(`  ${n}`);
       } else {
-        process.stdout.write(`Applied ${op.op} to ${op.count} note(s)\n`);
+        ctx.out.info(`Applied ${op.op} to ${op.count} note(s)`);
       }
     }
 
     const total = data.totalModified;
     if (dryRun) {
-      process.stdout.write(`Dry-run complete: ${total} total note(s) would be modified\n`);
+      ctx.out.success(`Dry-run complete: ${total} total note(s) would be modified`);
     } else {
-      process.stdout.write(`Migration complete: ${total} total note(s) modified\n`);
+      ctx.out.success(`Migration complete: ${total} total note(s) modified`);
 
       /* Write rollback log if any changes were made */
       if (total > 0) {

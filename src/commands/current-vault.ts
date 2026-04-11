@@ -1,4 +1,4 @@
-import type { Command } from '../cli';
+import type { Command } from '../types/command';
 import { extractVaultFlag, getDefaultVault, readRegistry, vaultName } from '../lib/vault-registry';
 
 type Source = 'env' | 'default' | 'none';
