@@ -41,7 +41,6 @@ export async function runMorning(vault: string, ops: VaultOps): Promise<MorningR
   await ops.openDaily(vault).catch(() => {
     logWarn('morning: failed to open daily note');
   });
-  process.stdout.write('[morning] daily note opened\n');
 
   /* Step 2: count inbox backlog and append to daily note */
   let inboxCount = 0;
@@ -55,15 +54,11 @@ export async function runMorning(vault: string, ops: VaultOps): Promise<MorningR
   await ops.appendToDaily(vault, `- Inbox backlog: ${inboxCount} note(s)`).catch(() => {
     logWarn('morning: failed to append inbox count to daily');
   });
-  process.stdout.write(`[morning] inbox backlog: ${inboxCount} note(s)\n`);
 
   /* Step 3: recently modified files (last 10) */
   let recentFiles: string[] = [];
   try {
     recentFiles = await ops.listRecentFiles(vault, 10, 'modified');
-    if (recentFiles.length > 0) {
-      process.stdout.write(`[morning] recently modified files:\n${recentFiles.join('\n')}\n`);
-    }
   } catch {
     /* graceful skip */
   }
@@ -73,11 +68,6 @@ export async function runMorning(vault: string, ops: VaultOps): Promise<MorningR
   try {
     const unresolved = await ops.listUnresolved(vault);
     unresolvedCount = unresolved.length;
-    if (unresolvedCount > 0) {
-      process.stdout.write(`[morning] unresolved wikilinks:\n${unresolved.join('\n')}\n`);
-    } else {
-      process.stdout.write('[morning] no unresolved wikilinks\n');
-    }
   } catch {
     /* graceful skip */
   }
@@ -97,7 +87,24 @@ class MorningCommand extends BaseCommand {
   readonly minPositional = 0;
 
   protected async execute(ctx: CommandContext): Promise<void> {
-    await runMorning(ctx.vault, ctx.ops);
+    const result = await runMorning(ctx.vault, ctx.ops);
+
+    ctx.out.info('[morning] daily note opened');
+    ctx.out.info(`[morning] inbox backlog: ${result.inboxCount} note(s)`);
+
+    if (result.recentFiles.length > 0) {
+      ctx.out.info(`[morning] recently modified files:\n${result.recentFiles.join('\n')}`);
+    }
+
+    if (result.unresolvedCount > 0) {
+      ctx.out.info(`[morning] ${result.unresolvedCount} unresolved wikilink(s)`);
+    } else {
+      ctx.out.info('[morning] no unresolved wikilinks');
+    }
+
+    if (ctx.jsonOutput) {
+      ctx.out.success(result);
+    }
   }
 }
 

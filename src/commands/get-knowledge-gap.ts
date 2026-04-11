@@ -22,6 +22,7 @@ import { STUB_WORD_THRESHOLD } from '../constants/limits';
 import { encodeForJs, parseJson } from '../lib/json';
 import { obEval } from '../lib/obsidian';
 import { ENTITY_REQUIRED_FIELDS } from '../types/entity';
+import { Slug } from '../types/slug';
 import { BaseCommand, type CommandContext } from './base-command';
 
 /* ---------------------------------------------------------------------------
@@ -235,12 +236,14 @@ class GetKnowledgeGapCommand extends BaseCommand {
   protected async execute(ctx: CommandContext): Promise<void> {
     const slug = ctx.positional[0];
 
-    if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
-      ctx.out.error('get-knowledge-gap: project slug must be lowercase alphanumeric with hyphens');
+    if (!Slug.PATTERN.test(slug)) {
+      return ctx.out.error(
+        'get-knowledge-gap: project slug must be lowercase alphanumeric with hyphens'
+      );
     }
 
     const result = await getKnowledgeGap(ctx.vault, slug);
-    process.stdout.write(JSON.stringify(result) + '\n');
+    ctx.out.success(result);
   }
 }
 

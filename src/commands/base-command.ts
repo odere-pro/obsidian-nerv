@@ -13,7 +13,7 @@
  * handled once here.
  */
 
-import type { Command } from '../cli';
+import type { Command } from '../types/command';
 import { resolveVault } from '../lib/obsidian';
 import { selectOutput, type OutputStrategy } from '../lib/output';
 import { getVaultOps } from '../ports/provider';

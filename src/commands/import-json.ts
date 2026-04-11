@@ -4,7 +4,6 @@
  * Calls createEntity() directly (no subprocess) for each entry.
  */
 
-import { logError } from '../lib/logger';
 import { getVaultOps } from '../ports/provider';
 import { EntityTypes } from '../types/entity';
 import type { EntityType } from '../types/entity';
@@ -129,7 +128,7 @@ class ImportJsonCommand extends BaseCommand {
     const jsonFile = ctx.positional[1];
 
     if (!Slug.PATTERN.test(projectSlug)) {
-      logError(
+      return ctx.out.error(
         `import-json: project slug must be lowercase alphanumeric with optional hyphens (got: ${projectSlug})`
       );
     }
@@ -139,11 +138,11 @@ class ImportJsonCommand extends BaseCommand {
     try {
       const raw = (await Bun.file(jsonFile).json()) as unknown;
       if (!Array.isArray(raw)) {
-        ctx.out.error('import-json: JSON root must be an array');
+        return ctx.out.error('import-json: JSON root must be an array');
       }
       entries = raw as ImportEntry[];
     } catch {
-      ctx.out.error(`import-json: failed to read or parse JSON file: ${jsonFile}`);
+      return ctx.out.error(`import-json: failed to read or parse JSON file: ${jsonFile}`);
     }
 
     /* Verify the project exists */
@@ -151,14 +150,14 @@ class ImportJsonCommand extends BaseCommand {
     const projExists = await ctx.ops.fileExists(ctx.vault, projDir).catch(() => false);
 
     if (!projExists) {
-      logError(
+      return ctx.out.error(
         `import-json: project '${projectSlug}' not found in vault ${ctx.vault}. Run create-project first.`
       );
     }
 
     const { created, skipped } = await importJson({ vault: ctx.vault, projectSlug, entries });
 
-    process.stdout.write(`Created: ${created}, Skipped: ${skipped}\n`);
+    ctx.out.success(`Created: ${created}, Skipped: ${skipped}`);
   }
 }
 

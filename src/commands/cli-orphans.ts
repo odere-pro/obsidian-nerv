@@ -205,7 +205,7 @@ class CliOrphansCommand extends BaseCommand {
     const result = await findOrphans(ctx.vault, folder);
 
     if (ctx.jsonOutput) {
-      process.stdout.write(JSON.stringify({ issues: result.issues, count: result.count }) + '\n');
+      ctx.out.success({ issues: result.issues, count: result.count });
     } else {
       const labels: Record<OrphanType, string> = {
         ORPHAN: '✗ ORPHAN',
@@ -213,12 +213,12 @@ class CliOrphansCommand extends BaseCommand {
         MISMATCH: '✗ MISMATCH',
         CHILD: '✗ BROKEN',
       };
+      const lines: string[] = [];
       for (const iss of result.issues) {
-        process.stdout.write(`${labels[iss.type]}: ${iss.note} — ${iss.detail}\n`);
+        lines.push(`${labels[iss.type]}: ${iss.note} — ${iss.detail}`);
       }
-      process.stdout.write(
-        `Link check complete. ${result.count} issue(s) in ${result.noteCount} note(s).\n`
-      );
+      lines.push(`Link check complete. ${result.count} issue(s) in ${result.noteCount} note(s).`);
+      ctx.out.success(lines.join('\n'));
     }
   }
 }

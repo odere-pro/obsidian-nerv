@@ -25,12 +25,16 @@ export interface VaultRegistry {
  * Git root + registry path
  * --------------------------------------------------------------------------- */
 
+let cachedGitRoot: string | null = null;
+
 export async function findGitRoot(): Promise<string> {
+  if (cachedGitRoot !== null) return cachedGitRoot;
   const { stdout, exitCode } = await spawnCapture(['git', 'rev-parse', '--show-toplevel']);
   if (exitCode !== 0) {
     logError('vault-registry: not inside a git repository');
   }
-  return stdout.trim();
+  cachedGitRoot = stdout.trim();
+  return cachedGitRoot;
 }
 
 export async function registryPath(): Promise<string> {

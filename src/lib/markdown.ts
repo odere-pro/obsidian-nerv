@@ -56,6 +56,3 @@ export function stripWikilink(s: string): string {
 export function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
-
-/** Regex pattern for validating project slugs (lowercase alphanumeric with hyphens). */
-export const SLUG_PATTERN = /^[a-z][a-z0-9-]*$/;

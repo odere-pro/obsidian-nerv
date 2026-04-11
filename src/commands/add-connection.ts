@@ -6,7 +6,7 @@
  */
 
 import { CONNECTION_LIMIT } from '../constants/limits';
-import { logError, logWarn } from '../lib/logger';
+import { logWarn } from '../lib/logger';
 import { getVaultOps } from '../ports/provider';
 import { BUILTIN_RELATIONS, RelationType } from '../types/relation-type';
 import { BaseCommand, type CommandContext } from './base-command';
@@ -223,8 +223,8 @@ class AddConnectionCommand extends BaseCommand {
     const targetPath = ctx.positional[2];
     const context = ctx.positional[3] ?? '';
 
-    if (!REL_TYPE_RE.test(relType)) {
-      logError(
+    if (!RelationType.parse(relType)) {
+      return ctx.out.error(
         `add-connection: rel_type must be lowercase alphanumeric with hyphens (got: ${relType})`
       );
     }

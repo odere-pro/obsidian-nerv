@@ -4,7 +4,6 @@
  */
 
 import { BaseCommand, type CommandContext } from './base-command';
-import { logError } from '../lib/logger';
 import { rollbackLog } from '../lib/obsidian';
 import { getVaultOps } from '../ports/provider';
 import {
@@ -22,16 +21,24 @@ export interface CreateProjectParams {
   title: string;
 }
 
+export interface CreateProjectResult {
+  created: boolean;
+  files: string[];
+}
+
 /**
  * Programmatic API for create-project — callable from other commands or tests.
  */
-export async function createProject(params: CreateProjectParams): Promise<void> {
+export async function createProject(
+  params: CreateProjectParams
+): Promise<{ ok: true; data: CreateProjectResult } | { ok: false; error: string }> {
   const { vault, slug, title } = params;
 
   if (!Slug.PATTERN.test(slug)) {
-    throw new Error(
-      `create-project: slug must be lowercase alphanumeric with optional hyphens (got: ${slug})`
-    );
+    return {
+      ok: false,
+      error: `create-project: slug must be lowercase alphanumeric with optional hyphens (got: ${slug})`,
+    };
   }
 
   const ops = getVaultOps();
@@ -48,10 +55,7 @@ export async function createProject(params: CreateProjectParams): Promise<void> 
   const existing = await ops.fileExists(vault, rootPath).catch(() => false);
 
   if (existing) {
-    process.stdout.write(
-      `INFO: project "${slug}" already exists in vault ${vault} — no changes made\n`
-    );
-    return;
+    return { ok: true, data: { created: false, files: [] } };
   }
 
   /* Create ROOT — all subsequent failures record rollback state */
@@ -119,10 +123,10 @@ export async function createProject(params: CreateProjectParams): Promise<void> 
     throw e;
   });
 
-  process.stdout.write(`INFO: project "${slug}" created in vault ${vault}\n`);
-  process.stdout.write(
-    `  ${rootPath}\n  ${ontoPath}\n  ${vocabPath}\n  ${topkPath}\n  ${basePath}\n`
-  );
+  return {
+    ok: true,
+    data: { created: true, files: [rootPath, ontoPath, vocabPath, topkPath, basePath] },
+  };
 }
 
 class CreateProjectCommand extends BaseCommand {
@@ -134,9 +138,21 @@ class CreateProjectCommand extends BaseCommand {
   protected async execute(ctx: CommandContext): Promise<void> {
     const slug = ctx.positional[0];
     const title = ctx.positional[1];
-    await createProject({ vault: ctx.vault, slug, title }).catch((e: unknown) => {
-      logError(e instanceof Error ? e.message : String(e));
-    });
+    const result = await createProject({ vault: ctx.vault, slug, title });
+
+    if (!result.ok) {
+      return ctx.out.error(result.error);
+    }
+
+    if (!result.data.created) {
+      ctx.out.info(`project "${slug}" already exists in vault ${ctx.vault} — no changes made`);
+      return;
+    }
+
+    ctx.out.info(`project "${slug}" created in vault ${ctx.vault}`);
+    for (const f of result.data.files) {
+      ctx.out.info(`  ${f}`);
+    }
   }
 }
 

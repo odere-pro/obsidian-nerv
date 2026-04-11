@@ -40,8 +40,13 @@ export interface MissingInverse {
 }
 
 export interface OntologyResult {
+  noteCount: number;
   entities: Record<string, number>;
+  kinds: Record<string, number>;
+  spines: Record<string, number>;
+  statuses: Record<string, number>;
   edges: number;
+  relSummary: Record<string, number>;
   missingInverses: MissingInverse[];
   incomplete: number;
 }
@@ -142,8 +147,13 @@ export async function syncOntology(
   }
 
   return {
+    noteCount: meta.noteCount,
     entities: meta.entities,
+    kinds: meta.kinds,
+    spines: meta.spines,
+    statuses: meta.statuses,
     edges: edges.length,
+    relSummary: relResult.summary,
     missingInverses,
     incomplete: meta.incomplete,
   };
@@ -165,103 +175,87 @@ class SyncOntologyCommand extends BaseCommand {
     const slug = ctx.positional[0];
 
     if (!Slug.PATTERN.test(slug)) {
-      ctx.out.error(
+      return ctx.out.error(
         `sync-ontology: project slug must be lowercase alphanumeric with hyphens (got: ${slug})`
       );
     }
 
-    const ops = getVaultOps();
-
-    const relResult = await getRelations(ctx.vault, slug).catch(() => ({
-      project: slug,
-      edges: [] as { source: string; target: string; rel: string; context: string }[],
-      summary: {} as Record<string, number>,
-      unknownTypes: [] as string[],
-    }));
-
-    const allFiles = await ops.listFiles(ctx.vault, { folder: `projects/${slug}` });
-    const meta = fetchMeta(allFiles);
-    if (meta.noteCount === 0) {
-      ctx.out.error('sync-ontology: no notes found or vault not reachable');
-    }
-
-    const edges = relResult.edges;
-    const edgeCount = edges.length;
-    const missingInverses = detectMissingInverses(edges).slice(0, 20);
-    const avgEdges = edgeCount / Math.max(meta.noteCount, 1);
-
-    const ontoPath = `projects/${slug}/_ontology.${slug}.md`;
-    const today = new Date().toISOString().split('T')[0];
-    if (allFiles.some(e => e.path === ontoPath)) {
-      await ops.updateFrontmatter(ctx.vault, ontoPath, { updated: today }).catch(() => {
-        logWarn('sync-ontology: failed to update ontology frontmatter date');
-      });
-    }
+    const result = await syncOntology(ctx.vault, slug, ctx.ops);
 
     if (ctx.jsonOutput) {
-      ctx.out.success({
-        entities: meta.entities,
-        edges: edgeCount,
-        missingInverses,
-        incomplete: meta.incomplete,
-      } satisfies OntologyResult);
+      ctx.out.success(result);
       return;
     }
 
-    process.stdout.write(`=== Ontology Health Report: ${slug} ===\n\n`);
+    const {
+      noteCount,
+      entities,
+      kinds,
+      spines,
+      statuses,
+      edges,
+      relSummary,
+      missingInverses,
+      incomplete,
+    } = result;
+    const avgEdges = edges / Math.max(noteCount, 1);
 
-    process.stdout.write('--- Entity Distribution ---\n');
+    const lines: string[] = [`=== Ontology Health Report: ${slug} ===`, ''];
+
+    lines.push('--- Entity Distribution ---');
     for (const t of ['ROOT', 'BRANCH', 'LEAF']) {
-      process.stdout.write(`  ${t}: ${meta.entities[t] ?? 0}\n`);
+      lines.push(`  ${t}: ${entities[t] ?? 0}`);
     }
-    process.stdout.write('\n');
+    lines.push('');
 
-    if (Object.keys(meta.kinds).length > 0) {
-      process.stdout.write('--- Kind Distribution ---\n');
-      for (const [k, v] of Object.entries(meta.kinds).sort((a, b) => b[1] - a[1])) {
-        process.stdout.write(`  ${k}: ${v}\n`);
+    if (Object.keys(kinds).length > 0) {
+      lines.push('--- Kind Distribution ---');
+      for (const [k, v] of Object.entries(kinds).sort((a, b) => b[1] - a[1])) {
+        lines.push(`  ${k}: ${v}`);
       }
-      process.stdout.write('\n');
-    }
-
-    if (Object.keys(meta.spines).length > 0) {
-      process.stdout.write('--- Spine Distribution ---\n');
-      for (const [s, v] of Object.entries(meta.spines).sort((a, b) => b[1] - a[1])) {
-        process.stdout.write(`  ${s}: ${v}\n`);
-      }
-      process.stdout.write('\n');
+      lines.push('');
     }
 
-    if (Object.keys(meta.statuses).length > 0) {
-      process.stdout.write('--- Status Distribution ---\n');
-      for (const [st, v] of Object.entries(meta.statuses).sort((a, b) => b[1] - a[1])) {
-        process.stdout.write(`  ${st}: ${v}\n`);
+    if (Object.keys(spines).length > 0) {
+      lines.push('--- Spine Distribution ---');
+      for (const [s, v] of Object.entries(spines).sort((a, b) => b[1] - a[1])) {
+        lines.push(`  ${s}: ${v}`);
       }
-      process.stdout.write('\n');
+      lines.push('');
     }
 
-    if (Object.keys(relResult.summary).length > 0) {
-      process.stdout.write('--- Relationship Usage ---\n');
-      for (const [r, c] of Object.entries(relResult.summary)) {
-        process.stdout.write(`  ${r}: ${c}\n`);
+    if (Object.keys(statuses).length > 0) {
+      lines.push('--- Status Distribution ---');
+      for (const [st, v] of Object.entries(statuses).sort((a, b) => b[1] - a[1])) {
+        lines.push(`  ${st}: ${v}`);
       }
-      process.stdout.write('\n');
+      lines.push('');
+    }
+
+    if (Object.keys(relSummary).length > 0) {
+      lines.push('--- Relationship Usage ---');
+      for (const [r, c] of Object.entries(relSummary)) {
+        lines.push(`  ${r}: ${c}`);
+      }
+      lines.push('');
     }
 
     if (missingInverses.length > 0) {
-      process.stdout.write(`--- Missing Inverses (${missingInverses.length}) ---\n`);
+      lines.push(`--- Missing Inverses (${missingInverses.length}) ---`);
       for (const mi of missingInverses.slice(0, 10)) {
-        process.stdout.write(`  ${mi.source} --${mi.rel}-> ${mi.target} (no reverse edge)\n`);
+        lines.push(`  ${mi.source} --${mi.rel}-> ${mi.target} (no reverse edge)`);
       }
       if (missingInverses.length > 10) {
-        process.stdout.write(`  ... and ${missingInverses.length - 10} more\n`);
+        lines.push(`  ... and ${missingInverses.length - 10} more`);
       }
-      process.stdout.write('\n');
+      lines.push('');
     }
 
-    process.stdout.write(
-      `Total: ${meta.noteCount} notes, ${edgeCount} edges, avg ${avgEdges.toFixed(1)} edges/note, ${meta.incomplete} incomplete, ${missingInverses.length} missing inverses\n`
+    lines.push(
+      `Total: ${noteCount} notes, ${edges} edges, avg ${avgEdges.toFixed(1)} edges/note, ${incomplete} incomplete, ${missingInverses.length} missing inverses`
     );
+
+    ctx.out.success(lines.join('\n'));
   }
 }
 

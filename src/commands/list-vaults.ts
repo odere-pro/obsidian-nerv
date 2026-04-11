@@ -1,4 +1,4 @@
-import type { Command } from '../cli';
+import type { Command } from '../types/command';
 import { readRegistry, vaultName } from '../lib/vault-registry';
 
 const command: Command = {
